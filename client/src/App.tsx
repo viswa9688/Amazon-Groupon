@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
+import Browse from "@/pages/browse";
 import SellerDashboard from "@/pages/seller-dashboard";
 import ProductDetails from "@/pages/product-details";
 
@@ -20,10 +21,13 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Home} />
+          <Route path="/browse" component={Browse} />
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/product/:id" component={ProductDetails} />
         </>
       )}
+      {/* Browse page accessible to all users */}
+      <Route path="/browse" component={Browse} />
       <Route component={NotFound} />
     </Switch>
   );

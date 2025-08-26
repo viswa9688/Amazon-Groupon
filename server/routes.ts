@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { seedDatabase } from "./seed";
 import {
   insertProductSchema,
   insertCategorySchema,
@@ -14,6 +15,17 @@ import {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Seed database route (for development)
+  app.post('/api/seed-database', async (req, res) => {
+    try {
+      await seedDatabase();
+      res.json({ message: "Database seeded successfully!" });
+    } catch (error) {
+      console.error("Seeding error:", error);
+      res.status(500).json({ message: "Failed to seed database" });
+    }
+  });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {

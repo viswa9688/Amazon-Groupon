@@ -24,7 +24,7 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="/" className="text-foreground hover:text-primary font-medium transition-colors">
+            <a href="/browse" className="text-foreground hover:text-primary font-medium transition-colors">
               Browse
             </a>
             <a href="#" className="text-foreground hover:text-primary font-medium transition-colors">
@@ -121,7 +121,7 @@ export default function Header() {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border py-4 space-y-2">
-            <a href="/" className="block py-2 text-foreground hover:text-primary font-medium">
+            <a href="/browse" className="block py-2 text-foreground hover:text-primary font-medium">
               Browse
             </a>
             <a href="#" className="block py-2 text-foreground hover:text-primary font-medium">
