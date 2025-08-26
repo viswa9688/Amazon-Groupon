@@ -1,12 +1,37 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Store, User, Menu } from "lucide-react";
+import { ShoppingCart, Store, User, Menu, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import PhoneAuthModal from "./PhoneAuthModal";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const { toast } = useToast();
+
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/auth/logout"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Logged out",
+        description: "You've been successfully logged out.",
+      });
+      window.location.href = "/";
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <header className="bg-card shadow-sm border-b border-border sticky top-0 z-50">
@@ -56,7 +81,7 @@ export default function Header() {
                 <>
                   <Button 
                     variant="ghost" 
-                    onClick={() => window.location.href = "/api/login"}
+                    onClick={() => setAuthModalOpen(true)}
                     data-testid="button-login"
                   >
                     <User className="w-4 h-4 mr-2" />
@@ -64,7 +89,7 @@ export default function Header() {
                   </Button>
                   <Button 
                     className="bg-primary hover:bg-primary/90"
-                    onClick={() => window.location.href = "/api/login"}
+                    onClick={() => setAuthModalOpen(true)}
                     data-testid="button-sell-on-oneant"
                   >
                     <Store className="w-4 h-4 mr-2" />
@@ -95,10 +120,12 @@ export default function Header() {
                   <Button 
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.location.href = "/api/logout"}
+                    onClick={() => logoutMutation.mutate()}
+                    disabled={logoutMutation.isPending}
                     data-testid="button-logout"
                   >
-                    Logout
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {logoutMutation.isPending ? "Logging out..." : "Logout"}
                   </Button>
                 </>
               )}
@@ -138,14 +165,14 @@ export default function Header() {
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start"
-                    onClick={() => window.location.href = "/api/login"}
+                    onClick={() => setAuthModalOpen(true)}
                   >
                     <User className="w-4 h-4 mr-2" />
                     Login
                   </Button>
                   <Button 
                     className="w-full justify-start bg-primary hover:bg-primary/90"
-                    onClick={() => window.location.href = "/api/login"}
+                    onClick={() => setAuthModalOpen(true)}
                   >
                     <Store className="w-4 h-4 mr-2" />
                     Sell on OneAnt
@@ -166,9 +193,11 @@ export default function Header() {
                   <Button 
                     variant="ghost"
                     className="w-full justify-start"
-                    onClick={() => window.location.href = "/api/logout"}
+                    onClick={() => logoutMutation.mutate()}
+                    disabled={logoutMutation.isPending}
                   >
-                    Logout
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {logoutMutation.isPending ? "Logging out..." : "Logout"}
                   </Button>
                 </div>
               )}
@@ -176,6 +205,11 @@ export default function Header() {
           </div>
         )}
       </div>
+      
+      <PhoneAuthModal 
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
     </header>
   );
 }

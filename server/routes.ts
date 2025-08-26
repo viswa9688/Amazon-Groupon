@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupPhoneAuth, isAuthenticated } from "./phoneAuth";
 import { seedDatabase } from "./seed";
 import {
   insertProductSchema,
@@ -14,7 +14,7 @@ import {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  await setupPhoneAuth(app);
 
   // Seed database route (for development)
   app.post('/api/seed-database', async (req, res) => {
@@ -27,17 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Auth routes are now handled in phoneAuth.ts
 
   // Category routes
   app.get('/api/categories', async (req, res) => {

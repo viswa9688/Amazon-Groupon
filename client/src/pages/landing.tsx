@@ -71,7 +71,7 @@ export default function Landing() {
                 <Button 
                   size="lg"
                   className="bg-secondary hover:bg-secondary/90 text-secondary-foreground text-lg px-8 py-4"
-                  onClick={() => window.location.href = "/api/login"}
+                  onClick={() => window.location.href = "/browse"}
                   data-testid="button-start-shopping"
                 >
                   Start Shopping
@@ -230,7 +230,7 @@ export default function Landing() {
                         ? "bg-accent hover:bg-accent/90 text-accent-foreground" 
                         : "bg-primary hover:bg-primary/90 text-primary-foreground"
                       }`}
-                      onClick={() => window.location.href = "/api/login"}
+                      onClick={() => window.location.href = "/browse"}
                       data-testid={`button-join-group-${index}`}
                     >
                       {product.status === "complete" ? "Get Maximum Discount" : "Join Group Purchase"}

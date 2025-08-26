@@ -8,6 +8,7 @@ import {
   orders,
   type User,
   type UpsertUser,
+  type CreateUserWithPhone,
   type Product,
   type InsertProduct,
   type Category,
@@ -27,8 +28,10 @@ import { db } from "./db";
 import { eq, desc, and, sql, gte } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserByPhone(phoneNumber: string): Promise<User | undefined>;
+  createUserWithPhone(userData: CreateUserWithPhone): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
 
   // Category operations
@@ -63,6 +66,19 @@ export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
+    return user;
+  }
+
+  async createUserWithPhone(userData: CreateUserWithPhone): Promise<User> {
+    const [user] = await db.insert(users).values({
+      ...userData,
+      id: sql`gen_random_uuid()`,
+    }).returning();
     return user;
   }
 

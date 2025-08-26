@@ -1,9 +1,11 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import PhoneAuthModal from "@/components/PhoneAuthModal";
 import Header from "@/components/Header";
 import GroupProgress from "@/components/GroupProgress";
 import CountdownTimer from "@/components/CountdownTimer";
@@ -18,6 +20,7 @@ export default function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const { data: groupPurchase, isLoading } = useQuery<GroupPurchaseWithDetails>({
     queryKey: ["/api/group-purchases", id],
@@ -237,7 +240,7 @@ export default function ProductDetails() {
                 <Button 
                   size="lg" 
                   className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => window.location.href = "/api/login"}
+                  onClick={() => setAuthModalOpen(true)}
                   data-testid="button-login-to-join"
                 >
                   Login to Join Group Purchase
@@ -305,6 +308,11 @@ export default function ProductDetails() {
           </Card>
         </div>
       </div>
+
+      <PhoneAuthModal 
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
     </div>
   );
 }
