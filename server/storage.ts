@@ -1,0 +1,304 @@
+import {
+  users,
+  products,
+  categories,
+  discountTiers,
+  groupPurchases,
+  groupParticipants,
+  orders,
+  type User,
+  type UpsertUser,
+  type Product,
+  type InsertProduct,
+  type Category,
+  type InsertCategory,
+  type DiscountTier,
+  type InsertDiscountTier,
+  type GroupPurchase,
+  type InsertGroupPurchase,
+  type GroupParticipant,
+  type InsertGroupParticipant,
+  type Order,
+  type InsertOrder,
+  type ProductWithDetails,
+  type GroupPurchaseWithDetails,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and, sql, gte } from "drizzle-orm";
+
+export interface IStorage {
+  // User operations (mandatory for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+
+  // Category operations
+  getCategories(): Promise<Category[]>;
+  createCategory(category: InsertCategory): Promise<Category>;
+
+  // Product operations
+  getProducts(): Promise<ProductWithDetails[]>;
+  getProduct(id: number): Promise<ProductWithDetails | undefined>;
+  getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product>;
+
+  // Discount tier operations
+  createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier>;
+  getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]>;
+
+  // Group purchase operations
+  getActiveGroupPurchases(): Promise<GroupPurchaseWithDetails[]>;
+  getGroupPurchase(id: number): Promise<GroupPurchaseWithDetails | undefined>;
+  createGroupPurchase(groupPurchase: InsertGroupPurchase): Promise<GroupPurchase>;
+  joinGroupPurchase(groupPurchaseId: number, userId: string, quantity?: number): Promise<GroupParticipant>;
+  updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase>;
+
+  // Order operations
+  createOrder(order: InsertOrder): Promise<Order>;
+  getUserOrders(userId: string): Promise<Order[]>;
+  getSellerOrders(sellerId: string): Promise<Order[]>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  // Category operations
+  async getCategories(): Promise<Category[]> {
+    return await db.select().from(categories).orderBy(categories.name);
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [newCategory] = await db.insert(categories).values(category).returning();
+    return newCategory;
+  }
+
+  // Product operations
+  async getProducts(): Promise<ProductWithDetails[]> {
+    return await db.query.products.findMany({
+      with: {
+        seller: true,
+        category: true,
+        discountTiers: true,
+        groupPurchases: {
+          with: {
+            participants: true,
+          },
+          where: eq(groupPurchases.status, "active"),
+        },
+      },
+      where: eq(products.isActive, true),
+      orderBy: desc(products.createdAt),
+    });
+  }
+
+  async getProduct(id: number): Promise<ProductWithDetails | undefined> {
+    return await db.query.products.findFirst({
+      where: eq(products.id, id),
+      with: {
+        seller: true,
+        category: true,
+        discountTiers: true,
+        groupPurchases: {
+          with: {
+            participants: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]> {
+    return await db.query.products.findMany({
+      where: eq(products.sellerId, sellerId),
+      with: {
+        seller: true,
+        category: true,
+        discountTiers: true,
+        groupPurchases: {
+          with: {
+            participants: true,
+          },
+        },
+      },
+      orderBy: desc(products.createdAt),
+    });
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [newProduct] = await db.insert(products).values(product).returning();
+    return newProduct;
+  }
+
+  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product> {
+    const [updatedProduct] = await db
+      .update(products)
+      .set({ ...product, updatedAt: new Date() })
+      .where(eq(products.id, id))
+      .returning();
+    return updatedProduct;
+  }
+
+  // Discount tier operations
+  async createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier> {
+    const [newTier] = await db.insert(discountTiers).values(tier).returning();
+    return newTier;
+  }
+
+  async getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]> {
+    return await db
+      .select()
+      .from(discountTiers)
+      .where(eq(discountTiers.productId, productId))
+      .orderBy(discountTiers.participantCount);
+  }
+
+  // Group purchase operations
+  async getActiveGroupPurchases(): Promise<GroupPurchaseWithDetails[]> {
+    return await db.query.groupPurchases.findMany({
+      where: and(
+        eq(groupPurchases.status, "active"),
+        gte(groupPurchases.endTime, new Date())
+      ),
+      with: {
+        product: {
+          with: {
+            seller: true,
+            category: true,
+            discountTiers: true,
+            groupPurchases: {
+              with: {
+                participants: true,
+              },
+            },
+          },
+        },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
+      },
+      orderBy: desc(groupPurchases.createdAt),
+    });
+  }
+
+  async getGroupPurchase(id: number): Promise<GroupPurchaseWithDetails | undefined> {
+    return await db.query.groupPurchases.findFirst({
+      where: eq(groupPurchases.id, id),
+      with: {
+        product: {
+          with: {
+            seller: true,
+            category: true,
+            discountTiers: true,
+            groupPurchases: {
+              with: {
+                participants: true,
+              },
+            },
+          },
+        },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createGroupPurchase(groupPurchase: InsertGroupPurchase): Promise<GroupPurchase> {
+    const [newGroupPurchase] = await db.insert(groupPurchases).values(groupPurchase).returning();
+    return newGroupPurchase;
+  }
+
+  async joinGroupPurchase(groupPurchaseId: number, userId: string, quantity: number = 1): Promise<GroupParticipant> {
+    const [participant] = await db
+      .insert(groupParticipants)
+      .values({
+        groupPurchaseId,
+        userId,
+        quantity,
+      })
+      .returning();
+
+    // Update participant count
+    await this.updateGroupPurchaseProgress(groupPurchaseId);
+
+    return participant;
+  }
+
+  async updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase> {
+    // Get current participant count
+    const participantCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(groupParticipants)
+      .where(eq(groupParticipants.groupPurchaseId, groupPurchaseId));
+
+    const count = participantCount[0]?.count || 0;
+
+    // Update group purchase
+    const [updatedGroupPurchase] = await db
+      .update(groupPurchases)
+      .set({ currentParticipants: count })
+      .where(eq(groupPurchases.id, groupPurchaseId))
+      .returning();
+
+    return updatedGroupPurchase;
+  }
+
+  // Order operations
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const [newOrder] = await db.insert(orders).values(order).returning();
+    return newOrder;
+  }
+
+  async getUserOrders(userId: string): Promise<Order[]> {
+    return await db
+      .select()
+      .from(orders)
+      .where(eq(orders.userId, userId))
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async getSellerOrders(sellerId: string): Promise<Order[]> {
+    return await db
+      .select({
+        id: orders.id,
+        userId: orders.userId,
+        groupPurchaseId: orders.groupPurchaseId,
+        quantity: orders.quantity,
+        finalPrice: orders.finalPrice,
+        shippingAddress: orders.shippingAddress,
+        status: orders.status,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+      })
+      .from(orders)
+      .innerJoin(groupPurchases, eq(orders.groupPurchaseId, groupPurchases.id))
+      .innerJoin(products, eq(groupPurchases.productId, products.id))
+      .where(eq(products.sellerId, sellerId))
+      .orderBy(desc(orders.createdAt));
+  }
+}
+
+export const storage = new DatabaseStorage();
