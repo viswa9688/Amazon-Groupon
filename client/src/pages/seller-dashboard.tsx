@@ -1,19 +1,44 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, Package, ShoppingBag, TrendingUp } from "lucide-react";
-import type { ProductWithDetails } from "@shared/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import type { ProductWithDetails, Order, Category, InsertProduct } from "@shared/schema";
+
+// Product form schema
+const productFormSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  categoryId: z.string().min(1, "Category is required"),
+  imageUrl: z.string().url("Please enter a valid image URL").optional().or(z.literal("")),
+  originalPrice: z.string().min(1, "Price is required"),
+  minimumParticipants: z.string().min(1, "Minimum participants required"),
+  maximumParticipants: z.string().min(1, "Maximum participants required"),
+});
+
+type ProductFormData = z.infer<typeof productFormSchema>;
 
 export default function SellerDashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("products");
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -35,6 +60,91 @@ export default function SellerDashboard() {
     enabled: isAuthenticated,
     retry: false,
   });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
+    queryKey: ["/api/seller/orders"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  // Product form
+  const form = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      categoryId: "",
+      imageUrl: "",
+      originalPrice: "",
+      minimumParticipants: "10",
+      maximumParticipants: "1000",
+    },
+  });
+
+  // Add product mutation
+  const addProductMutation = useMutation({
+    mutationFn: async (data: ProductFormData) => {
+      const productData: InsertProduct = {
+        ...data,
+        categoryId: parseInt(data.categoryId),
+        originalPrice: data.originalPrice,
+        minimumParticipants: parseInt(data.minimumParticipants),
+        maximumParticipants: parseInt(data.maximumParticipants),
+        imageUrl: data.imageUrl || undefined,
+      };
+      return apiRequest("POST", "/api/seller/products", productData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      toast({
+        title: "Product Added",
+        description: "Your product has been successfully added.",
+      });
+      setProductDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add product",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update order status mutation
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
+      return apiRequest("PATCH", `/api/seller/orders/${orderId}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
+      toast({
+        title: "Status Updated",
+        description: "Order status has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update order status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: ProductFormData) => {
+    addProductMutation.mutate(data);
+  };
+
+  const handleStatusUpdate = (orderId: number, status: string) => {
+    updateOrderStatusMutation.mutate({ orderId, status });
+  };
 
   if (authLoading) {
     return (
@@ -76,10 +186,6 @@ export default function SellerDashboard() {
               Welcome back, {(user as any)?.firstName || 'Seller'}! Here's your store overview.
             </p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90" data-testid="button-add-product">
-            <Package className="w-4 h-4 mr-2" />
-            Add Product
-          </Button>
         </div>
 
         {/* Stats Grid */}
@@ -139,110 +245,288 @@ export default function SellerDashboard() {
           </Card>
         </div>
 
-        {/* Recent Products */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Your Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {productsLoading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <Skeleton className="w-16 h-16 rounded" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-48" />
-                        <Skeleton className="h-3 w-32" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                ))}
-              </div>
-            ) : !products || products.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No Products Yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Start by adding your first product to begin group selling.
-                </p>
-                <Button className="bg-primary hover:bg-primary/90">
-                  <Package className="w-4 h-4 mr-2" />
-                  Add Your First Product
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {products.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors" data-testid={`row-product-${product.id}`}>
-                    <div className="flex items-center space-x-4">
-                      <img 
-                        src={product.imageUrl || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"} 
-                        alt={product.name}
-                        className="w-16 h-16 object-cover rounded"
-                        data-testid={`img-product-${product.id}`}
-                      />
-                      <div>
-                        <h4 className="font-semibold text-foreground" data-testid={`text-product-name-${product.id}`}>
-                          {product.name}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          ${product.originalPrice} • {product.groupPurchases?.length || 0} active groups
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={product.isActive ? "default" : "secondary"}>
-                        {product.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                      <Button variant="outline" size="sm" data-testid={`button-edit-${product.id}`}>
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Tabs Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Product Management
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <Truck className="w-4 h-4" />
+              Order Management
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Recent Group Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Group Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!products || products.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-muted-foreground">No group activity yet.</p>
+          <TabsContent value="products">
+            <div className="space-y-6">
+              {/* Add Product Button */}
+              <div className="flex justify-end">
+                <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary hover:bg-primary/90" data-testid="button-add-product">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Product
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Add New Product</DialogTitle>
+                    </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Product Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter product name" {...field} data-testid="input-product-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Describe your product" rows={4} {...field} data-testid="input-product-description" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="categoryId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Category</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-category">
+                                    <SelectValue placeholder="Select a category" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {categories?.map((category) => (
+                                    <SelectItem key={category.id} value={category.id.toString()}>
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="imageUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Image URL (Optional)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="https://example.com/image.jpg" {...field} data-testid="input-image-url" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="originalPrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Original Price ($)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-price" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="minimumParticipants"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Minimum Participants</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} data-testid="input-min-participants" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="maximumParticipants"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Maximum Participants</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} data-testid="input-max-participants" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <div className="flex justify-end space-x-4">
+                          <Button type="button" variant="outline" onClick={() => setProductDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={addProductMutation.isPending} data-testid="button-submit-product">
+                            {addProductMutation.isPending ? "Adding..." : "Add Product"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {products
-                  .filter(product => product.groupPurchases && product.groupPurchases.length > 0)
-                  .slice(0, 5)
-                  .map((product) => 
-                    product.groupPurchases?.map((group) => (
-                      <div key={`${product.id}-${group.id}`} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div>
-                          <div className="font-medium text-sm" data-testid={`text-group-product-${group.id}`}>
-                            {product.name}
+
+              {/* Products List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Products</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {productsLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <Skeleton className="w-16 h-16 rounded" />
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-48" />
+                              <Skeleton className="h-3 w-32" />
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {group.currentParticipants}/{group.targetParticipants} people joined
+                          <Skeleton className="h-6 w-20" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : !products || products.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No Products Yet</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Start by adding your first product to begin group selling.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {products.map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors" data-testid={`row-product-${product.id}`}>
+                          <div className="flex items-center space-x-4">
+                            <img 
+                              src={product.imageUrl || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"} 
+                              alt={product.name}
+                              className="w-16 h-16 object-cover rounded"
+                              data-testid={`img-product-${product.id}`}
+                            />
+                            <div>
+                              <h4 className="font-semibold text-foreground" data-testid={`text-product-name-${product.id}`}>
+                                {product.name}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">
+                                ${product.originalPrice} • {product.groupPurchases?.length || 0} active groups
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={product.isActive ? "default" : "secondary"}>
+                              {product.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                            <Button variant="outline" size="sm" data-testid={`button-edit-${product.id}`}>
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
                           </div>
                         </div>
-                        <div className="text-accent font-semibold" data-testid={`text-group-revenue-${group.id}`}>
-                          +${((group.currentParticipants || 0) * parseFloat(group.currentPrice.toString())).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {ordersLoading ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
+                  </div>
+                ) : !orders || orders.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Truck className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Orders Yet</h3>
+                    <p className="text-muted-foreground">
+                      Orders will appear here once customers purchase your products.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.map((order) => (
+                      <div key={order.id} className="p-4 border rounded-lg space-y-3" data-testid={`row-order-${order.id}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold text-foreground" data-testid={`text-order-${order.id}`}>
+                              Order #{order.id}
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(order.createdAt || "").toLocaleDateString()} • Qty: {order.quantity} • ${order.totalPrice}
+                            </p>
+                          </div>
+                          <Badge className={order.status === "completed" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>
+                            {order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          {["pending", "processing", "shipped", "out_for_delivery", "delivered"].map((status) => (
+                            <Button
+                              key={status}
+                              variant={order.status === status ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleStatusUpdate(order.id!, status)}
+                              disabled={updateOrderStatusMutation.isPending}
+                              data-testid={`button-status-${status}-${order.id}`}
+                            >
+                              {status === "out_for_delivery" ? "Out for Delivery" : status.charAt(0).toUpperCase() + status.slice(1)}
+                            </Button>
+                          ))}
                         </div>
                       </div>
-                    ))
-                  )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

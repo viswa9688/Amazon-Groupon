@@ -63,6 +63,7 @@ export interface IStorage {
   getOrder(orderId: number): Promise<Order | undefined>;
   getUserOrders(userId: string): Promise<Order[]>;
   getSellerOrders(sellerId: string): Promise<Order[]>;
+  updateOrderStatus(orderId: number, status: string): Promise<Order>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -390,6 +391,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(products.sellerId, sellerId))
       .orderBy(desc(orders.createdAt))
       .then(results => results.map(result => result.orders));
+  }
+
+  async updateOrderStatus(orderId: number, status: string): Promise<Order> {
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({ 
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updatedOrder;
   }
 }
 

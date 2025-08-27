@@ -325,6 +325,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/seller/products', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const productData = {
+        ...req.body,
+        sellerId,
+      };
+      
+      const validatedProductData = insertProductSchema.parse(productData);
+      const product = await storage.createProduct(validatedProductData);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Error creating product:", error);
+      res.status(400).json({ message: "Failed to create product" });
+    }
+  });
+
   app.get('/api/seller/orders', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
@@ -333,6 +350,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching seller orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.patch('/api/seller/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const orderId = parseInt(req.params.orderId);
+      const { status } = req.body;
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({ message: "Invalid order ID" });
+      }
+
+      // Get the order to verify seller ownership
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Check if the order belongs to a product owned by this seller
+      const product = await storage.getProduct(order.productId);
+      if (!product || product.sellerId !== sellerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Update the order status
+      const updatedOrder = await storage.updateOrderStatus(orderId, status);
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      res.status(500).json({ message: "Failed to update order status" });
     }
   });
 
