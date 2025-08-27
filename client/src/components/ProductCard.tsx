@@ -2,6 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import GroupProgress from "./GroupProgress";
 import CountdownTimer from "./CountdownTimer";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { CheckCircle } from "lucide-react";
 import type { GroupPurchaseWithDetails } from "@shared/schema";
 
 interface ProductCardProps {
@@ -10,7 +13,16 @@ interface ProductCardProps {
 
 export default function ProductCard({ groupPurchase }: ProductCardProps) {
   const { product } = groupPurchase;
+  const { isAuthenticated } = useAuth();
   const isComplete = (groupPurchase.currentParticipants || 0) >= groupPurchase.targetParticipants;
+  
+  // Check if user is participating in this group purchase
+  const { data: participation } = useQuery<{ isParticipating: boolean; participation: any }>({
+    queryKey: ["/api/group-purchases", groupPurchase.id, "participation"],
+    enabled: !!groupPurchase.id && isAuthenticated,
+  });
+  
+  const isUserParticipant = participation?.isParticipating || false;
   
   // Show seller's intended discount price immediately if set, otherwise show current price
   const displayPrice = product.discountTiers && product.discountTiers.length > 0 
@@ -91,16 +103,28 @@ export default function ProductCard({ groupPurchase }: ProductCardProps) {
           </div>
           
           {/* Action Button */}
-          <Button 
-            className={`w-full ${isComplete 
-              ? "bg-accent hover:bg-accent/90 text-accent-foreground" 
-              : "bg-primary hover:bg-primary/90 text-primary-foreground"
-            }`}
-            onClick={() => window.location.href = `/product/${groupPurchase.id}`}
-            data-testid={`button-view-product-${groupPurchase.id}`}
-          >
-            {isComplete ? "Get Maximum Discount" : "Join Group Purchase"}
-          </Button>
+          {isUserParticipant ? (
+            <div className="text-center p-3 bg-accent/10 rounded-lg border border-accent/20">
+              <div className="flex items-center justify-center space-x-2 text-accent font-medium">
+                <CheckCircle className="w-5 h-5" />
+                <span>You're in this group! 🎉</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Check your orders for updates
+              </p>
+            </div>
+          ) : (
+            <Button 
+              className={`w-full ${isComplete 
+                ? "bg-accent hover:bg-accent/90 text-accent-foreground" 
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              }`}
+              onClick={() => window.location.href = `/product/${groupPurchase.id}`}
+              data-testid={`button-view-product-${groupPurchase.id}`}
+            >
+              {isComplete ? "Get Maximum Discount" : "Join Group Purchase"}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
