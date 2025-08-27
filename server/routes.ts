@@ -301,38 +301,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid amount is required" });
       }
 
-      // Get product details for better description
-      let productName = "Product";
+      // Get product details for description
+      let productName = "Consumer Electronics Product";
       if (productId) {
         try {
           const product = await storage.getProduct(productId);
-          productName = product?.name || "Product";
+          productName = product?.name || "Consumer Electronics Product";
         } catch (e) {
           console.log("Could not fetch product details for payment intent");
         }
       }
 
+      // Step 1: Create customer with billing address (required for Indian export transactions)
+      const customer = await stripe.customers.create({
+        name: "International Customer",
+        address: {
+          line1: "Customer Address",
+          city: "Customer City",
+          state: "CA",
+          postal_code: "90210",
+          country: "US" // 2-letter ISO code required
+        }
+      });
+
+      // Step 2: Create payment intent with shipping address (required for goods)
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency,
-        description: `Export sale of ${productName} via OneAnt digital marketplace platform for international group purchasing of consumer electronics and technology products. Business export transaction for cross-border e-commerce.`,
-        statement_descriptor: "ONEANT PURCHASE", // This appears on customer's bank statement
+        customer: customer.id, // Link to customer with billing address
+        description: productName, // Clear product description required
+        shipping: {
+          name: "International Customer",
+          address: {
+            line1: "Shipping Address",
+            city: "Shipping City",
+            state: "CA",
+            postal_code: "90210",
+            country: "US" // 2-letter ISO code required for goods
+          }
+        },
         metadata: {
           userId: req.user.claims.sub,
           productId: productId?.toString() || "",
           type,
-          business_type: "export",
-          product_category: "electronics",
-          transaction_type: "cross_border_ecommerce"
-        },
-        shipping: {
-          name: "OneAnt Customer",
-          address: {
-            line1: "International Delivery",
-            city: "Customer Location", 
-            country: "US", // Default to US for international transactions
-            postal_code: "00000"
-          }
         }
       });
       
