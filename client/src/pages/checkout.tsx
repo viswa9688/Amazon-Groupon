@@ -1,6 +1,6 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -74,15 +74,20 @@ export default function Checkout() {
   const [match, params] = useRoute("/checkout/:productId/:type");
   const [amount, setAmount] = useState(0);
   const [productName, setProductName] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const initRef = useRef(false);
 
   useEffect(() => {
-    if (!match || !params) return;
+    if (!match || !params || initRef.current) return;
 
     const { productId, type } = params;
+    initRef.current = true; // Prevent multiple initializations
 
     // Fetch product details and create payment intent
     const initializePayment = async () => {
       try {
+        setIsLoading(true);
+        
         // Get product details
         const productResponse = await apiRequest("GET", `/api/products/${productId}`);
         const product = await productResponse.json();
@@ -101,13 +106,15 @@ export default function Checkout() {
         setAmount(paymentAmount);
       } catch (error) {
         console.error("Error initializing payment:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     initializePayment();
-  }, [match, params]);
+  }, []); // Empty dependency array to run only once
 
-  if (!clientSecret) {
+  if (isLoading || !clientSecret) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
@@ -133,6 +140,20 @@ export default function Checkout() {
                 type={params?.type || "individual"} 
               />
             </Elements>
+            
+            {/* Test card information */}
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Test Payment</h4>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                Use these test card details:
+              </p>
+              <div className="text-sm font-mono text-blue-800 dark:text-blue-200">
+                <div>Card: 4242 4242 4242 4242</div>
+                <div>Expiry: Any future date</div>
+                <div>CVV: Any 3 digits</div>
+                <div>ZIP: Any 5 digits</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
