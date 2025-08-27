@@ -321,25 +321,19 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Group purchase not found");
     }
 
-    // Check if participants dropped below minimum and handle refund policy
-    const wasAboveMinimum = (groupPurchase.group_purchases.currentParticipants || 0) >= groupPurchase.products.minimumParticipants;
-    const isNowBelowMinimum = count < groupPurchase.products.minimumParticipants;
-
-    let currentPrice = groupPurchase.group_purchases.currentPrice;
-
-    // If we dropped below minimum, revert to original price
-    if (wasAboveMinimum && isNowBelowMinimum) {
-      currentPrice = groupPurchase.products.originalPrice;
-      console.log(`Group purchase ${groupPurchaseId} dropped below minimum. Participants can choose refund or pay full price.`);
-    } else if (!wasAboveMinimum && count >= groupPurchase.products.minimumParticipants) {
-      // If we reached minimum, apply discount
+    // Always calculate the correct current price based on participant count
+    let currentPrice = groupPurchase.products.originalPrice;
+    
+    // Check if we have enough participants for discount
+    if (count >= groupPurchase.products.minimumParticipants) {
+      // Get discount tiers for this product
       const tiers = await db
         .select()
         .from(discountTiers)
         .where(eq(discountTiers.productId, groupPurchase.products.id))
         .orderBy(desc(discountTiers.participantCount));
 
-      // Find applicable discount tier
+      // Find the best applicable discount tier
       for (const tier of tiers) {
         if (count >= tier.participantCount) {
           currentPrice = tier.finalPrice;
