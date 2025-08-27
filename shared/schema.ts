@@ -98,11 +98,14 @@ export const groupParticipants = pgTable("group_participants", {
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
-  groupPurchaseId: integer("group_purchase_id").notNull().references(() => groupPurchases.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  groupPurchaseId: integer("group_purchase_id").references(() => groupPurchases.id), // Optional for individual orders
   quantity: integer("quantity").notNull().default(1),
-  finalPrice: decimal("final_price", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: text("shipping_address"),
-  status: varchar("status", { length: 20 }).default("pending"), // pending, processing, shipped, delivered
+  status: varchar("status", { length: 20 }).default("pending"), // pending, processing, shipped, delivered, completed
+  type: varchar("type", { length: 20 }).default("group"), // group, individual
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -119,6 +122,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
   discountTiers: many(discountTiers),
   groupPurchases: many(groupPurchases),
+  orders: many(orders),
 }));
 
 export const groupPurchasesRelations = relations(groupPurchases, ({ one, many }) => ({
@@ -134,6 +138,7 @@ export const groupParticipantsRelations = relations(groupParticipants, ({ one })
 
 export const ordersRelations = relations(orders, ({ one }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
+  product: one(products, { fields: [orders.productId], references: [products.id] }),
   groupPurchase: one(groupPurchases, { fields: [orders.groupPurchaseId], references: [groupPurchases.id] }),
 }));
 

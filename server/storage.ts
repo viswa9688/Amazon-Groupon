@@ -142,6 +142,11 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getProductById(id: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
   async getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]> {
     return await db.query.products.findMany({
       where: eq(products.sellerId, sellerId),
@@ -298,22 +303,12 @@ export class DatabaseStorage implements IStorage {
 
   async getSellerOrders(sellerId: string): Promise<Order[]> {
     return await db
-      .select({
-        id: orders.id,
-        userId: orders.userId,
-        groupPurchaseId: orders.groupPurchaseId,
-        quantity: orders.quantity,
-        finalPrice: orders.finalPrice,
-        shippingAddress: orders.shippingAddress,
-        status: orders.status,
-        createdAt: orders.createdAt,
-        updatedAt: orders.updatedAt,
-      })
+      .select()
       .from(orders)
-      .innerJoin(groupPurchases, eq(orders.groupPurchaseId, groupPurchases.id))
-      .innerJoin(products, eq(groupPurchases.productId, products.id))
+      .innerJoin(products, eq(orders.productId, products.id))
       .where(eq(products.sellerId, sellerId))
-      .orderBy(desc(orders.createdAt));
+      .orderBy(desc(orders.createdAt))
+      .then(results => results.map(result => result.orders));
   }
 }
 

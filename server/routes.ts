@@ -195,6 +195,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Individual purchase route
+  app.post('/api/orders/individual', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { productId, quantity = 1 } = req.body;
+      
+      if (!productId) {
+        return res.status(400).json({ message: "Product ID is required" });
+      }
+
+      // Get product details to calculate total price
+      const product = await storage.getProductById(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Create individual order at original price
+      const totalPrice = parseFloat(product.originalPrice.toString()) * quantity;
+      
+      const orderData = insertOrderSchema.parse({
+        userId,
+        productId,
+        quantity,
+        unitPrice: product.originalPrice,
+        totalPrice: totalPrice.toString(),
+        status: "completed", // Individual orders are immediately confirmed
+        type: "individual",
+      });
+      
+      const order = await storage.createOrder(orderData);
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating individual order:", error);
+      res.status(400).json({ message: "Failed to create individual order" });
+    }
+  });
+
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

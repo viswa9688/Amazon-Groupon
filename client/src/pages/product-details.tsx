@@ -60,6 +60,41 @@ export default function ProductDetails() {
     },
   });
 
+  const buyIndividualMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupPurchase || !isAuthenticated) throw new Error("Not authenticated");
+      return apiRequest("POST", "/api/orders/individual", { 
+        productId: groupPurchase.productId,
+        quantity: 1 
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Your individual order has been placed. Check your orders to track delivery.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to place individual order. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -105,6 +140,12 @@ export default function ProductDetails() {
 
   const { product } = groupPurchase;
   const isUserParticipant = groupPurchase.participants.some(p => p.userId === (user as any)?.id);
+  
+  // Check if group purchase has met minimum participants for discounts
+  const hasMetMinimum = (groupPurchase.currentParticipants || 0) >= product.minimumParticipants;
+  const currentDiscount = hasMetMinimum 
+    ? parseFloat(product.originalPrice.toString()) - parseFloat(groupPurchase.currentPrice.toString())
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -174,20 +215,40 @@ export default function ProductDetails() {
 
               {/* Pricing */}
               <div className="bg-muted/30 p-6 rounded-lg mb-6">
-                <div className="flex items-baseline justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
-                      ${groupPurchase.currentPrice}
-                    </span>
-                    <span className="text-xl text-muted-foreground line-through">
-                      ${product.originalPrice}
-                    </span>
+                {hasMetMinimum ? (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
+                          ${groupPurchase.currentPrice}
+                        </span>
+                        <span className="text-xl text-muted-foreground line-through">
+                          ${product.originalPrice}
+                        </span>
+                      </div>
+                      <span className="text-lg font-semibold text-accent">
+                        Save ${currentDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Group discount active! Price decreases as more people join!</p>
                   </div>
-                  <span className="text-lg font-semibold text-accent">
-                    Save ${(parseFloat(product.originalPrice.toString()) - parseFloat(groupPurchase.currentPrice.toString())).toFixed(2)}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">Price decreases as more people join!</p>
+                ) : (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-3xl font-bold text-foreground" data-testid="text-original-price">
+                          ${product.originalPrice}
+                        </span>
+                        <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
+                          Original Price
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Need {product.minimumParticipants - (groupPurchase.currentParticipants || 0)} more people to unlock group discounts!
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -234,17 +295,28 @@ export default function ProductDetails() {
               </Card>
             )}
 
-            {/* Action Button */}
+            {/* Action Buttons */}
             <div className="space-y-4">
               {!isAuthenticated ? (
-                <Button 
-                  size="lg" 
-                  className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => setAuthModalOpen(true)}
-                  data-testid="button-login-to-join"
-                >
-                  Login to Join Group Purchase
-                </Button>
+                <div className="space-y-3">
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-primary hover:bg-primary/90"
+                    onClick={() => setAuthModalOpen(true)}
+                    data-testid="button-login-to-join"
+                  >
+                    Login to Join Group Purchase
+                  </Button>
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setAuthModalOpen(true)}
+                    data-testid="button-login-to-buy"
+                  >
+                    Login to Buy Individual
+                  </Button>
+                </div>
               ) : isUserParticipant ? (
                 <div className="text-center p-4 bg-accent/10 rounded-lg">
                   <p className="text-accent font-semibold">✓ You're part of this group!</p>
@@ -253,18 +325,56 @@ export default function ProductDetails() {
                   </p>
                 </div>
               ) : groupPurchase.status === "active" ? (
-                <Button 
-                  size="lg" 
-                  className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => joinGroupMutation.mutate()}
-                  disabled={joinGroupMutation.isPending}
-                  data-testid="button-join-group"
-                >
-                  {joinGroupMutation.isPending ? "Joining..." : "Join Group Purchase"}
-                </Button>
+                <div className="space-y-3">
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-primary hover:bg-primary/90"
+                    onClick={() => joinGroupMutation.mutate()}
+                    disabled={joinGroupMutation.isPending}
+                    data-testid="button-join-group"
+                  >
+                    {joinGroupMutation.isPending ? "Joining..." : hasMetMinimum ? `Join Group - $${groupPurchase.currentPrice}` : `Join Group - $${product.originalPrice}`}
+                  </Button>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => buyIndividualMutation.mutate()}
+                    disabled={buyIndividualMutation.isPending}
+                    data-testid="button-buy-individual"
+                  >
+                    {buyIndividualMutation.isPending ? "Processing..." : `Buy Individual - $${product.originalPrice}`}
+                  </Button>
+                  
+                  <p className="text-xs text-muted-foreground text-center">
+                    Individual purchase ships immediately • Group purchase ships when goal is reached
+                  </p>
+                </div>
               ) : (
-                <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-muted-foreground font-semibold">This group purchase has ended</p>
+                <div className="space-y-3">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-muted-foreground font-semibold">This group purchase has ended</p>
+                  </div>
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => buyIndividualMutation.mutate()}
+                    disabled={buyIndividualMutation.isPending}
+                    data-testid="button-buy-individual-ended"
+                  >
+                    {buyIndividualMutation.isPending ? "Processing..." : `Buy Individual - $${product.originalPrice}`}
+                  </Button>
                 </div>
               )}
 
