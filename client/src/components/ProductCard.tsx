@@ -11,7 +11,13 @@ interface ProductCardProps {
 export default function ProductCard({ groupPurchase }: ProductCardProps) {
   const { product } = groupPurchase;
   const isComplete = (groupPurchase.currentParticipants || 0) >= groupPurchase.targetParticipants;
-  const savingsAmount = parseFloat(product.originalPrice.toString()) - parseFloat(groupPurchase.currentPrice.toString());
+  
+  // Show seller's intended discount price immediately if set, otherwise show current price
+  const displayPrice = product.discountTiers && product.discountTiers.length > 0 
+    ? product.discountTiers[0].finalPrice.toString()
+    : groupPurchase.currentPrice.toString();
+  
+  const savingsAmount = parseFloat(product.originalPrice.toString()) - parseFloat(displayPrice);
 
   return (
     <Card className="overflow-hidden hover:shadow-xl transition-shadow" data-testid={`card-group-${groupPurchase.id}`}>
@@ -48,7 +54,7 @@ export default function ProductCard({ groupPurchase }: ProductCardProps) {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-accent" data-testid={`text-current-price-${groupPurchase.id}`}>
-                ${groupPurchase.currentPrice}
+                ${displayPrice}
               </span>
               <span className="text-muted-foreground line-through ml-2">
                 ${product.originalPrice}

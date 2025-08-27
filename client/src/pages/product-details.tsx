@@ -146,11 +146,12 @@ export default function ProductDetails() {
   const { product } = groupPurchase;
   const isUserParticipant = participation?.isParticipating || false;
   
-  // Check if group purchase has met minimum participants for discounts
-  const hasMetMinimum = (groupPurchase.currentParticipants || 0) >= product.minimumParticipants;
-  const currentDiscount = hasMetMinimum 
-    ? parseFloat(product.originalPrice.toString()) - parseFloat(groupPurchase.currentPrice.toString())
-    : 0;
+  // Show seller's intended discount price immediately if set, otherwise show current price
+  const displayPrice = product.discountTiers && product.discountTiers.length > 0 
+    ? product.discountTiers[0].finalPrice.toString()
+    : groupPurchase.currentPrice.toString();
+  
+  const currentDiscount = parseFloat(product.originalPrice.toString()) - parseFloat(displayPrice);
 
   return (
     <div className="min-h-screen bg-background">
@@ -225,7 +226,7 @@ export default function ProductDetails() {
                     <div className="flex items-baseline justify-between mb-2">
                       <div className="flex items-center space-x-3">
                         <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
-                          ${groupPurchase.currentPrice}
+                          ${displayPrice}
                         </span>
                         <span className="text-xl text-muted-foreground line-through">
                           ${product.originalPrice}
@@ -338,7 +339,7 @@ export default function ProductDetails() {
                       onClick={() => navigate(`/checkout/${groupPurchase.productId}/group`)}
                       data-testid="button-pay-group"
                     >
-                      Pay for Group Purchase - ${hasMetMinimum ? groupPurchase.currentPrice : product.originalPrice}
+                      Pay for Group Purchase - ${displayPrice}
                     </Button>
                     
                     <Button 
@@ -362,7 +363,7 @@ export default function ProductDetails() {
                     disabled={joinGroupMutation.isPending}
                     data-testid="button-join-group"
                   >
-                    {joinGroupMutation.isPending ? "Joining..." : hasMetMinimum ? `Join Group - $${groupPurchase.currentPrice}` : `Join Group - $${product.originalPrice}`}
+                    {joinGroupMutation.isPending ? "Joining..." : `Join Group - $${displayPrice}`}
                   </Button>
                   
                   <div className="relative">
