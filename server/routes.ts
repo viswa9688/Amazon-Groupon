@@ -402,6 +402,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update discount tier if provided
       if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
+        // Remove existing discount tiers first
+        await storage.removeDiscountTiersForProduct(product.id!);
+        
         // Create new discount tier
         await storage.createDiscountTier({
           productId: product.id!,

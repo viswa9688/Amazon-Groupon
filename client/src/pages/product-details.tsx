@@ -221,40 +221,22 @@ export default function ProductDetails() {
 
               {/* Pricing */}
               <div className="bg-muted/30 p-6 rounded-lg mb-6">
-                {hasMetMinimum ? (
-                  <div>
-                    <div className="flex items-baseline justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
-                          ${displayPrice}
-                        </span>
-                        <span className="text-xl text-muted-foreground line-through">
-                          ${product.originalPrice}
-                        </span>
-                      </div>
-                      <span className="text-lg font-semibold text-accent">
-                        Save ${currentDiscount.toFixed(2)}
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
+                        ${displayPrice}
+                      </span>
+                      <span className="text-xl text-muted-foreground line-through">
+                        ${product.originalPrice}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Group discount active! Price decreases as more people join!</p>
+                    <span className="text-lg font-semibold text-accent">
+                      Save ${currentDiscount.toFixed(2)}
+                    </span>
                   </div>
-                ) : (
-                  <div>
-                    <div className="flex items-baseline justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-3xl font-bold text-foreground" data-testid="text-original-price">
-                          ${product.originalPrice}
-                        </span>
-                        <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
-                          Original Price
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Need {product.minimumParticipants - (groupPurchase.currentParticipants || 0)} more people to unlock group discounts!
-                    </p>
-                  </div>
-                )}
+                  <p className="text-sm text-muted-foreground">Group discount available! Join now to get this great price!</p>
+                </div>
               </div>
             </div>
 

@@ -220,6 +220,10 @@ export class DatabaseStorage implements IStorage {
     return newTier;
   }
 
+  async removeDiscountTiersForProduct(productId: number): Promise<void> {
+    await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
+  }
+
   async getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]> {
     return await db
       .select()
