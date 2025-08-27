@@ -337,13 +337,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedProductData = insertProductSchema.parse(productData);
       const product = await storage.createProduct(validatedProductData);
       
-      // Create discount tier for this product
+      // Always create discount tiers for group purchases
       if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
+        // Use provided discount price
         await storage.createDiscountTier({
           productId: product.id!,
           participantCount: productData.minimumParticipants,
           discountPercentage: (((parseFloat(productData.originalPrice) - parseFloat(discountPrice)) / parseFloat(productData.originalPrice)) * 100).toString(),
           finalPrice: discountPrice.toString(),
+        });
+      } else {
+        // Create default discount tier with 20% off when minimum participants are reached
+        const originalPrice = parseFloat(productData.originalPrice);
+        const defaultDiscountPrice = (originalPrice * 0.8).toFixed(2); // 20% off
+        await storage.createDiscountTier({
+          productId: product.id!,
+          participantCount: productData.minimumParticipants,
+          discountPercentage: "20",
+          finalPrice: defaultDiscountPrice,
         });
       }
       
@@ -579,6 +590,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     res.json({ received: true });
+  });
+
+  app.delete('/api/seller/products/:productId', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const productId = parseInt(req.params.productId);
+      
+      if (isNaN(productId)) {
+        return res.status(400).json({ message: "Invalid product ID" });
+      }
+
+      // Check if the product belongs to this seller
+      const existingProduct = await storage.getProduct(productId);
+      if (!existingProduct || existingProduct.sellerId !== sellerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get participant count to show in warning
+      const participantCount = await storage.getProductParticipantCount(productId);
+      
+      if (participantCount > 0) {
+        return res.status(400).json({ 
+          message: "Cannot delete product with active participants",
+          participantCount,
+          details: `This product has ${participantCount} people who have joined the group purchase. Deleting it will affect their orders.`
+        });
+      }
+
+      // Delete the product (this should cascade to related records)
+      await storage.deleteProduct(productId);
+      
+      res.json({ message: "Product deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ message: "Failed to delete product" });
+    }
   });
 
   // Temporary endpoint to recalculate pricing for existing group purchases

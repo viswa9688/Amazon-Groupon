@@ -182,6 +182,38 @@ export class DatabaseStorage implements IStorage {
     return updatedProduct;
   }
 
+  async deleteProduct(productId: number): Promise<boolean> {
+    // Delete related records first
+    await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
+    await db.delete(groupPurchases).where(eq(groupPurchases.productId, productId));
+    
+    // Delete the product
+    const result = await db.delete(products).where(eq(products.id, productId)).returning();
+    return result.length > 0;
+  }
+
+  async getProductParticipantCount(productId: number): Promise<number> {
+    // Get all group purchases for this product
+    const productGroupPurchases = await db
+      .select()
+      .from(groupPurchases)
+      .where(eq(groupPurchases.productId, productId));
+    
+    let totalParticipants = 0;
+    
+    // Count participants across all group purchases for this product
+    for (const gp of productGroupPurchases) {
+      const participantCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(groupParticipants)
+        .where(eq(groupParticipants.groupPurchaseId, gp.id));
+      
+      totalParticipants += participantCount[0]?.count || 0;
+    }
+    
+    return totalParticipants;
+  }
+
   // Discount tier operations
   async createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier> {
     const [newTier] = await db.insert(discountTiers).values(tier).returning();

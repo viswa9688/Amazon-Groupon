@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck } from "lucide-react";
+import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,6 +42,8 @@ export default function SellerDashboard() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductWithDetails | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<ProductWithDetails | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -219,6 +221,55 @@ export default function SellerDashboard() {
     });
     setEditDialogOpen(true);
   };
+
+  const handleDeleteClick = (product: ProductWithDetails) => {
+    setProductToDelete(product);
+    setDeleteDialogOpen(true);
+  };
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      return apiRequest("DELETE", `/api/seller/products/${productId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Product deleted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      
+      // Handle participant warning
+      if (error.message.includes("participants")) {
+        const data = JSON.parse(error.message.split(': ')[1] || '{}');
+        toast({
+          title: "Cannot Delete Product",
+          description: data.details || "This product has active participants.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete product. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
 
   const handleStatusUpdate = (orderId: number, status: string) => {
     updateOrderStatusMutation.mutate({ orderId, status });
@@ -642,6 +693,51 @@ export default function SellerDashboard() {
                 </DialogContent>
               </Dialog>
 
+              {/* Delete Confirmation Dialog */}
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Product</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground">
+                      Are you sure you want to delete "{productToDelete?.name}"? This action cannot be undone.
+                    </p>
+                    {productToDelete && (
+                      <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                        <p className="text-sm text-destructive font-medium">
+                          ⚠️ Warning: This may affect customers
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          If people have joined this product's group purchase, deleting it will impact their orders.
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setDeleteDialogOpen(false)}
+                        data-testid="button-cancel-delete"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          if (productToDelete) {
+                            deleteProductMutation.mutate(productToDelete.id!);
+                          }
+                        }}
+                        disabled={deleteProductMutation.isPending}
+                        data-testid="button-confirm-delete"
+                      >
+                        {deleteProductMutation.isPending ? "Deleting..." : "Delete Product"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {/* Products List */}
               <Card>
                 <CardHeader>
@@ -703,6 +799,15 @@ export default function SellerDashboard() {
                             >
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleDeleteClick(product)}
+                              data-testid={`button-delete-${product.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Delete
                             </Button>
                           </div>
                         </div>
