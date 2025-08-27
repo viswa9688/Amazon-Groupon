@@ -54,6 +54,8 @@ export interface IStorage {
   getGroupPurchase(id: number): Promise<GroupPurchaseWithDetails | undefined>;
   createGroupPurchase(groupPurchase: InsertGroupPurchase): Promise<GroupPurchase>;
   joinGroupPurchase(groupPurchaseId: number, userId: string, quantity?: number): Promise<GroupParticipant>;
+  leaveGroupPurchase(groupPurchaseId: number, userId: string): Promise<boolean>;
+  getUserGroupParticipation(groupPurchaseId: number, userId: string): Promise<GroupParticipant | undefined>;
   updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase>;
 
   // Order operations
@@ -268,6 +270,35 @@ export class DatabaseStorage implements IStorage {
     return participant;
   }
 
+  async leaveGroupPurchase(groupPurchaseId: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(groupParticipants)
+      .where(and(
+        eq(groupParticipants.groupPurchaseId, groupPurchaseId),
+        eq(groupParticipants.userId, userId)
+      ))
+      .returning();
+
+    if (result.length > 0) {
+      // Update participant count after someone leaves
+      await this.updateGroupPurchaseProgress(groupPurchaseId);
+      return true;
+    }
+    return false;
+  }
+
+  async getUserGroupParticipation(groupPurchaseId: number, userId: string): Promise<GroupParticipant | undefined> {
+    const [participant] = await db
+      .select()
+      .from(groupParticipants)
+      .where(and(
+        eq(groupParticipants.groupPurchaseId, groupPurchaseId),
+        eq(groupParticipants.userId, userId)
+      ));
+    
+    return participant;
+  }
+
   async updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase> {
     // Get current participant count
     const participantCount = await db
@@ -277,10 +308,51 @@ export class DatabaseStorage implements IStorage {
 
     const count = participantCount[0]?.count || 0;
 
+    // Get the group purchase to check minimum requirements
+    const [groupPurchase] = await db
+      .select()
+      .from(groupPurchases)
+      .innerJoin(products, eq(groupPurchases.productId, products.id))
+      .where(eq(groupPurchases.id, groupPurchaseId));
+
+    if (!groupPurchase) {
+      throw new Error("Group purchase not found");
+    }
+
+    // Check if participants dropped below minimum and handle refund policy
+    const wasAboveMinimum = (groupPurchase.group_purchases.currentParticipants || 0) >= groupPurchase.products.minimumParticipants;
+    const isNowBelowMinimum = count < groupPurchase.products.minimumParticipants;
+
+    let currentPrice = groupPurchase.group_purchases.currentPrice;
+
+    // If we dropped below minimum, revert to original price
+    if (wasAboveMinimum && isNowBelowMinimum) {
+      currentPrice = groupPurchase.products.originalPrice;
+      console.log(`Group purchase ${groupPurchaseId} dropped below minimum. Participants can choose refund or pay full price.`);
+    } else if (!wasAboveMinimum && count >= groupPurchase.products.minimumParticipants) {
+      // If we reached minimum, apply discount
+      const discountTiers = await db
+        .select()
+        .from(discountTiers)
+        .where(eq(discountTiers.productId, groupPurchase.products.id))
+        .orderBy(desc(discountTiers.participantCount));
+
+      // Find applicable discount tier
+      for (const tier of discountTiers) {
+        if (count >= tier.participantCount) {
+          currentPrice = tier.finalPrice;
+          break;
+        }
+      }
+    }
+
     // Update group purchase
     const [updatedGroupPurchase] = await db
       .update(groupPurchases)
-      .set({ currentParticipants: count })
+      .set({ 
+        currentParticipants: count,
+        currentPrice: currentPrice
+      })
       .where(eq(groupPurchases.id, groupPurchaseId))
       .returning();
 

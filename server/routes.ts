@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupPhoneAuth, isAuthenticated } from "./phoneAuth";
 import { seedDatabase } from "./seed";
+import Stripe from "stripe";
 import {
   insertProductSchema,
   insertCategorySchema,
@@ -11,6 +12,13 @@ import {
   insertGroupParticipantSchema,
   insertOrderSchema,
 } from "@shared/schema";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -179,6 +187,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/group-purchases/:id/leave', isAuthenticated, async (req: any, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+
+      const success = await storage.leaveGroupPurchase(groupId, userId);
+      if (success) {
+        res.json({ message: "Left group purchase successfully" });
+      } else {
+        res.status(404).json({ message: "Participation not found" });
+      }
+    } catch (error) {
+      console.error("Error leaving group purchase:", error);
+      res.status(400).json({ message: "Failed to leave group purchase" });
+    }
+  });
+
+  app.get('/api/group-purchases/:id/participation', isAuthenticated, async (req: any, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+
+      const participation = await storage.getUserGroupParticipation(groupId, userId);
+      res.json({ isParticipating: !!participation, participation });
+    } catch (error) {
+      console.error("Error checking participation:", error);
+      res.status(500).json({ message: "Failed to check participation" });
+    }
+  });
+
   // Order routes
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
@@ -206,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get product details to calculate total price
-      const product = await storage.getProductById(productId);
+      const product = await storage.getProduct(productId);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
@@ -252,6 +290,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching seller orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
     }
+  });
+
+  // Stripe payment routes
+  app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      const { amount, currency = "usd", productId, type = "individual" } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency,
+        metadata: {
+          userId: req.user.claims.sub,
+          productId: productId?.toString() || "",
+          type,
+        },
+      });
+      
+      res.json({ clientSecret: paymentIntent.client_secret });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+    }
+  });
+
+  // Webhook for payment confirmation
+  app.post("/api/stripe-webhook", async (req, res) => {
+    let event;
+
+    try {
+      event = req.body;
+    } catch (err) {
+      console.error("Webhook signature verification failed:", err);
+      return res.status(400).send(`Webhook Error: ${err}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        const paymentIntent = event.data.object;
+        console.log("Payment succeeded:", paymentIntent.id);
+        
+        // Update order status based on payment success
+        if (paymentIntent.metadata.type === "individual") {
+          // Handle individual purchase completion
+          console.log("Individual purchase completed for user:", paymentIntent.metadata.userId);
+        } else if (paymentIntent.metadata.type === "group") {
+          // Handle group purchase payment
+          console.log("Group purchase payment completed for user:", paymentIntent.metadata.userId);
+        }
+        break;
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
   });
 
   const httpServer = createServer(app);

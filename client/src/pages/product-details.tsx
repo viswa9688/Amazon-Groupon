@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -21,10 +21,16 @@ export default function ProductDetails() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [, navigate] = useLocation();
 
   const { data: groupPurchase, isLoading } = useQuery<GroupPurchaseWithDetails>({
     queryKey: ["/api/group-purchases", id],
     enabled: !!id,
+  });
+
+  const { data: participation } = useQuery<{ isParticipating: boolean; participation: any }>({
+    queryKey: ["/api/group-purchases", id, "participation"],
+    enabled: !!id && isAuthenticated,
   });
 
   const joinGroupMutation = useMutation({
@@ -60,20 +66,19 @@ export default function ProductDetails() {
     },
   });
 
-  const buyIndividualMutation = useMutation({
+  const leaveGroupMutation = useMutation({
     mutationFn: async () => {
-      if (!groupPurchase || !isAuthenticated) throw new Error("Not authenticated");
-      return apiRequest("POST", "/api/orders/individual", { 
-        productId: groupPurchase.productId,
-        quantity: 1 
-      });
+      if (!id || !isAuthenticated) throw new Error("Not authenticated");
+      return apiRequest("DELETE", `/api/group-purchases/${id}/leave`);
     },
     onSuccess: () => {
       toast({
-        title: "Success!",
-        description: "Your individual order has been placed. Check your orders to track delivery.",
+        title: "Left Group",
+        description: "You've left the group purchase successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases", id, "participation"] });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -89,7 +94,7 @@ export default function ProductDetails() {
       }
       toast({
         title: "Error",
-        description: "Failed to place individual order. Please try again.",
+        description: "Failed to leave group purchase. Please try again.",
         variant: "destructive",
       });
     },
@@ -139,7 +144,7 @@ export default function ProductDetails() {
   }
 
   const { product } = groupPurchase;
-  const isUserParticipant = groupPurchase.participants.some(p => p.userId === (user as any)?.id);
+  const isUserParticipant = participation?.isParticipating || false;
   
   // Check if group purchase has met minimum participants for discounts
   const hasMetMinimum = (groupPurchase.currentParticipants || 0) >= product.minimumParticipants;
@@ -318,11 +323,35 @@ export default function ProductDetails() {
                   </Button>
                 </div>
               ) : isUserParticipant ? (
-                <div className="text-center p-4 bg-accent/10 rounded-lg">
-                  <p className="text-accent font-semibold">✓ You're part of this group!</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Check your orders to track the purchase progress.
-                  </p>
+                <div className="space-y-4">
+                  <div className="text-center p-4 bg-accent/10 rounded-lg">
+                    <p className="text-accent font-semibold">✓ You're part of this group!</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Check your orders to track the purchase progress.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Button 
+                      size="lg" 
+                      className="w-full bg-primary hover:bg-primary/90"
+                      onClick={() => navigate(`/checkout/${groupPurchase.productId}/group`)}
+                      data-testid="button-pay-group"
+                    >
+                      Pay for Group Purchase - ${hasMetMinimum ? groupPurchase.currentPrice : product.originalPrice}
+                    </Button>
+                    
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => leaveGroupMutation.mutate()}
+                      disabled={leaveGroupMutation.isPending}
+                      data-testid="button-leave-group"
+                    >
+                      {leaveGroupMutation.isPending ? "Leaving..." : "Leave Group"}
+                    </Button>
+                  </div>
                 </div>
               ) : groupPurchase.status === "active" ? (
                 <div className="space-y-3">
@@ -349,11 +378,11 @@ export default function ProductDetails() {
                     size="lg" 
                     variant="outline"
                     className="w-full"
-                    onClick={() => buyIndividualMutation.mutate()}
-                    disabled={buyIndividualMutation.isPending}
+                    onClick={() => navigate(`/checkout/${groupPurchase.productId}/individual`)}
+                    disabled={false}
                     data-testid="button-buy-individual"
                   >
-                    {buyIndividualMutation.isPending ? "Processing..." : `Buy Individual - $${product.originalPrice}`}
+                    Buy Individual - ${product.originalPrice}
                   </Button>
                   
                   <p className="text-xs text-muted-foreground text-center">
@@ -369,11 +398,11 @@ export default function ProductDetails() {
                     size="lg" 
                     variant="outline"
                     className="w-full"
-                    onClick={() => buyIndividualMutation.mutate()}
-                    disabled={buyIndividualMutation.isPending}
+                    onClick={() => navigate(`/checkout/${groupPurchase.productId}/individual`)}
+                    disabled={false}
                     data-testid="button-buy-individual-ended"
                   >
-                    {buyIndividualMutation.isPending ? "Processing..." : `Buy Individual - $${product.originalPrice}`}
+                    Buy Individual - ${product.originalPrice}
                   </Button>
                 </div>
               )}

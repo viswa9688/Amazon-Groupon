@@ -10,6 +10,8 @@ import Home from "@/pages/home";
 import Browse from "@/pages/browse";
 import SellerDashboard from "@/pages/seller-dashboard";
 import ProductDetails from "@/pages/product-details";
+import Checkout from "@/pages/checkout";
+import Orders from "@/pages/orders";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -24,6 +26,8 @@ function Router() {
           <Route path="/browse" component={Browse} />
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/product/:id" component={ProductDetails} />
+          <Route path="/checkout/:productId/:type" component={Checkout} />
+          <Route path="/orders" component={Orders} />
         </>
       )}
       {/* Browse page accessible to all users */}
