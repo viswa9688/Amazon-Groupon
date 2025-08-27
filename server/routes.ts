@@ -400,6 +400,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedProductData = insertProductSchema.parse(productData);
       const product = await storage.updateProduct(productId, validatedProductData);
       
+      // Update related group purchases if minimum participants changed
+      if (existingProduct.minimumParticipants !== productData.minimumParticipants) {
+        await storage.updateGroupPurchaseTargets(productId, productData.minimumParticipants);
+      }
+      
       // Update discount tier if provided
       if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
         // Remove existing discount tiers first

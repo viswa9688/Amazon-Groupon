@@ -153,6 +153,7 @@ export default function SellerDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
       toast({
         title: "Product Updated",
         description: "Your product has been successfully updated.",

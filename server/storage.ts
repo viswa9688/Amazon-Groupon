@@ -224,6 +224,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
   }
 
+  async updateGroupPurchaseTargets(productId: number, newMinimumParticipants: number): Promise<void> {
+    await db
+      .update(groupPurchases)
+      .set({ targetParticipants: newMinimumParticipants })
+      .where(eq(groupPurchases.productId, productId));
+  }
+
   async getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]> {
     return await db
       .select()
