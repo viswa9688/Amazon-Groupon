@@ -56,9 +56,14 @@ export default function Header() {
               How it Works
             </a>
             {isAuthenticated && (
-              <a href="/seller" className="text-foreground hover:text-primary font-medium transition-colors">
-                Seller Hub
-              </a>
+              <>
+                <a href="/orders" className="text-foreground hover:text-primary font-medium transition-colors">
+                  Orders
+                </a>
+                <a href="/seller" className="text-foreground hover:text-primary font-medium transition-colors">
+                  Seller Hub
+                </a>
+              </>
             )}
           </nav>
 
@@ -155,9 +160,14 @@ export default function Header() {
               How it Works
             </a>
             {isAuthenticated && (
-              <a href="/seller" className="block py-2 text-foreground hover:text-primary font-medium">
-                Seller Hub
-              </a>
+              <>
+                <a href="/orders" className="block py-2 text-foreground hover:text-primary font-medium">
+                  Orders
+                </a>
+                <a href="/seller" className="block py-2 text-foreground hover:text-primary font-medium">
+                  Seller Hub
+                </a>
+              </>
             )}
             <div className="border-t border-border pt-2">
               {!isAuthenticated ? (

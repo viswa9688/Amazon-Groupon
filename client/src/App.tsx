@@ -12,6 +12,7 @@ import SellerDashboard from "@/pages/seller-dashboard";
 import ProductDetails from "@/pages/product-details";
 import Checkout from "@/pages/checkout";
 import Orders from "@/pages/orders";
+import OrderDetails from "@/pages/order-details";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -28,6 +29,7 @@ function Router() {
           <Route path="/product/:id" component={ProductDetails} />
           <Route path="/checkout/:productId/:type" component={Checkout} />
           <Route path="/orders" component={Orders} />
+          <Route path="/order/:orderId" component={OrderDetails} />
         </>
       )}
       {/* Browse page accessible to all users */}

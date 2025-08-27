@@ -1,0 +1,351 @@
+import { useParams, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Package, CreditCard, Truck, MapPin, Calendar, CheckCircle } from "lucide-react";
+import Header from "@/components/Header";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import type { Order, Product } from "@shared/schema";
+
+export default function OrderDetails() {
+  const { orderId } = useParams();
+  const [, navigate] = useLocation();
+  const { isAuthenticated, isLoading } = useAuth();
+  const { toast } = useToast();
+
+  // Redirect to home if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  const { data: order, isLoading: orderLoading, error } = useQuery<Order>({
+    queryKey: ["/api/orders", orderId],
+    enabled: !!orderId && !!isAuthenticated,
+    retry: false,
+  });
+
+  const { data: product } = useQuery<Product>({
+    queryKey: ["/api/products", order?.productId],
+    enabled: !!order?.productId,
+    retry: false,
+  });
+
+  // Handle unauthorized error
+  useEffect(() => {
+    if (error && isUnauthorizedError(error as Error)) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+    }
+  }, [error, toast]);
+
+  if (isLoading || orderLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-4">Order Not Found</h1>
+            <p className="text-muted-foreground mb-6">We couldn't find the order you're looking for.</p>
+            <Button onClick={() => navigate("/orders")} data-testid="button-back-to-orders">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Orders
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate estimated delivery date (7-14 business days from order date)
+  const orderDate = new Date(order.createdAt);
+  const estimatedDelivery = new Date(orderDate);
+  estimatedDelivery.setDate(orderDate.getDate() + 10); // 10 days average
+
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
+      case 'shipped': return 'bg-purple-100 text-purple-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Header Section */}
+        <div className="flex items-center justify-between mb-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/orders")}
+            data-testid="button-back-to-orders"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Orders
+          </Button>
+          <Badge className={getStatusColor(order.status)} data-testid="badge-order-status">
+            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Order Summary */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Product Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Package className="w-5 h-5 mr-2" />
+                  Product Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {product && (
+                  <div className="flex gap-4">
+                    <img
+                      src={product.imageUrl || `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop`}
+                      alt={product.name}
+                      className="w-24 h-24 object-cover rounded-lg"
+                      data-testid="img-product"
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-foreground" data-testid="text-product-name">
+                        {product.name}
+                      </h3>
+                      <p className="text-muted-foreground mt-1" data-testid="text-product-description">
+                        {product.description}
+                      </p>
+                      <div className="mt-3 flex items-center justify-between">
+                        <div>
+                          <span className="text-sm text-muted-foreground">Purchase Type: </span>
+                          <Badge variant="outline" data-testid="badge-purchase-type">
+                            {order.type.charAt(0).toUpperCase() + order.type.slice(1)}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="text-sm text-muted-foreground">Quantity: </span>
+                          <span className="font-medium" data-testid="text-quantity">{order.quantity}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Payment Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Payment Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Unit Price:</span>
+                    <span className="font-medium" data-testid="text-unit-price">${order.unitPrice}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Quantity:</span>
+                    <span data-testid="text-payment-quantity">{order.quantity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span data-testid="text-subtotal">${order.totalPrice}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Final Price:</span>
+                    <span data-testid="text-final-price">${order.finalPrice}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-lg font-semibold">
+                    <span>Total Paid:</span>
+                    <span className="text-primary" data-testid="text-total-paid">${order.finalPrice}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Payment Status:</span>
+                    <Badge className="bg-green-100 text-green-800" data-testid="badge-payment-status">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Paid
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Shipping Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MapPin className="w-5 h-5 mr-2" />
+                  Shipping Address
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground" data-testid="text-shipping-address">
+                  {order.shippingAddress || "Standard International Shipping Address"}
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  We'll ship to your provided address via our trusted international shipping partner.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Delivery Timeline */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Truck className="w-5 h-5 mr-2" />
+                  Delivery Timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Calendar className="w-8 h-8 mx-auto mb-2 text-primary" />
+                    <div className="text-sm text-muted-foreground">Estimated Delivery</div>
+                    <div className="font-semibold text-foreground" data-testid="text-estimated-delivery">
+                      {formatDate(estimatedDelivery)}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      7-14 business days
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm">
+                      <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                      <div>
+                        <div className="font-medium">Order Placed</div>
+                        <div className="text-muted-foreground text-xs" data-testid="text-order-date">
+                          {formatDate(order.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center text-sm">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                      <div>
+                        <div className="font-medium">Processing</div>
+                        <div className="text-muted-foreground text-xs">
+                          1-2 business days
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center text-sm">
+                      <div className="w-3 h-3 bg-gray-300 rounded-full mr-3"></div>
+                      <div>
+                        <div className="font-medium text-muted-foreground">Shipped</div>
+                        <div className="text-muted-foreground text-xs">
+                          3-5 business days
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center text-sm">
+                      <div className="w-3 h-3 bg-gray-300 rounded-full mr-3"></div>
+                      <div>
+                        <div className="font-medium text-muted-foreground">Out for Delivery</div>
+                        <div className="text-muted-foreground text-xs">
+                          Final day
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center text-sm">
+                      <div className="w-3 h-3 bg-gray-300 rounded-full mr-3"></div>
+                      <div>
+                        <div className="font-medium text-muted-foreground">Delivered</div>
+                        <div className="text-muted-foreground text-xs">
+                          Expected {formatDate(estimatedDelivery)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Order Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Order ID:</span>
+                    <span className="font-mono" data-testid="text-order-id">#{order.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Order Date:</span>
+                    <span data-testid="text-order-date-short">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Last Updated:</span>
+                    <span data-testid="text-last-updated">
+                      {new Date(order.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Package, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Package, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 import type { Order } from "@shared/schema";
 
 export default function Orders() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -174,7 +176,7 @@ export default function Orders() {
                       </div>
                     </div>
                     
-                    <div className="text-right">
+                    <div className="text-right space-y-2">
                       <p className="text-lg font-semibold text-foreground" data-testid={`text-total-${order.id}`}>
                         ${order.totalPrice}
                       </p>
@@ -183,6 +185,16 @@ export default function Orders() {
                           Waiting for group to complete
                         </p>
                       )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/order/${order.id}`)}
+                        data-testid={`button-view-details-${order.id}`}
+                        className="w-full"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </Button>
                     </div>
                   </div>
                   
