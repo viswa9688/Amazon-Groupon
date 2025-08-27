@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Store, User, Menu, LogOut } from "lucide-react";
+import { ShoppingCart, Store, User, Menu, LogOut, Users } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -60,8 +60,8 @@ export default function Header() {
                 <a href="/orders" className="text-foreground hover:text-primary font-medium transition-colors">
                   Orders
                 </a>
-                <a href="/seller" className="text-foreground hover:text-primary font-medium transition-colors">
-                  Seller Hub
+                <a href="/my-groups" className="text-foreground hover:text-primary font-medium transition-colors">
+                  My Groups
                 </a>
               </>
             )}
@@ -164,8 +164,8 @@ export default function Header() {
                 <a href="/orders" className="block py-2 text-foreground hover:text-primary font-medium">
                   Orders
                 </a>
-                <a href="/seller" className="block py-2 text-foreground hover:text-primary font-medium">
-                  Seller Hub
+                <a href="/my-groups" className="block py-2 text-foreground hover:text-primary font-medium">
+                  My Groups
                 </a>
               </>
             )}
