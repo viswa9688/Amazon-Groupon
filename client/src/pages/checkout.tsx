@@ -32,9 +32,7 @@ const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: 
 
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/orders`,
-      },
+      redirect: "if_required", // Only redirect if 3D Secure authentication is needed
     });
 
     if (error) {
@@ -48,7 +46,10 @@ const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: 
         title: "Payment Successful",
         description: "Thank you for your purchase!",
       });
-      navigate("/orders");
+      // Use a small delay to ensure toast shows before navigation
+      setTimeout(() => {
+        navigate("/orders");
+      }, 1000);
     }
 
     setIsProcessing(false);
