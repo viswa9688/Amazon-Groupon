@@ -365,6 +365,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/seller/products/:productId', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const productId = parseInt(req.params.productId);
+      const { discountPrice, ...productFields } = req.body;
+      
+      if (isNaN(productId)) {
+        return res.status(400).json({ message: "Invalid product ID" });
+      }
+
+      // Check if the product belongs to this seller
+      const existingProduct = await storage.getProduct(productId);
+      if (!existingProduct || existingProduct.sellerId !== sellerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const productData = {
+        ...productFields,
+        sellerId,
+      };
+      
+      const validatedProductData = insertProductSchema.parse(productData);
+      const product = await storage.updateProduct(productId, validatedProductData);
+      
+      // Update discount tier if provided
+      if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
+        // Create new discount tier
+        await storage.createDiscountTier({
+          productId: product.id!,
+          participantCount: productData.minimumParticipants,
+          discountPercentage: (((parseFloat(productData.originalPrice) - parseFloat(discountPrice)) / parseFloat(productData.originalPrice)) * 100).toString(),
+          finalPrice: discountPrice.toString(),
+        });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error("Error updating product:", error);
+      res.status(400).json({ message: "Failed to update product" });
+    }
+  });
+
   app.get('/api/seller/orders', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;

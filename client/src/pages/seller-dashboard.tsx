@@ -40,6 +40,8 @@ export default function SellerDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("products");
   const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductWithDetails | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -88,6 +90,21 @@ export default function SellerDashboard() {
     },
   });
 
+  // Edit product form
+  const editForm = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      categoryId: "",
+      imageUrl: "",
+      originalPrice: "",
+      discountPrice: "",
+      minimumParticipants: "10",
+      maximumParticipants: "1000",
+    },
+  });
+
   // Add product mutation
   const addProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
@@ -119,6 +136,38 @@ export default function SellerDashboard() {
     },
   });
 
+  // Edit product mutation
+  const editProductMutation = useMutation({
+    mutationFn: async ({ productId, data }: { productId: number; data: ProductFormData }) => {
+      const productData = {
+        ...data,
+        categoryId: parseInt(data.categoryId),
+        originalPrice: data.originalPrice,
+        minimumParticipants: parseInt(data.minimumParticipants),
+        maximumParticipants: parseInt(data.maximumParticipants),
+        imageUrl: data.imageUrl || undefined,
+      };
+      return apiRequest("PATCH", `/api/seller/products/${productId}`, productData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      toast({
+        title: "Product Updated",
+        description: "Your product has been successfully updated.",
+      });
+      setEditDialogOpen(false);
+      setEditingProduct(null);
+      editForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update product",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Update order status mutation
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
@@ -142,6 +191,33 @@ export default function SellerDashboard() {
 
   const onSubmit = (data: ProductFormData) => {
     addProductMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: ProductFormData) => {
+    if (editingProduct) {
+      editProductMutation.mutate({ productId: editingProduct.id!, data });
+    }
+  };
+
+  const handleEditClick = (product: ProductWithDetails) => {
+    setEditingProduct(product);
+    
+    // Get discount price from discount tiers if available
+    const discountPrice = product.discountTiers && product.discountTiers.length > 0 
+      ? product.discountTiers[0].finalPrice.toString() 
+      : product.originalPrice.toString();
+      
+    editForm.reset({
+      name: product.name,
+      description: product.description || "",
+      categoryId: product.categoryId?.toString() || "",
+      imageUrl: product.imageUrl || "",
+      originalPrice: product.originalPrice.toString(),
+      discountPrice: discountPrice,
+      minimumParticipants: product.minimumParticipants.toString(),
+      maximumParticipants: product.maximumParticipants.toString(),
+    });
+    setEditDialogOpen(true);
   };
 
   const handleStatusUpdate = (orderId: number, status: string) => {
@@ -418,6 +494,154 @@ export default function SellerDashboard() {
                 </Dialog>
               </div>
 
+              {/* Edit Product Dialog */}
+              <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Edit Product</DialogTitle>
+                  </DialogHeader>
+                  <Form {...editForm}>
+                    <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+                      <FormField
+                        control={editForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Product Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter product name" {...field} data-testid="input-edit-product-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="Describe your product" rows={4} {...field} data-testid="input-edit-product-description" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="categoryId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Category</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-edit-category">
+                                  <SelectValue placeholder="Select a category" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {categories?.map((category) => (
+                                  <SelectItem key={category.id} value={category.id.toString()}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="imageUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Image URL (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://example.com/image.jpg" {...field} data-testid="input-edit-image-url" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={editForm.control}
+                          name="originalPrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Original Price ($)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-edit-original-price" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={editForm.control}
+                          name="discountPrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Discount Price ($)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-edit-discount-price" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={editForm.control}
+                          name="minimumParticipants"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Minimum Participants</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} data-testid="input-edit-min-participants" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={editForm.control}
+                          name="maximumParticipants"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Maximum Participants</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} data-testid="input-edit-max-participants" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <div className="flex justify-end space-x-4">
+                        <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={editProductMutation.isPending} data-testid="button-update-product">
+                          {editProductMutation.isPending ? "Updating..." : "Update Product"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+
               {/* Products List */}
               <Card>
                 <CardHeader>
@@ -471,7 +695,12 @@ export default function SellerDashboard() {
                             <Badge variant={product.isActive ? "default" : "secondary"}>
                               {product.isActive ? "Active" : "Inactive"}
                             </Badge>
-                            <Button variant="outline" size="sm" data-testid={`button-edit-${product.id}`}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleEditClick(product)}
+                              data-testid={`button-edit-${product.id}`}
+                            >
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
                             </Button>
