@@ -301,6 +301,10 @@ export class DatabaseStorage implements IStorage {
     return participant;
   }
 
+  async getAllGroupPurchases(): Promise<GroupPurchase[]> {
+    return await db.select().from(groupPurchases);
+  }
+
   async updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase> {
     // Get current participant count
     const participantCount = await db

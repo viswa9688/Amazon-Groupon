@@ -581,6 +581,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ received: true });
   });
 
+  // Temporary endpoint to recalculate pricing for existing group purchases
+  app.post('/api/admin/recalculate-prices', async (req, res) => {
+    try {
+      // Get all active group purchases
+      const groupPurchases = await storage.getAllGroupPurchases();
+      
+      // Recalculate prices for each one
+      for (const gp of groupPurchases) {
+        await storage.updateGroupPurchaseProgress(gp.id);
+      }
+      
+      res.json({ message: `Updated ${groupPurchases.length} group purchases` });
+    } catch (error) {
+      console.error("Error recalculating prices:", error);
+      res.status(500).json({ message: "Failed to recalculate prices" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
