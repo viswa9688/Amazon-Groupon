@@ -304,6 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency,
+        description: "OneAnt Group Purchase Platform - Digital marketplace for group buying of consumer electronics and tech products", // Required for Indian export transactions
         metadata: {
           userId: req.user.claims.sub,
           productId: productId?.toString() || "",
