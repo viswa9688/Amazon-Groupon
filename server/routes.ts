@@ -328,14 +328,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/seller/products', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
+      const { discountPrice, ...productFields } = req.body;
       const productData = {
-        ...req.body,
+        ...productFields,
         sellerId,
       };
       
       const validatedProductData = insertProductSchema.parse(productData);
       const product = await storage.createProduct(validatedProductData);
-      res.status(201).json(product);
+      
+      // Create discount tier for this product
+      if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
+        await storage.createDiscountTier({
+          productId: product.id!,
+          participantCount: productData.minimumParticipants,
+          discountPercentage: (((parseFloat(productData.originalPrice) - parseFloat(discountPrice)) / parseFloat(productData.originalPrice)) * 100).toString(),
+          finalPrice: discountPrice.toString(),
+        });
+      }
+      
+      // Automatically create a group purchase for this product
+      const endTime = new Date();
+      endTime.setDate(endTime.getDate() + 30); // 30 days from now
+      
+      const groupPurchase = await storage.createGroupPurchase({
+        productId: product.id!,
+        targetParticipants: productData.minimumParticipants,
+        currentPrice: productData.originalPrice,
+        endTime,
+      });
+      
+      res.status(201).json({ product, groupPurchase });
     } catch (error) {
       console.error("Error creating product:", error);
       res.status(400).json({ message: "Failed to create product" });

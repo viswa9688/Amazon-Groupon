@@ -28,6 +28,7 @@ const productFormSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   imageUrl: z.string().url("Please enter a valid image URL").optional().or(z.literal("")),
   originalPrice: z.string().min(1, "Price is required"),
+  discountPrice: z.string().min(1, "Discount price is required"),
   minimumParticipants: z.string().min(1, "Minimum participants required"),
   maximumParticipants: z.string().min(1, "Maximum participants required"),
 });
@@ -81,6 +82,7 @@ export default function SellerDashboard() {
       categoryId: "",
       imageUrl: "",
       originalPrice: "",
+      discountPrice: "",
       minimumParticipants: "10",
       maximumParticipants: "1000",
     },
@@ -89,7 +91,7 @@ export default function SellerDashboard() {
   // Add product mutation
   const addProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      const productData: InsertProduct = {
+      const productData = {
         ...data,
         categoryId: parseInt(data.categoryId),
         originalPrice: data.originalPrice,
@@ -342,19 +344,35 @@ export default function SellerDashboard() {
                           )}
                         />
                         
-                        <FormField
-                          control={form.control}
-                          name="originalPrice"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Original Price ($)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-price" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="originalPrice"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Original Price ($)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-original-price" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="discountPrice"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Discount Price ($)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-discount-price" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         
                         <div className="grid grid-cols-2 gap-4">
                           <FormField

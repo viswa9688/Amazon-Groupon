@@ -333,14 +333,14 @@ export class DatabaseStorage implements IStorage {
       console.log(`Group purchase ${groupPurchaseId} dropped below minimum. Participants can choose refund or pay full price.`);
     } else if (!wasAboveMinimum && count >= groupPurchase.products.minimumParticipants) {
       // If we reached minimum, apply discount
-      const discountTiers = await db
+      const tiers = await db
         .select()
         .from(discountTiers)
         .where(eq(discountTiers.productId, groupPurchase.products.id))
         .orderBy(desc(discountTiers.participantCount));
 
       // Find applicable discount tier
-      for (const tier of discountTiers) {
+      for (const tier of tiers) {
         if (count >= tier.participantCount) {
           currentPrice = tier.finalPrice;
           break;
@@ -359,6 +359,20 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updatedGroupPurchase;
+  }
+
+  // Discount tier operations
+  async createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier> {
+    const [newTier] = await db.insert(discountTiers).values(tier).returning();
+    return newTier;
+  }
+
+  async getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]> {
+    return await db
+      .select()
+      .from(discountTiers)
+      .where(eq(discountTiers.productId, productId))
+      .orderBy(desc(discountTiers.participantCount));
   }
 
   // Order operations
