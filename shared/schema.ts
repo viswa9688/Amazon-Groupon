@@ -103,6 +103,7 @@ export const orders = pgTable("orders", {
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  finalPrice: decimal("final_price", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: text("shipping_address"),
   status: varchar("status", { length: 20 }).default("pending"), // pending, processing, shipped, delivered, completed
   type: varchar("type", { length: 20 }).default("group"), // group, individual

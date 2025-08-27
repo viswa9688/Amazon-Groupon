@@ -49,6 +49,7 @@ const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: 
           quantity: 1,
           unitPrice: amount.toString(),
           totalPrice: amount.toString(),
+          finalPrice: amount.toString(),
           status: "completed",
           type,
           shippingAddress: "International Shipping Address"

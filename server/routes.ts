@@ -414,10 +414,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             quantity: 1, // Default quantity
             unitPrice: amount.toString(),
             totalPrice: amount.toString(),
+            finalPrice: amount.toString(),
             status: "completed" as const,
             type: type as "individual" | "group",
-            shippingAddress: "International Shipping Address", // From Stripe shipping info
-            paymentIntentId: paymentIntent.id
+            shippingAddress: "International Shipping Address"
           };
 
           const newOrder = await storage.createOrder(orderData);
