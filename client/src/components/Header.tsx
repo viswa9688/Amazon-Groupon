@@ -137,7 +137,7 @@ export default function Header() {
                         </div>
                         
                         <button 
-                          onClick={() => window.location.href = "/address"}
+                          onClick={() => window.location.href = "/personal-info"}
                           className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors"
                           data-testid="dropdown-personal-info"
                         >
@@ -260,7 +260,7 @@ export default function Header() {
                   <Button 
                     variant="ghost"
                     className="w-full justify-start"
-                    onClick={() => window.location.href = "/address"}
+                    onClick={() => window.location.href = "/personal-info"}
                   >
                     <UserCircle className="w-4 h-4 mr-2" />
                     Personal Info

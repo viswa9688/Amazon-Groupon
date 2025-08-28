@@ -15,6 +15,7 @@ import Orders from "@/pages/orders";
 import OrderDetails from "@/pages/order-details";
 import MyGroups from "@/pages/my-groups";
 import Address from "@/pages/profile";
+import PersonalInfo from "@/pages/personal-info.tsx";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -30,6 +31,7 @@ function Router() {
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/my-groups" component={MyGroups} />
           <Route path="/address" component={Address} />
+          <Route path="/personal-info" component={PersonalInfo} />
           <Route path="/product/:id" component={ProductDetails} />
           <Route path="/checkout/:productId/:type" component={Checkout} />
           <Route path="/orders" component={Orders} />

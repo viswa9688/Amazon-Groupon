@@ -36,6 +36,7 @@ export interface IStorage {
   getUserByPhone(phoneNumber: string): Promise<User | undefined>;
   createUserWithPhone(userData: CreateUserWithPhone): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserProfile(id: string, updates: Partial<User>): Promise<User>;
 
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -107,6 +108,18 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         },
       })
+      .returning();
+    return user;
+  }
+
+  async updateUserProfile(id: string, updates: Partial<User>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
       .returning();
     return user;
   }

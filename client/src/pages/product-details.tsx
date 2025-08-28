@@ -44,7 +44,7 @@ export default function ProductDetails() {
       if (!id || !isAuthenticated) throw new Error("Not authenticated");
       
       // Check if user has addresses first
-      if (!userAddresses || userAddresses.length === 0) {
+      if (!userAddresses || (Array.isArray(userAddresses) && userAddresses.length === 0)) {
         throw new Error("PROFILE_INCOMPLETE");
       }
       

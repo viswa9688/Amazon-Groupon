@@ -355,6 +355,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User profile update routes
+  app.put('/api/auth/update-profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, phoneNumber, email } = req.body;
+      
+      const updatedUser = await storage.updateUserProfile(userId, {
+        firstName,
+        lastName,
+        phoneNumber,
+        email,
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.post('/api/auth/send-otp', isAuthenticated, async (req: any, res) => {
+    try {
+      const { field, value } = req.body;
+      
+      // For now, just simulate sending OTP and return success
+      console.log(`Sending OTP to ${field}: ${value}`);
+      
+      // In a real implementation, you would send actual OTP here
+      // For now, we'll just return success since user requested any OTP to work
+      
+      res.json({ message: "OTP sent successfully", field, value });
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
