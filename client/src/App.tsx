@@ -20,10 +20,22 @@ import PersonalInfo from "@/pages/personal-info.tsx";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
+      {!isAuthenticated ? (
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="/browse" component={Browse} />
+          <Route component={NotFound} />
+        </>
       ) : (
         <>
           <Route path="/" component={Home} />
@@ -36,11 +48,9 @@ function Router() {
           <Route path="/checkout/:productId/:type" component={Checkout} />
           <Route path="/orders" component={Orders} />
           <Route path="/order/:orderId" component={OrderDetails} />
+          <Route component={NotFound} />
         </>
       )}
-      {/* Browse page accessible to all users */}
-      <Route path="/browse" component={Browse} />
-      <Route component={NotFound} />
     </Switch>
   );
 }
