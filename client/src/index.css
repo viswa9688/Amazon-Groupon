@@ -108,3 +108,10 @@
 .countdown-timer {
   background: linear-gradient(135deg, hsl(0, 84.2%, 60.2%), hsl(0, 84.2%, 50.2%));
 }
+
+/* Hide any stray periods that might appear at bottom of pages */
+body::after,
+#root::after,
+*:last-child::after {
+  content: none !important;
+}
