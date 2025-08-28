@@ -14,7 +14,7 @@ import Checkout from "@/pages/checkout";
 import Orders from "@/pages/orders";
 import OrderDetails from "@/pages/order-details";
 import MyGroups from "@/pages/my-groups";
-import Profile from "@/pages/profile";
+import Address from "@/pages/profile";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -29,7 +29,7 @@ function Router() {
           <Route path="/browse" component={Browse} />
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/my-groups" component={MyGroups} />
-          <Route path="/profile" component={Profile} />
+          <Route path="/address" component={Address} />
           <Route path="/product/:id" component={ProductDetails} />
           <Route path="/checkout/:productId/:type" component={Checkout} />
           <Route path="/orders" component={Orders} />

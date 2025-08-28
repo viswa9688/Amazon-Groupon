@@ -66,7 +66,7 @@ export default function ProductDetails() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/profile";
+          window.location.href = "/address";
         }, 1500);
         return;
       }

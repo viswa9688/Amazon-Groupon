@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Store, User, Menu, LogOut, Users } from "lucide-react";
+import { ShoppingCart, Store, User, Menu, LogOut, Users, UserCircle, MapPin, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -103,15 +103,72 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <div className="flex items-center space-x-2" data-testid="user-info">
-                    <img 
-                      src={(user as any)?.profileImageUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${(user as any)?.firstName}`}
-                      alt="Profile"
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <span className="text-sm font-medium text-foreground">
-                      {(user as any)?.firstName || 'User'}
-                    </span>
+                  {/* User Profile Dropdown */}
+                  <div className="relative group" data-testid="user-profile-dropdown">
+                    <div className="flex items-center space-x-2 cursor-pointer py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+                      <img 
+                        src={(user as any)?.profileImageUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${(user as any)?.firstName}`}
+                        alt="Profile"
+                        className="w-8 h-8 rounded-full"
+                      />
+                      <span className="text-sm font-medium text-foreground">
+                        {(user as any)?.firstName || 'User'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-hover:rotate-180" />
+                    </div>
+                    
+                    {/* Dropdown Menu */}
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-50">
+                      <div className="p-1">
+                        <div className="flex items-center space-x-3 px-3 py-2 mb-2 bg-muted/30 rounded-md">
+                          <img 
+                            src={(user as any)?.profileImageUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${(user as any)?.firstName}`}
+                            alt="Profile"
+                            className="w-10 h-10 rounded-full"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-foreground">
+                              {(user as any)?.firstName || 'User'} {(user as any)?.lastName || ''}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {(user as any)?.phoneNumber || (user as any)?.email}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <button 
+                          onClick={() => window.location.href = "/address"}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors"
+                          data-testid="dropdown-personal-info"
+                        >
+                          <UserCircle className="w-4 h-4" />
+                          <span className="text-sm">Personal Info</span>
+                        </button>
+                        
+                        <button 
+                          onClick={() => window.location.href = "/address"}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors"
+                          data-testid="dropdown-address"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          <span className="text-sm">Address</span>
+                        </button>
+                        
+                        <div className="border-t border-border my-1"></div>
+                        
+                        <button 
+                          onClick={() => logoutMutation.mutate()}
+                          disabled={logoutMutation.isPending}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors text-destructive"
+                          data-testid="dropdown-logout"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span className="text-sm">
+                            {logoutMutation.isPending ? "Logging out..." : "Logout"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <Button 
                     variant="outline"
@@ -200,6 +257,22 @@ export default function Header() {
                       {(user as any)?.firstName || 'User'}
                     </span>
                   </div>
+                  <Button 
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => window.location.href = "/address"}
+                  >
+                    <UserCircle className="w-4 h-4 mr-2" />
+                    Personal Info
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => window.location.href = "/address"}
+                  >
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Address
+                  </Button>
                   <Button 
                     variant="ghost"
                     className="w-full justify-start"
