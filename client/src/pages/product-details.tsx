@@ -33,9 +33,21 @@ export default function ProductDetails() {
     enabled: !!id && isAuthenticated,
   });
 
+  // Check user addresses before joining
+  const { data: userAddresses } = useQuery({
+    queryKey: ["/api/addresses"],
+    enabled: isAuthenticated,
+  });
+
   const joinGroupMutation = useMutation({
     mutationFn: async () => {
       if (!id || !isAuthenticated) throw new Error("Not authenticated");
+      
+      // Check if user has addresses first
+      if (!userAddresses || userAddresses.length === 0) {
+        throw new Error("PROFILE_INCOMPLETE");
+      }
+      
       return apiRequest("POST", `/api/group-purchases/${id}/join`, { quantity: 1 });
     },
     onSuccess: () => {
@@ -47,6 +59,17 @@ export default function ProductDetails() {
       queryClient.invalidateQueries({ queryKey: ["/api/group-purchases", id] });
     },
     onError: (error) => {
+      if (error.message === "PROFILE_INCOMPLETE") {
+        toast({
+          title: "Complete Your Profile",
+          description: "Please add your delivery address before joining a group purchase.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/profile";
+        }, 1500);
+        return;
+      }
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",

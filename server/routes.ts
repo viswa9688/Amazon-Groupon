@@ -11,6 +11,7 @@ import {
   insertGroupPurchaseSchema,
   insertGroupParticipantSchema,
   insertOrderSchema,
+  insertUserAddressSchema,
 } from "@shared/schema";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -267,6 +268,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating individual order:", error);
       res.status(400).json({ message: "Failed to create individual order" });
+    }
+  });
+
+  // User Address Management
+  app.get('/api/addresses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addresses = await storage.getUserAddresses(userId);
+      res.json(addresses);
+    } catch (error) {
+      console.error("Error fetching user addresses:", error);
+      res.status(500).json({ message: "Failed to fetch addresses" });
+    }
+  });
+
+  app.post('/api/addresses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addressData = insertUserAddressSchema.parse({ ...req.body, userId });
+      const address = await storage.createUserAddress(addressData);
+      res.status(201).json(address);
+    } catch (error) {
+      console.error("Error creating address:", error);
+      res.status(400).json({ message: "Failed to create address" });
+    }
+  });
+
+  app.put('/api/addresses/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addressId = parseInt(req.params.id);
+      
+      if (isNaN(addressId)) {
+        return res.status(400).json({ message: "Invalid address ID" });
+      }
+
+      const addressData = insertUserAddressSchema.partial().parse(req.body);
+      const updatedAddress = await storage.updateUserAddress(addressId, addressData);
+      res.json(updatedAddress);
+    } catch (error) {
+      console.error("Error updating address:", error);
+      res.status(400).json({ message: "Failed to update address" });
+    }
+  });
+
+  app.delete('/api/addresses/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addressId = parseInt(req.params.id);
+      
+      if (isNaN(addressId)) {
+        return res.status(400).json({ message: "Invalid address ID" });
+      }
+
+      const deleted = await storage.deleteUserAddress(addressId);
+      if (deleted) {
+        res.json({ message: "Address deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete address" });
+      }
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      res.status(500).json({ message: "Failed to delete address" });
+    }
+  });
+
+  app.post('/api/addresses/:id/set-default', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addressId = parseInt(req.params.id);
+      
+      if (isNaN(addressId)) {
+        return res.status(400).json({ message: "Invalid address ID" });
+      }
+
+      const success = await storage.setDefaultAddress(userId, addressId);
+      if (success) {
+        res.json({ message: "Default address updated" });
+      } else {
+        res.status(404).json({ message: "Address not found or doesn't belong to user" });
+      }
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      res.status(500).json({ message: "Failed to set default address" });
     }
   });
 

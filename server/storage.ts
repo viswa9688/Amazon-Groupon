@@ -6,9 +6,12 @@ import {
   groupPurchases,
   groupParticipants,
   orders,
+  userAddresses,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
+  type UserAddress,
+  type InsertUserAddress,
   type Product,
   type InsertProduct,
   type Category,
@@ -57,6 +60,13 @@ export interface IStorage {
   leaveGroupPurchase(groupPurchaseId: number, userId: string): Promise<boolean>;
   getUserGroupParticipation(groupPurchaseId: number, userId: string): Promise<GroupParticipant | undefined>;
   updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase>;
+
+  // User address operations
+  getUserAddresses(userId: string): Promise<UserAddress[]>;
+  createUserAddress(address: InsertUserAddress): Promise<UserAddress>;
+  updateUserAddress(addressId: number, address: Partial<InsertUserAddress>): Promise<UserAddress>;
+  deleteUserAddress(addressId: number): Promise<boolean>;
+  setDefaultAddress(userId: string, addressId: number): Promise<boolean>;
 
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
@@ -402,18 +412,80 @@ export class DatabaseStorage implements IStorage {
     return updatedGroupPurchase;
   }
 
-  // Discount tier operations
-  async createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier> {
-    const [newTier] = await db.insert(discountTiers).values(tier).returning();
-    return newTier;
-  }
-
-  async getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]> {
+  // User address operations
+  async getUserAddresses(userId: string): Promise<UserAddress[]> {
     return await db
       .select()
-      .from(discountTiers)
-      .where(eq(discountTiers.productId, productId))
-      .orderBy(desc(discountTiers.participantCount));
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, userId))
+      .orderBy(desc(userAddresses.isDefault), userAddresses.nickname);
+  }
+
+  async createUserAddress(address: InsertUserAddress): Promise<UserAddress> {
+    // If this is set as default, unset other defaults first
+    if (address.isDefault) {
+      await db
+        .update(userAddresses)
+        .set({ isDefault: false })
+        .where(eq(userAddresses.userId, address.userId));
+    }
+
+    const [newAddress] = await db.insert(userAddresses).values(address).returning();
+    return newAddress;
+  }
+
+  async updateUserAddress(addressId: number, address: Partial<InsertUserAddress>): Promise<UserAddress> {
+    // If setting as default, unset other defaults for this user
+    if (address.isDefault) {
+      const existingAddress = await db
+        .select({ userId: userAddresses.userId })
+        .from(userAddresses)
+        .where(eq(userAddresses.id, addressId))
+        .limit(1);
+      
+      if (existingAddress.length > 0) {
+        await db
+          .update(userAddresses)
+          .set({ isDefault: false })
+          .where(eq(userAddresses.userId, existingAddress[0].userId));
+      }
+    }
+
+    const [updatedAddress] = await db
+      .update(userAddresses)
+      .set({ 
+        ...address,
+        updatedAt: new Date()
+      })
+      .where(eq(userAddresses.id, addressId))
+      .returning();
+    
+    return updatedAddress;
+  }
+
+  async deleteUserAddress(addressId: number): Promise<boolean> {
+    const result = await db.delete(userAddresses).where(eq(userAddresses.id, addressId)).returning();
+    return result.length > 0;
+  }
+
+  async setDefaultAddress(userId: string, addressId: number): Promise<boolean> {
+    // First, unset all defaults for this user
+    await db
+      .update(userAddresses)
+      .set({ isDefault: false })
+      .where(eq(userAddresses.userId, userId));
+
+    // Then set the selected address as default
+    const result = await db
+      .update(userAddresses)
+      .set({ isDefault: true, updatedAt: new Date() })
+      .where(and(
+        eq(userAddresses.id, addressId),
+        eq(userAddresses.userId, userId)
+      ))
+      .returning();
+
+    return result.length > 0;
   }
 
   // Order operations

@@ -94,17 +94,35 @@ export const groupParticipants = pgTable("group_participants", {
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
+// User addresses table
+export const userAddresses = pgTable("user_addresses", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  nickname: varchar("nickname", { length: 100 }).notNull(), // e.g., "Home", "Office", "Mom's House"
+  fullName: varchar("full_name", { length: 255 }).notNull(),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  addressLine: text("address_line").notNull(), // Street address
+  city: varchar("city", { length: 100 }).notNull(),
+  pincode: varchar("pincode", { length: 20 }).notNull(),
+  state: varchar("state", { length: 100 }),
+  country: varchar("country", { length: 100 }).default("India"),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Orders
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
   productId: integer("product_id").notNull().references(() => products.id),
   groupPurchaseId: integer("group_purchase_id").references(() => groupPurchases.id), // Optional for individual orders
+  addressId: integer("address_id").references(() => userAddresses.id), // Reference to user address
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   finalPrice: decimal("final_price", { precision: 10, scale: 2 }).notNull(),
-  shippingAddress: text("shipping_address"),
+  shippingAddress: text("shipping_address"), // Fallback for legacy orders
   status: varchar("status", { length: 20 }).default("pending"), // pending, processing, shipped, delivered, completed
   type: varchar("type", { length: 20 }).default("group"), // group, individual
   createdAt: timestamp("created_at").defaultNow(),
@@ -116,6 +134,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   products: many(products),
   groupParticipants: many(groupParticipants),
   orders: many(orders),
+  addresses: many(userAddresses),
+}));
+
+export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
+  user: one(users, { fields: [userAddresses.userId], references: [users.id] }),
 }));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
@@ -141,6 +164,7 @@ export const ordersRelations = relations(orders, ({ one }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
   product: one(products, { fields: [orders.productId], references: [products.id] }),
   groupPurchase: one(groupPurchases, { fields: [orders.groupPurchaseId], references: [groupPurchases.id] }),
+  address: one(userAddresses, { fields: [orders.addressId], references: [userAddresses.id] }),
 }));
 
 export const discountTiersRelations = relations(discountTiers, ({ one }) => ({
@@ -177,6 +201,12 @@ export const insertGroupParticipantSchema = createInsertSchema(groupParticipants
   joinedAt: true,
 });
 
+export const insertUserAddressSchema = createInsertSchema(userAddresses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
@@ -203,6 +233,8 @@ export type GroupParticipant = typeof groupParticipants.$inferSelect;
 export type InsertGroupParticipant = z.infer<typeof insertGroupParticipantSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type UserAddress = typeof userAddresses.$inferSelect;
+export type InsertUserAddress = z.infer<typeof insertUserAddressSchema>;
 
 // Product with relations type
 export type ProductWithDetails = Product & {
