@@ -109,6 +109,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin impersonation routes
+  app.post('/api/admin/impersonate/:userId', isAdminAuthenticated, async (req: any, res) => {
+    try {
+      const targetUserId = req.params.userId;
+      const targetUser = await storage.getUser(targetUserId);
+      
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Set impersonation in session
+      req.session.adminImpersonation = {
+        adminUserId: req.admin.userId,
+        impersonatedUserId: targetUserId
+      };
+      
+      res.json({ 
+        message: "Impersonation started", 
+        impersonatedUser: targetUser 
+      });
+    } catch (error) {
+      console.error("Error starting impersonation:", error);
+      res.status(500).json({ message: "Failed to start impersonation" });
+    }
+  });
+
+  app.post('/api/admin/stop-impersonation', isAdminAuthenticated, async (req: any, res) => {
+    try {
+      delete req.session.adminImpersonation;
+      res.json({ message: "Impersonation stopped" });
+    } catch (error) {
+      console.error("Error stopping impersonation:", error);
+      res.status(500).json({ message: "Failed to stop impersonation" });
+    }
+  });
+
   // Category routes
   app.get('/api/categories', async (req, res) => {
     try {

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Edit, Users, ShoppingBag } from "lucide-react";
+import { Trash2, Edit, Users, ShoppingBag, Eye, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -23,6 +23,11 @@ interface User {
   productCount?: number;
   createdAt: string;
   updatedAt: string;
+  _impersonation?: {
+    isImpersonating: boolean;
+    adminUserId: string;
+    originalUserId: string;
+  };
 }
 
 interface AdminUsers {
@@ -37,6 +42,7 @@ export default function AdminSuper() {
   const [loading, setLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -72,6 +78,22 @@ export default function AdminSuper() {
       });
     }
   };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/auth/user");
+      const user = await response.json();
+      setCurrentUser(user);
+    } catch (error) {
+      setCurrentUser(null);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCurrentUser();
+    }
+  }, [isAuthenticated]);
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
@@ -123,6 +145,40 @@ export default function AdminSuper() {
     }
   };
 
+  const handleImpersonate = async (userId: string) => {
+    try {
+      await apiRequest("POST", `/api/admin/impersonate/${userId}`, loginData);
+      toast({ 
+        title: "Impersonation Started", 
+        description: "You are now viewing as this user. Visit any dashboard to see their data." 
+      });
+      await fetchCurrentUser();
+      // Redirect to home or seller dashboard to see impersonated data
+      window.location.href = "/";
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to start impersonation",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleStopImpersonation = async () => {
+    try {
+      await apiRequest("POST", "/api/admin/stop-impersonation", loginData);
+      toast({ title: "Success", description: "Impersonation stopped" });
+      await fetchCurrentUser();
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to stop impersonation",
+        variant: "destructive"
+      });
+    }
+  };
+
   const UserTable = ({ userList, type }: { userList: User[], type: string }) => (
     <Table>
       <TableHeader>
@@ -163,6 +219,15 @@ export default function AdminSuper() {
             )}
             <TableCell>
               <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleImpersonate(user.id)}
+                  data-testid={`impersonate-user-${user.id}`}
+                  title="View as this user"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -245,6 +310,22 @@ export default function AdminSuper() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Super Admin Panel</h1>
             <p className="text-muted-foreground">Manage users and system operations</p>
+            {currentUser?._impersonation?.isImpersonating && (
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="destructive">
+                  Impersonating: {currentUser.firstName} {currentUser.lastName}
+                </Badge>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={handleStopImpersonation}
+                  data-testid="stop-impersonation-button"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Stop Impersonation
+                </Button>
+              </div>
+            )}
           </div>
           <Button 
             onClick={() => setIsAuthenticated(false)}

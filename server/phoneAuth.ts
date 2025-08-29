@@ -117,8 +117,8 @@ export async function setupPhoneAuth(app: Express) {
     }
   });
 
-  // Get current user endpoint
-  app.get('/api/auth/user', async (req, res) => {
+  // Get current user endpoint (with admin impersonation support)
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
       const sessionUser = (req.session as any).user;
       
@@ -126,13 +126,36 @@ export async function setupPhoneAuth(app: Express) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const user = await storage.getUser(sessionUser.id);
+      // Check if admin is impersonating another user
+      let userId = sessionUser.id;
+      let isImpersonating = false;
+      
+      if (req.session.adminImpersonation && 
+          req.session.adminImpersonation.adminUserId === 'viswa968' &&
+          sessionUser.id === 'f3d84bd2-d98c-4a34-917d-c8e03a598b43') {
+        userId = req.session.adminImpersonation.impersonatedUserId;
+        isImpersonating = true;
+      }
+
+      const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
 
-      res.json(user);
+      // Include impersonation info for admin
+      if (isImpersonating) {
+        res.json({ 
+          ...user, 
+          _impersonation: { 
+            isImpersonating: true, 
+            adminUserId: req.session.adminImpersonation.adminUserId,
+            originalUserId: sessionUser.id
+          } 
+        });
+      } else {
+        res.json(user);
+      }
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -159,15 +182,24 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const user = await storage.getUser(sessionUser.id);
+  // Check if admin is impersonating another user
+  let userId = sessionUser.id;
+  if ((req.session as any).adminImpersonation && 
+      (req.session as any).adminImpersonation.adminUserId === 'viswa968' &&
+      sessionUser.id === 'f3d84bd2-d98c-4a34-917d-c8e03a598b43') {
+    userId = (req.session as any).adminImpersonation.impersonatedUserId;
+  }
+
+  const user = await storage.getUser(userId);
   
   if (!user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Attach user to request for use in route handlers
+  // Attach user to request for use in route handlers (use impersonated user if applicable)
   (req as any).user = { 
     claims: { sub: user.id },
+    id: user.id,
     ...sessionUser 
   };
   
