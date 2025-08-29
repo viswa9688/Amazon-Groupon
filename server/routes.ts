@@ -63,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin routes
-  app.get('/api/admin/users', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/users', isAdminAuthenticated, async (req, res) => {
     try {
       const allUsers = await storage.getAllUsers();
       const sellers = [];
