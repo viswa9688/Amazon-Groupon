@@ -150,9 +150,19 @@ export default function SellerAnalytics() {
     };
   };
 
-  // Fetch analytics data
+  // Fetch analytics data  
   const { data: analytics, isLoading: analyticsLoading, error } = useQuery<AnalyticsData>({
-    queryKey: ["/api/seller/analytics", dateRange, customDateFrom, customDateTo],
+    queryKey: ["/api/seller/analytics", getDateRangeParams()],
+    queryFn: async () => {
+      const params = getDateRangeParams();
+      const response = await fetch(`/api/seller/analytics?startDate=${params.startDate}&endDate=${params.endDate}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
     enabled: isAuthenticated,
     retry: false,
   });
