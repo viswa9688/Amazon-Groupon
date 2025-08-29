@@ -59,6 +59,7 @@ export const products = pgTable("products", {
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
   minimumParticipants: integer("minimum_participants").notNull().default(10),
   maximumParticipants: integer("maximum_participants").notNull().default(1000),
+  offerValidTill: timestamp("offer_valid_till"), // New field for offer validity
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

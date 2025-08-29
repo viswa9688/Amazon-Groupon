@@ -15,10 +15,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2, BarChart3, Home } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2, BarChart3, Home, Calendar as CalendarIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { format } from "date-fns";
 import type { ProductWithDetails, Order, Category, InsertProduct } from "@shared/schema";
 import { Link } from "wouter";
 
@@ -32,6 +35,7 @@ const productFormSchema = z.object({
   discountPrice: z.string().min(1, "Discount price is required"),
   minimumParticipants: z.string().min(1, "Minimum participants required"),
   maximumParticipants: z.string().min(1, "Maximum participants required"),
+  offerValidTill: z.date().optional(),
 });
 
 type ProductFormData = z.infer<typeof productFormSchema>;
@@ -104,6 +108,7 @@ export default function SellerDashboard() {
       discountPrice: "",
       minimumParticipants: "10",
       maximumParticipants: "1000",
+      offerValidTill: undefined,
     },
   });
 
@@ -119,6 +124,7 @@ export default function SellerDashboard() {
       discountPrice: "",
       minimumParticipants: "10",
       maximumParticipants: "1000",
+      offerValidTill: undefined,
     },
   });
 
@@ -132,6 +138,7 @@ export default function SellerDashboard() {
         minimumParticipants: parseInt(data.minimumParticipants),
         maximumParticipants: parseInt(data.maximumParticipants),
         imageUrl: data.imageUrl || undefined,
+        offerValidTill: data.offerValidTill?.toISOString() || undefined,
       };
       return apiRequest("POST", "/api/seller/products", productData);
     },
@@ -163,6 +170,7 @@ export default function SellerDashboard() {
         minimumParticipants: parseInt(data.minimumParticipants),
         maximumParticipants: parseInt(data.maximumParticipants),
         imageUrl: data.imageUrl || undefined,
+        offerValidTill: data.offerValidTill?.toISOString() || undefined,
       };
       return apiRequest("PATCH", `/api/seller/products/${productId}`, productData);
     },
@@ -235,6 +243,7 @@ export default function SellerDashboard() {
       discountPrice: discountPrice,
       minimumParticipants: product.minimumParticipants.toString(),
       maximumParticipants: product.maximumParticipants.toString(),
+      offerValidTill: product.offerValidTill ? new Date(product.offerValidTill) : undefined,
     });
     setEditDialogOpen(true);
   };
@@ -579,6 +588,63 @@ export default function SellerDashboard() {
                           />
                         </div>
                         
+                        {/* Offer Valid Till Field */}
+                        <FormField
+                          control={form.control}
+                          name="offerValidTill"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Offer Valid Till (Optional)</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant={"outline"}
+                                      className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
+                                      data-testid="button-offer-valid-till"
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP 'at' HH:mm")
+                                      ) : (
+                                        <span>Pick a date and time</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    disabled={(date) => date < new Date()}
+                                    initialFocus
+                                  />
+                                  {field.value && (
+                                    <div className="p-3 border-t">
+                                      <label className="text-sm font-medium">Time</label>
+                                      <Input
+                                        type="time"
+                                        value={field.value ? format(field.value, "HH:mm") : ""}
+                                        onChange={(e) => {
+                                          if (field.value && e.target.value) {
+                                            const [hours, minutes] = e.target.value.split(':');
+                                            const newDate = new Date(field.value);
+                                            newDate.setHours(parseInt(hours), parseInt(minutes));
+                                            field.onChange(newDate);
+                                          }
+                                        }}
+                                        className="mt-1"
+                                      />
+                                    </div>
+                                  )}
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
                         <div className="flex justify-end space-x-4">
                           <Button type="button" variant="outline" onClick={() => setProductDialogOpen(false)}>
                             Cancel
@@ -727,6 +793,63 @@ export default function SellerDashboard() {
                           )}
                         />
                       </div>
+                      
+                      {/* Offer Valid Till Field - Edit Form */}
+                      <FormField
+                        control={editForm.control}
+                        name="offerValidTill"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Offer Valid Till (Optional)</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant={"outline"}
+                                    className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
+                                    data-testid="button-edit-offer-valid-till"
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "PPP 'at' HH:mm")
+                                    ) : (
+                                      <span>Pick a date and time</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  disabled={(date) => date < new Date()}
+                                  initialFocus
+                                />
+                                {field.value && (
+                                  <div className="p-3 border-t">
+                                    <label className="text-sm font-medium">Time</label>
+                                    <Input
+                                      type="time"
+                                      value={field.value ? format(field.value, "HH:mm") : ""}
+                                      onChange={(e) => {
+                                        if (field.value && e.target.value) {
+                                          const [hours, minutes] = e.target.value.split(':');
+                                          const newDate = new Date(field.value);
+                                          newDate.setHours(parseInt(hours), parseInt(minutes));
+                                          field.onChange(newDate);
+                                        }
+                                      }}
+                                      className="mt-1"
+                                    />
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       
                       <div className="flex justify-end space-x-4">
                         <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
