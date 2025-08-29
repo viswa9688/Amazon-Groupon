@@ -233,13 +233,6 @@ export default function SellerDashboard() {
     const discountPrice = product.discountTiers && product.discountTiers.length > 0 
       ? product.discountTiers[0].finalPrice.toString() 
       : product.originalPrice.toString();
-
-    // Debug: Check if offerValidTill exists
-    console.log('Product offerValidTill:', product.offerValidTill);
-    console.log('Product data:', product);
-    
-    const existingDate = product.offerValidTill ? new Date(product.offerValidTill) : undefined;
-    console.log('Parsed date:', existingDate);
       
     editForm.reset({
       name: product.name,
@@ -250,7 +243,7 @@ export default function SellerDashboard() {
       discountPrice: discountPrice,
       minimumParticipants: product.minimumParticipants.toString(),
       maximumParticipants: product.maximumParticipants.toString(),
-      offerValidTill: existingDate,
+      offerValidTill: product.offerValidTill ? new Date(product.offerValidTill) : undefined,
     });
     setEditDialogOpen(true);
   };
