@@ -191,6 +191,7 @@ export default function SellerDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
       toast({
         title: "Status Updated",
         description: "Order status has been updated successfully.",
