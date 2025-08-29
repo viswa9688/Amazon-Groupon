@@ -21,6 +21,19 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-07-30.basil",
 });
 
+// Admin authentication middleware for specific user
+const isAdminAuthenticated = (req: any, res: any, next: any) => {
+  const { userId, password } = req.body;
+  
+  // Allow viswa968 with any password
+  if (userId === 'viswa968') {
+    req.admin = { userId };
+    return next();
+  }
+  
+  return res.status(403).json({ message: "Admin access denied" });
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupPhoneAuth(app);
@@ -37,6 +50,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes are now handled in phoneAuth.ts
+  
+  // Admin authentication route
+  app.post('/api/admin/login', (req, res) => {
+    const { userId, password } = req.body;
+    
+    if (userId === 'viswa968') {
+      res.json({ success: true, message: "Admin logged in" });
+    } else {
+      res.status(403).json({ message: "Admin access denied" });
+    }
+  });
+  
+  // Admin routes
+  app.get('/api/admin/users', isAdminAuthenticated, async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const sellers = [];
+      const buyers = [];
+      
+      for (const user of allUsers) {
+        // Check if user has any products (seller) or has isSeller flag
+        const userProducts = await storage.getProductsBySeller(user.id);
+        if (user.isSeller || userProducts.length > 0) {
+          sellers.push({ ...user, productCount: userProducts.length });
+        } else {
+          buyers.push(user);
+        }
+      }
+      
+      res.json({ sellers, buyers });
+    } catch (error) {
+      console.error("Error fetching admin users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+  
+  app.put('/api/admin/users/:id', isAdminAuthenticated, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const userData = req.body;
+      const updatedUser = await storage.updateUserAdmin(userId, userData);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+  
+  app.delete('/api/admin/users/:id', isAdminAuthenticated, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      await storage.deleteUser(userId);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
 
   // Category routes
   app.get('/api/categories', async (req, res) => {

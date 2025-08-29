@@ -16,6 +16,7 @@ import OrderDetails from "@/pages/order-details";
 import MyGroups from "@/pages/my-groups";
 import Address from "@/pages/profile";
 import PersonalInfo from "@/pages/personal-info.tsx";
+import AdminSuper from "@/pages/admin-super";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,6 +35,7 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/browse" component={Browse} />
+          <Route path="/admin-super" component={AdminSuper} />
           <Route component={NotFound} />
         </>
       ) : (
@@ -48,6 +50,7 @@ function Router() {
           <Route path="/checkout/:productId/:type" component={Checkout} />
           <Route path="/orders" component={Orders} />
           <Route path="/order/:orderId" component={OrderDetails} />
+          <Route path="/admin-super" component={AdminSuper} />
           <Route component={NotFound} />
         </>
       )}
