@@ -28,7 +28,7 @@ import {
   type GroupPurchaseWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, gte } from "drizzle-orm";
+import { eq, desc, and, or, sql, gte } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -590,7 +590,7 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(products, eq(orders.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
-          eq(orders.status, "completed")
+          or(eq(orders.status, "completed"), eq(orders.status, "delivered"))
         ));
 
       const { totalRevenue, totalOrders } = revenueResult[0] || { totalRevenue: 0, totalOrders: 0 };
@@ -607,7 +607,7 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(products, eq(orders.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
-          eq(orders.status, "completed"),
+          or(eq(orders.status, "completed"), eq(orders.status, "delivered")),
           sql`${orders.createdAt} < ${thirtyDaysAgo}`
         ));
 
