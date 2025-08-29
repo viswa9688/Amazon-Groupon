@@ -677,6 +677,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced seller analytics endpoint
+  app.get('/api/seller/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const { startDate, endDate } = req.query;
+      
+      const analytics = await storage.getSellerAnalytics(sellerId, {
+        startDate: startDate as string,
+        endDate: endDate as string
+      });
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching seller analytics:", error);
+      res.status(500).json({ message: "Failed to fetch seller analytics" });
+    }
+  });
+
   app.patch('/api/seller/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;

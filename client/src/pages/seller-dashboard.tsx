@@ -15,11 +15,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2 } from "lucide-react";
+import { DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2, BarChart3, Home } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { ProductWithDetails, Order, Category, InsertProduct } from "@shared/schema";
+import { Link } from "wouter";
 
 // Product form schema
 const productFormSchema = z.object({
@@ -327,6 +328,20 @@ export default function SellerDashboard() {
             <p className="text-muted-foreground">
               Welcome back, {(user as any)?.firstName || 'Seller'}! Here's your store overview.
             </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" asChild>
+              <Link href="/seller/analytics">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/">
+                <Home className="w-4 h-4 mr-2" />
+                Back to Home
+              </Link>
+            </Button>
           </div>
         </div>
 
