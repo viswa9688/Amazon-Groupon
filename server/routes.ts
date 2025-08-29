@@ -561,6 +561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productData = {
         ...productFields,
         sellerId,
+        // Convert ISO string to Date object for validation
+        offerValidTill: productFields.offerValidTill ? new Date(productFields.offerValidTill) : undefined,
       };
       
       const validatedProductData = insertProductSchema.parse(productData);
@@ -624,6 +626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productData = {
         ...productFields,
         sellerId,
+        // Convert ISO string to Date object for validation
+        offerValidTill: productFields.offerValidTill ? new Date(productFields.offerValidTill) : undefined,
       };
       
       const validatedProductData = insertProductSchema.parse(productData);
