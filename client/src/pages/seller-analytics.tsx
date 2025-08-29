@@ -275,13 +275,13 @@ export default function SellerAnalytics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-revenue">
-                    {analyticsLoading ? (
-                      <Skeleton className="h-8 w-24" />
-                    ) : (
-                      formatCurrency(analytics?.totalRevenue || 0)
-                    )}
-                  </p>
+                  {analyticsLoading ? (
+                    <Skeleton className="h-8 w-24" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground" data-testid="text-total-revenue">
+                      {formatCurrency(analytics?.totalRevenue || 0)}
+                    </p>
+                  )}
                   {!analyticsLoading && analytics && (
                     <div className="flex items-center mt-2">
                       {analytics.revenueGrowth >= 0 ? (
@@ -307,13 +307,13 @@ export default function SellerAnalytics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-orders">
-                    {analyticsLoading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      analytics?.totalOrders || 0
-                    )}
-                  </p>
+                  {analyticsLoading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground" data-testid="text-total-orders">
+                      {analytics?.totalOrders || 0}
+                    </p>
+                  )}
                   {!analyticsLoading && analytics && (
                     <div className="flex items-center mt-2">
                       {analytics.ordersGrowth >= 0 ? (
@@ -339,13 +339,13 @@ export default function SellerAnalytics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Avg. Order Value</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-avg-order">
-                    {analyticsLoading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatCurrency(analytics?.averageOrderValue || 0)
-                    )}
-                  </p>
+                  {analyticsLoading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground" data-testid="text-avg-order">
+                      {formatCurrency(analytics?.averageOrderValue || 0)}
+                    </p>
+                  )}
                 </div>
                 <BarChart3 className="h-8 w-8 text-purple-600" />
               </div>
@@ -357,13 +357,13 @@ export default function SellerAnalytics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Customers</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-customers">
-                    {analyticsLoading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      analytics?.totalCustomers || 0
-                    )}
-                  </p>
+                  {analyticsLoading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground" data-testid="text-total-customers">
+                      {analytics?.totalCustomers || 0}
+                    </p>
+                  )}
                   {!analyticsLoading && analytics && (
                     <p className="text-sm text-muted-foreground mt-1">
                       {analytics.newCustomers} new this period
