@@ -81,6 +81,7 @@ export default function SellerDashboard() {
   const { data: metrics, isLoading: metricsLoading } = useQuery<{
     totalRevenue: number;
     totalOrders: number;
+    potentialRevenue: number;
     activeGroups: number;
     totalProducts: number;
     growthPercentage: number;
@@ -310,6 +311,7 @@ export default function SellerDashboard() {
   const totalProducts = metrics?.totalProducts ?? 0;
   const activeGroups = metrics?.activeGroups ?? 0;
   const totalRevenue = metrics?.totalRevenue ?? 0;
+  const potentialRevenue = metrics?.potentialRevenue ?? 0;
   const growthPercentage = metrics?.growthPercentage ?? 0;
 
   return (
@@ -329,7 +331,7 @@ export default function SellerDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -340,6 +342,20 @@ export default function SellerDashboard() {
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-accent" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Potential Revenue</p>
+                  <p className="text-2xl font-bold text-orange-600" data-testid="text-potential-revenue">
+                    ${potentialRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-orange-500" />
               </div>
             </CardContent>
           </Card>
@@ -389,7 +405,7 @@ export default function SellerDashboard() {
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="products" className="flex items-center gap-2">
               <Package className="w-4 h-4" />
               Product Management
@@ -397,6 +413,10 @@ export default function SellerDashboard() {
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <Truck className="w-4 h-4" />
               Order Management
+            </TabsTrigger>
+            <TabsTrigger value="potential" className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Potential Revenue
             </TabsTrigger>
           </TabsList>
 
@@ -865,8 +885,8 @@ export default function SellerDashboard() {
                               {new Date(order.createdAt || "").toLocaleDateString()} • Qty: {order.quantity} • ${order.totalPrice}
                             </p>
                           </div>
-                          <Badge className={order.status === "completed" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>
-                            {order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
+                          <Badge className={order.status === "completed" || order.status === "delivered" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>
+                            {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Unknown"}
                           </Badge>
                         </div>
                         
@@ -888,6 +908,84 @@ export default function SellerDashboard() {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="potential">
+            <Card>
+              <CardHeader>
+                <CardTitle>Potential Revenue Analysis</CardTitle>
+                <p className="text-muted-foreground">
+                  Revenue from orders placed but not yet delivered
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Potential Revenue Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="text-center">
+                          <DollarSign className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+                          <h3 className="text-2xl font-bold text-orange-600" data-testid="text-potential-revenue-large">
+                            ${potentialRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </h3>
+                          <p className="text-muted-foreground">Total Potential Revenue</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="text-center">
+                          <Package className="w-12 h-12 text-blue-500 mx-auto mb-3" />
+                          <h3 className="text-2xl font-bold text-blue-600" data-testid="text-pending-orders">
+                            {orders?.filter(order => order.status !== 'delivered' && order.status !== 'completed').length || 0}
+                          </h3>
+                          <p className="text-muted-foreground">Pending Orders</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Pending Orders List */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-lg">Orders in Progress</h4>
+                    {!orders || orders.filter(order => order.status !== 'delivered' && order.status !== 'completed').length === 0 ? (
+                      <div className="text-center py-8">
+                        <DollarSign className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-foreground mb-2">No Pending Orders</h3>
+                        <p className="text-muted-foreground">
+                          All orders have been completed or delivered.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {orders?.filter(order => order.status !== 'delivered' && order.status !== 'completed').map((order) => (
+                          <div key={order.id} className="p-4 border rounded-lg bg-orange-50 border-orange-200" data-testid={`row-pending-order-${order.id}`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-semibold text-foreground">
+                                  Order #{order.id}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {new Date(order.createdAt || "").toLocaleDateString()} • Qty: {order.quantity} • ${order.totalPrice}
+                                </p>
+                                <p className="text-sm font-medium text-orange-600 mt-1">
+                                  Expected Revenue: ${order.finalPrice}
+                                </p>
+                              </div>
+                              <Badge className="bg-orange-100 text-orange-800">
+                                {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Unknown"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -85,6 +85,7 @@ export interface IStorage {
   getSellerMetrics(sellerId: string): Promise<{
     totalRevenue: number;
     totalOrders: number;
+    potentialRevenue: number;
     activeGroups: number;
     totalProducts: number;
     growthPercentage: number;
@@ -595,6 +596,20 @@ export class DatabaseStorage implements IStorage {
 
       const { totalRevenue, totalOrders } = revenueResult[0] || { totalRevenue: 0, totalOrders: 0 };
 
+      // Get potential revenue from pending/processing orders
+      const potentialRevenueResult = await db
+        .select({
+          potentialRevenue: sql<number>`COALESCE(SUM(CAST(${orders.finalPrice} as DECIMAL)), 0)`,
+        })
+        .from(orders)
+        .innerJoin(products, eq(orders.productId, products.id))
+        .where(and(
+          eq(products.sellerId, sellerId),
+          sql`${orders.status} NOT IN ('completed', 'delivered')`
+        ));
+
+      const { potentialRevenue } = potentialRevenueResult[0] || { potentialRevenue: 0 };
+
       // Get previous month revenue for growth calculation
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -641,6 +656,7 @@ export class DatabaseStorage implements IStorage {
       return {
         totalRevenue: Number(totalRevenue) || 0,
         totalOrders: Number(totalOrders) || 0,
+        potentialRevenue: Number(potentialRevenue) || 0,
         activeGroups: Number(activeGroups) || 0,
         totalProducts: Number(totalProducts) || 0,
         growthPercentage: Number(growthPercentage.toFixed(1)) || 0,
@@ -650,6 +666,7 @@ export class DatabaseStorage implements IStorage {
       return {
         totalRevenue: 0,
         totalOrders: 0,
+        potentialRevenue: 0,
         activeGroups: 0,
         totalProducts: 0,
         growthPercentage: 0,
