@@ -80,6 +80,15 @@ export interface IStorage {
   getUserOrders(userId: string): Promise<Order[]>;
   getSellerOrders(sellerId: string): Promise<Order[]>;
   updateOrderStatus(orderId: number, status: string): Promise<Order>;
+  
+  // Seller metrics operations
+  getSellerMetrics(sellerId: string): Promise<{
+    totalRevenue: number;
+    totalOrders: number;
+    activeGroups: number;
+    totalProducts: number;
+    growthPercentage: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -566,6 +575,86 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
     return updatedOrder;
+  }
+
+  // Seller metrics operations
+  async getSellerMetrics(sellerId: string) {
+    try {
+      // Get total revenue from completed orders
+      const revenueResult = await db
+        .select({
+          totalRevenue: sql<number>`COALESCE(SUM(CAST(${orders.finalPrice} as DECIMAL)), 0)`,
+          totalOrders: sql<number>`COUNT(*)`,
+        })
+        .from(orders)
+        .innerJoin(products, eq(orders.productId, products.id))
+        .where(and(
+          eq(products.sellerId, sellerId),
+          eq(orders.status, "completed")
+        ));
+
+      const { totalRevenue, totalOrders } = revenueResult[0] || { totalRevenue: 0, totalOrders: 0 };
+
+      // Get previous month revenue for growth calculation
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const previousRevenueResult = await db
+        .select({
+          previousRevenue: sql<number>`COALESCE(SUM(CAST(${orders.finalPrice} as DECIMAL)), 0)`,
+        })
+        .from(orders)
+        .innerJoin(products, eq(orders.productId, products.id))
+        .where(and(
+          eq(products.sellerId, sellerId),
+          eq(orders.status, "completed"),
+          sql`${orders.createdAt} < ${thirtyDaysAgo}`
+        ));
+
+      const { previousRevenue } = previousRevenueResult[0] || { previousRevenue: 0 };
+      
+      // Calculate growth percentage
+      const growthPercentage = previousRevenue > 0 
+        ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 
+        : totalRevenue > 0 ? 100 : 0;
+
+      // Get total products count
+      const productsResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(products)
+        .where(eq(products.sellerId, sellerId));
+      
+      const totalProducts = productsResult[0]?.count || 0;
+
+      // Get active group purchases count
+      const activeGroupsResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(groupPurchases)
+        .innerJoin(products, eq(groupPurchases.productId, products.id))
+        .where(and(
+          eq(products.sellerId, sellerId),
+          eq(groupPurchases.status, "active")
+        ));
+
+      const activeGroups = activeGroupsResult[0]?.count || 0;
+
+      return {
+        totalRevenue: Number(totalRevenue) || 0,
+        totalOrders: Number(totalOrders) || 0,
+        activeGroups: Number(activeGroups) || 0,
+        totalProducts: Number(totalProducts) || 0,
+        growthPercentage: Number(growthPercentage.toFixed(1)) || 0,
+      };
+    } catch (error) {
+      console.error("Error calculating seller metrics:", error);
+      return {
+        totalRevenue: 0,
+        totalOrders: 0,
+        activeGroups: 0,
+        totalProducts: 0,
+        growthPercentage: 0,
+      };
+    }
   }
 }
 

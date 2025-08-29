@@ -77,6 +77,19 @@ export default function SellerDashboard() {
     retry: false,
   });
 
+  // Fetch seller metrics
+  const { data: metrics, isLoading: metricsLoading } = useQuery<{
+    totalRevenue: number;
+    totalOrders: number;
+    activeGroups: number;
+    totalProducts: number;
+    growthPercentage: number;
+  }>({
+    queryKey: ["/api/seller/metrics"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
   // Product form
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
@@ -292,15 +305,11 @@ export default function SellerDashboard() {
     );
   }
 
-  // Calculate dashboard stats
-  const totalProducts = products?.length || 0;
-  const activeGroups = products?.reduce((acc, product) => 
-    acc + (product.groupPurchases?.length || 0), 0) || 0;
-  const totalRevenue = products?.reduce((acc, product) => {
-    const productRevenue = product.groupPurchases?.reduce((groupAcc, group) => 
-      groupAcc + ((group.currentParticipants || 0) * parseFloat(group.currentPrice.toString())), 0) || 0;
-    return acc + productRevenue;
-  }, 0) || 0;
+  // Use metrics from API or fallback to loading state
+  const totalProducts = metrics?.totalProducts ?? 0;
+  const activeGroups = metrics?.activeGroups ?? 0;
+  const totalRevenue = metrics?.totalRevenue ?? 0;
+  const growthPercentage = metrics?.growthPercentage ?? 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -367,7 +376,9 @@ export default function SellerDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Growth</p>
-                  <p className="text-2xl font-bold text-accent">+12.5%</p>
+                  <p className="text-2xl font-bold text-accent" data-testid="text-growth-percentage">
+                    {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-accent" />
               </div>

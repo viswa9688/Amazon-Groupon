@@ -666,6 +666,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/seller/metrics', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const metrics = await storage.getSellerMetrics(sellerId);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching seller metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
   app.patch('/api/seller/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
