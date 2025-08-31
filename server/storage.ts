@@ -721,24 +721,33 @@ export class DatabaseStorage implements IStorage {
     // Get all active group purchases
     const activeGroups = await this.getActiveGroupPurchases();
     
-    // Calculate similarity for each group
+    // Calculate similarity for each group with enhanced algorithm
     const similarities = [];
     
     for (const group of activeGroups) {
       const groupProductId = group.product.id;
       const matchingProducts = cartProductIds.includes(groupProductId) ? 1 : 0;
-      const similarityScore = (matchingProducts / cartProductIds.length) * 100;
       
       if (matchingProducts > 0) {
+        // Calculate similarity as (matching_products / total_cart_products) * 100
+        const similarityScore = (matchingProducts / cartProductIds.length) * 100;
+        
         // Calculate potential savings
         const cartItem = userCart.find(item => item.productId === groupProductId);
         const originalPrice = parseFloat(group.product.originalPrice);
         const discountedPrice = parseFloat(group.currentPrice);
         const potentialSavings = cartItem ? (originalPrice - discountedPrice) * cartItem.quantity : 0;
         
+        // Calculate additional metrics for better optimization
+        const savingsPercentage = potentialSavings > 0 ? (potentialSavings / (originalPrice * (cartItem?.quantity || 1))) * 100 : 0;
+        const groupProgress = ((group.currentParticipants || 0) / group.targetParticipants) * 100;
+        
+        // Enhanced scoring: Consider similarity, savings amount, and group progress
+        const optimizedScore = similarityScore + (savingsPercentage * 0.3) + (Math.min(groupProgress, 80) * 0.1);
+        
         similarities.push({
           groupPurchase: group,
-          similarityScore,
+          similarityScore: Math.round(optimizedScore), // Round for display
           matchingProducts,
           totalCartProducts: cartProductIds.length,
           potentialSavings,
@@ -746,8 +755,13 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // Sort by similarity score descending
-    return similarities.sort((a, b) => b.similarityScore - a.similarityScore);
+    // Sort by optimized similarity score descending, then by potential savings
+    return similarities.sort((a, b) => {
+      if (b.similarityScore === a.similarityScore) {
+        return b.potentialSavings - a.potentialSavings;
+      }
+      return b.similarityScore - a.similarityScore;
+    });
   }
 
   async getOptimizationSuggestions(userId: string): Promise<Array<{
@@ -762,48 +776,85 @@ export class DatabaseStorage implements IStorage {
     const cartProducts = userCart.map(item => item.product);
     const activeGroups = await this.getActiveGroupPurchases();
     
-    // Find groups that match cart products
-    const matchingGroups = activeGroups.filter(group => 
-      cartProducts.some(product => product.id === group.product.id)
-    );
-    
-    if (matchingGroups.length === 0) return [];
-    
-    // Calculate best single group option
-    let bestSingleGroup = null;
-    let maxSavings = 0;
-    
-    for (const group of matchingGroups) {
-      const cartItem = userCart.find(item => item.productId === group.product.id);
-      if (cartItem) {
+    // Find groups that match cart products with savings calculation
+    const matchingGroupsWithSavings = activeGroups
+      .map(group => {
+        const cartItem = userCart.find(item => item.productId === group.product.id);
+        if (!cartItem) return null;
+        
         const originalPrice = parseFloat(group.product.originalPrice);
         const discountedPrice = parseFloat(group.currentPrice);
         const savings = (originalPrice - discountedPrice) * cartItem.quantity;
+        const savingsPercentage = (savings / (originalPrice * cartItem.quantity)) * 100;
         
-        if (savings > maxSavings) {
-          maxSavings = savings;
-          bestSingleGroup = group;
-        }
-      }
+        return {
+          group,
+          savings,
+          savingsPercentage,
+          cartItem,
+          productId: group.product.id,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null && item.savings > 0)
+      .sort((a, b) => b.savings - a.savings); // Sort by highest savings first
+    
+    if (matchingGroupsWithSavings.length === 0) return [];
+    
+    const suggestions = [];
+    
+    // Strategy 1: Maximum Coverage - Try to cover as many products as possible
+    const allGroupsCombination = matchingGroupsWithSavings.slice(0, Math.min(5, matchingGroupsWithSavings.length));
+    const totalSavingsAllGroups = allGroupsCombination.reduce((sum, item) => sum + item.savings, 0);
+    const coveredProductIds = new Set(allGroupsCombination.map(item => item.productId));
+    const uncoveredProducts = cartProducts.filter(product => !coveredProductIds.has(product.id));
+    const coverageAllGroups = (coveredProductIds.size / cartProducts.length) * 100;
+    
+    if (allGroupsCombination.length > 0) {
+      suggestions.push({
+        groups: allGroupsCombination.map(item => item.group),
+        totalSavings: totalSavingsAllGroups,
+        coverage: coverageAllGroups,
+        uncoveredProducts,
+      });
     }
     
-    if (!bestSingleGroup) return [];
+    // Strategy 2: Maximum Savings - Focus on highest savings even if coverage is lower
+    const top3HighestSavings = matchingGroupsWithSavings.slice(0, 3);
+    const totalSavingsTop3 = top3HighestSavings.reduce((sum, item) => sum + item.savings, 0);
+    const coveredProductIdsTop3 = new Set(top3HighestSavings.map(item => item.productId));
+    const uncoveredProductsTop3 = cartProducts.filter(product => !coveredProductIdsTop3.has(product.id));
+    const coverageTop3 = (coveredProductIdsTop3.size / cartProducts.length) * 100;
     
-    // Calculate coverage
-    const coveredProducts = cartProducts.filter(product => 
-      product.id === bestSingleGroup.product.id
-    );
-    const uncoveredProducts = cartProducts.filter(product => 
-      product.id !== bestSingleGroup.product.id
-    );
-    const coverage = (coveredProducts.length / cartProducts.length) * 100;
+    if (top3HighestSavings.length > 0 && totalSavingsTop3 !== totalSavingsAllGroups) {
+      suggestions.push({
+        groups: top3HighestSavings.map(item => item.group),
+        totalSavings: totalSavingsTop3,
+        coverage: coverageTop3,
+        uncoveredProducts: uncoveredProductsTop3,
+      });
+    }
     
-    return [{
-      groups: [bestSingleGroup],
-      totalSavings: maxSavings,
-      coverage,
-      uncoveredProducts,
-    }];
+    // Strategy 3: Best Single Group (highest individual savings)
+    const bestSingleGroup = matchingGroupsWithSavings[0];
+    if (bestSingleGroup && suggestions.length < 2) {
+      const uncoveredProductsSingle = cartProducts.filter(product => product.id !== bestSingleGroup.productId);
+      const coverageSingle = (1 / cartProducts.length) * 100;
+      
+      suggestions.push({
+        groups: [bestSingleGroup.group],
+        totalSavings: bestSingleGroup.savings,
+        coverage: coverageSingle,
+        uncoveredProducts: uncoveredProductsSingle,
+      });
+    }
+    
+    // Sort suggestions by total savings descending, then by coverage
+    return suggestions.sort((a, b) => {
+      if (Math.abs(b.totalSavings - a.totalSavings) < 1) {
+        return b.coverage - a.coverage;
+      }
+      return b.totalSavings - a.totalSavings;
+    });
   }
 
   // Seller metrics operations

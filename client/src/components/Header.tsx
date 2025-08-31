@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Store, User, Menu, LogOut, Users, UserCircle, MapPin, ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import PhoneAuthModal from "./PhoneAuthModal";
@@ -13,6 +13,14 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const { toast } = useToast();
+
+  // Fetch cart items to get count
+  const { data: cartItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/cart"],
+    enabled: isAuthenticated,
+  });
+
+  const cartItemCount = cartItems.length;
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/auth/logout"),
@@ -57,8 +65,19 @@ export default function Header() {
             </a>
             {isAuthenticated && (
               <>
-                <a href="/cart" className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1">
-                  <ShoppingCart className="h-4 w-4" />
+                <a href="/cart" className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1 relative">
+                  <div className="relative">
+                    <ShoppingCart className="h-4 w-4" />
+                    {cartItemCount > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+                        data-testid="cart-count-badge"
+                      >
+                        {cartItemCount}
+                      </Badge>
+                    )}
+                  </div>
                   <span>Cart</span>
                 </a>
                 <a href="/orders" className="text-foreground hover:text-primary font-medium transition-colors">
@@ -223,7 +242,18 @@ export default function Header() {
             {isAuthenticated && (
               <>
                 <a href="/cart" className="block py-2 text-foreground hover:text-primary font-medium flex items-center space-x-2">
-                  <ShoppingCart className="h-4 w-4" />
+                  <div className="relative">
+                    <ShoppingCart className="h-4 w-4" />
+                    {cartItemCount > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+                        data-testid="mobile-cart-count-badge"
+                      >
+                        {cartItemCount}
+                      </Badge>
+                    )}
+                  </div>
                   <span>Cart</span>
                 </a>
                 <a href="/orders" className="block py-2 text-foreground hover:text-primary font-medium">

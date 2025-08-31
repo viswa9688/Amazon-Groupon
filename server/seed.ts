@@ -17,17 +17,26 @@ export async function seedDatabase() {
       { name: "Sports & Fitness", slug: "sports-fitness", icon: "Dumbbell" },
       { name: "Gaming", slug: "gaming", icon: "Gamepad" },
       { name: "Baby & Kids", slug: "baby-kids", icon: "Baby" },
+      { name: "Books", slug: "books", icon: "Book" },
     ];
 
     const insertedCategories = await db.insert(categories).values(categoryData).returning();
     console.log("Seeded categories:", insertedCategories.length);
 
-    // Create a sample seller user
+    // Create sample seller users
     const sampleSeller = await db.insert(users).values({
       id: "sample-seller-123",
       email: "seller@oneant.com",
       firstName: "John",
       lastName: "Seller",
+      isSeller: true,
+    }).returning();
+
+    const johnSeller = await db.insert(users).values({
+      id: "john-seller-456",
+      email: "john@oneant.com",
+      firstName: "John",
+      lastName: "Smith",
       isSeller: true,
     }).returning();
 
@@ -92,6 +101,207 @@ export async function seedDatabase() {
         originalPrice: "59.99",
         minimumParticipants: 20,
         maximumParticipants: 100,
+      },
+      // John's 20 additional products
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[0].id, // Electronics
+        name: "4K Ultra HD Smart TV",
+        description: "55-inch 4K Ultra HD Smart TV with HDR and built-in streaming apps. Perfect for entertainment.",
+        imageUrl: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "299.99",
+        minimumParticipants: 8,
+        maximumParticipants: 50,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[0].id, // Electronics
+        name: "Wireless Charging Pad",
+        description: "Fast wireless charging pad compatible with all Qi-enabled devices. Sleek and efficient design.",
+        imageUrl: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "25.99",
+        minimumParticipants: 50,
+        maximumParticipants: 200,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[0].id, // Electronics
+        name: "USB-C Hub Multi-Port Adapter",
+        description: "7-in-1 USB-C hub with HDMI, USB 3.0, SD card reader, and fast charging support.",
+        imageUrl: "https://images.unsplash.com/photo-1625842268584-8f3296236761?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "45.99",
+        minimumParticipants: 30,
+        maximumParticipants: 150,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[0].id, // Electronics
+        name: "Smartphone Camera Lens Kit",
+        description: "Professional smartphone camera lens kit with wide-angle, macro, and telephoto lenses.",
+        imageUrl: "https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "89.99",
+        minimumParticipants: 25,
+        maximumParticipants: 100,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[1].id, // Fashion
+        name: "Luxury Leather Handbag",
+        description: "Genuine leather handbag with multiple compartments and adjustable strap. Timeless elegance.",
+        imageUrl: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "159.99",
+        minimumParticipants: 15,
+        maximumParticipants: 75,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[1].id, // Fashion
+        name: "Designer Sunglasses",
+        description: "UV protection designer sunglasses with polarized lenses and lightweight titanium frame.",
+        imageUrl: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "129.99",
+        minimumParticipants: 20,
+        maximumParticipants: 80,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[1].id, // Fashion
+        name: "Premium Wool Scarf",
+        description: "Soft cashmere blend scarf in multiple colors. Perfect for any season and occasion.",
+        imageUrl: "https://images.unsplash.com/photo-1601924638867-985629389d5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "39.99",
+        minimumParticipants: 40,
+        maximumParticipants: 180,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[1].id, // Fashion
+        name: "Athletic Performance Sneakers",
+        description: "High-performance athletic sneakers with advanced cushioning and breathable mesh design.",
+        imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "119.99",
+        minimumParticipants: 25,
+        maximumParticipants: 120,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[2].id, // Home & Garden
+        name: "Smart Home Security Camera",
+        description: "1080p HD security camera with night vision, motion detection, and smartphone app control.",
+        imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "79.99",
+        minimumParticipants: 35,
+        maximumParticipants: 150,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[2].id, // Home & Garden
+        name: "Ceramic Non-Stick Cookware Set",
+        description: "10-piece ceramic non-stick cookware set with heat-resistant handles and dishwasher-safe design.",
+        imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "199.99",
+        minimumParticipants: 12,
+        maximumParticipants: 60,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[2].id, // Home & Garden
+        name: "LED String Lights",
+        description: "50ft waterproof LED string lights with remote control and 8 lighting modes for outdoor decoration.",
+        imageUrl: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "29.99",
+        minimumParticipants: 60,
+        maximumParticipants: 300,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[2].id, // Home & Garden
+        name: "Bamboo Cutting Board Set",
+        description: "Set of 3 eco-friendly bamboo cutting boards in different sizes with built-in compartments.",
+        imageUrl: "https://images.unsplash.com/photo-1594736797933-d0401ba669ba?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "49.99",
+        minimumParticipants: 45,
+        maximumParticipants: 200,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[3].id, // Sports & Fitness
+        name: "Adjustable Dumbbell Set",
+        description: "Space-saving adjustable dumbbell set with weight range from 5-50 lbs per dumbbell.",
+        imageUrl: "https://images.unsplash.com/photo-1571019613914-85f342c6a11e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "249.99",
+        minimumParticipants: 10,
+        maximumParticipants: 40,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[3].id, // Sports & Fitness
+        name: "Yoga Mat with Carrying Strap",
+        description: "Extra-thick yoga mat with non-slip surface and alignment lines. Includes carrying strap.",
+        imageUrl: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "34.99",
+        minimumParticipants: 50,
+        maximumParticipants: 250,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[3].id, // Sports & Fitness
+        name: "Resistance Bands Set",
+        description: "Complete resistance bands set with 5 different resistance levels, handles, and door anchor.",
+        imageUrl: "https://images.unsplash.com/photo-1571019613914-85f342c6a11e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "24.99",
+        minimumParticipants: 75,
+        maximumParticipants: 400,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[3].id, // Sports & Fitness
+        name: "Premium Protein Shaker Bottle",
+        description: "BPA-free protein shaker bottle with mixing ball and measurement marks. Leak-proof design.",
+        imageUrl: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "19.99",
+        minimumParticipants: 100,
+        maximumParticipants: 500,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[6].id, // Books
+        name: "Personal Development Book Bundle",
+        description: "Collection of 5 bestselling personal development books including productivity and mindfulness guides.",
+        imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "79.99",
+        minimumParticipants: 30,
+        maximumParticipants: 150,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[6].id, // Books
+        name: "Business Strategy Masterclass Book",
+        description: "Comprehensive business strategy guide with case studies from successful entrepreneurs and companies.",
+        imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "44.99",
+        minimumParticipants: 40,
+        maximumParticipants: 200,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[6].id, // Books
+        name: "Cookbook Collection - Healthy Meals",
+        description: "Set of 3 cookbooks featuring healthy recipes, meal prep ideas, and nutrition guides for families.",
+        imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "59.99",
+        minimumParticipants: 35,
+        maximumParticipants: 175,
+      },
+      {
+        sellerId: johnSeller[0].id,
+        categoryId: insertedCategories[6].id, // Books
+        name: "Children's Educational Book Set",
+        description: "Interactive educational book set for children ages 3-8 with colorful illustrations and learning activities.",
+        imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "39.99",
+        minimumParticipants: 50,
+        maximumParticipants: 250,
       },
     ];
 

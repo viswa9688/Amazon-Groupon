@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles, Zap, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
@@ -59,6 +59,28 @@ interface SimilarGroup {
   potentialSavings: number;
 }
 
+interface OptimizationSuggestion {
+  groups: Array<{
+    id: number;
+    product: {
+      id: number;
+      name: string;
+      originalPrice: string;
+    };
+    currentPrice: string;
+    currentParticipants: number;
+    targetParticipants: number;
+    endTime: string;
+  }>;
+  totalSavings: number;
+  coverage: number;
+  uncoveredProducts: Array<{
+    id: number;
+    name: string;
+    originalPrice: string;
+  }>;
+}
+
 export default function Cart() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -77,6 +99,12 @@ export default function Cart() {
     enabled: !!user && cartItems.length > 0,
   });
 
+  // Fetch optimization suggestions
+  const { data: optimizationSuggestions = [], isLoading: optimizationLoading } = useQuery<OptimizationSuggestion[]>({
+    queryKey: ["/api/cart/optimization-suggestions"],
+    enabled: !!user && cartItems.length > 0,
+  });
+
   // Update cart item quantity mutation
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ cartItemId, quantity }: { cartItemId: number; quantity: number }) => {
@@ -85,6 +113,7 @@ export default function Cart() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/similar-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cart/optimization-suggestions"] });
       toast({
         title: "Cart Updated",
         description: "Item quantity updated successfully.",
@@ -107,6 +136,7 @@ export default function Cart() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/similar-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cart/optimization-suggestions"] });
       toast({
         title: "Item Removed",
         description: "Item removed from cart successfully.",
@@ -129,6 +159,7 @@ export default function Cart() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/similar-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cart/optimization-suggestions"] });
       toast({
         title: "Cart Cleared",
         description: "All items removed from cart.",
@@ -390,6 +421,75 @@ export default function Cart() {
                               Join Group
                             </Button>
                           </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Optimization Strategies */}
+            {!optimizationLoading && optimizationSuggestions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Zap className="h-5 w-5 text-blue-500" />
+                    <span>Smart Optimization Strategies</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {optimizationSuggestions.map((suggestion, index) => (
+                      <div key={index} className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20" data-testid={`card-optimization-${index}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <BarChart3 className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium text-sm">
+                              {index === 0 ? "Best Overall Strategy" : index === 1 ? "Maximum Savings Focus" : "Single Group Option"}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline" className="text-xs">
+                              {suggestion.coverage.toFixed(0)}% coverage
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs font-bold text-green-700">
+                              ${suggestion.totalSavings.toFixed(2)} savings
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 gap-2">
+                            {suggestion.groups.slice(0, 2).map((group, groupIndex) => (
+                              <div key={group.id} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded">
+                                <span className="font-medium">{group.product.name}</span>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-gray-600 dark:text-gray-400">
+                                    {group.currentParticipants}/{group.targetParticipants}
+                                  </span>
+                                  <span className="font-bold text-green-600">${group.currentPrice}</span>
+                                </div>
+                              </div>
+                            ))}
+                            {suggestion.groups.length > 2 && (
+                              <div className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                                +{suggestion.groups.length - 2} more groups
+                              </div>
+                            )}
+                          </div>
+                          
+                          {suggestion.uncoveredProducts.length > 0 && (
+                            <div className="text-xs text-orange-600 dark:text-orange-400">
+                              {suggestion.uncoveredProducts.length} item{suggestion.uncoveredProducts.length !== 1 ? 's' : ''} will remain individual purchases
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="mt-3 flex justify-end">
+                          <Button size="sm" className="text-xs" data-testid={`button-apply-optimization-${index}`}>
+                            Apply Strategy
+                          </Button>
                         </div>
                       </div>
                     ))}
