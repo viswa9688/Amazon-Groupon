@@ -648,12 +648,25 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Sort by optimized similarity score descending, then by potential savings
-    return similarities.sort((a, b) => {
+    const sortedSimilarities = similarities.sort((a, b) => {
       if (b.similarityScore === a.similarityScore) {
         return b.potentialSavings - a.potentialSavings;
       }
       return b.similarityScore - a.similarityScore;
     });
+    
+    // Filter out groups the user is already in and groups that are full (5/5)
+    const availableSimilarities = [];
+    for (const similarity of sortedSimilarities) {
+      const isAlreadyMember = await this.isUserInUserGroup(similarity.userGroup.id, userId);
+      const isFull = (similarity.userGroup.participantCount || 0) >= 5;
+      
+      if (!isAlreadyMember && !isFull) {
+        availableSimilarities.push(similarity);
+      }
+    }
+    
+    return availableSimilarities;
   }
 
   async getOptimizationSuggestions(userId: string): Promise<Array<{
