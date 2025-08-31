@@ -306,7 +306,6 @@ export class DatabaseStorage implements IStorage {
   async deleteProduct(productId: number): Promise<boolean> {
     // Delete related records first
     await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
-    await db.delete(groupPurchases).where(eq(groupPurchases.productId, productId));
     
     // Delete the product
     const result = await db.delete(products).where(eq(products.id, productId)).returning();
@@ -314,22 +313,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductParticipantCount(productId: number): Promise<number> {
-    // Get all group purchases for this product
-    const productGroupPurchases = await db
-      .select()
-      .from(groupPurchases)
-      .where(eq(groupPurchases.productId, productId));
+    // Count participants in collections that contain this product
+    const collectionsWithProduct = await db.query.userGroupItems.findMany({
+      where: eq(userGroupItems.productId, productId),
+      with: {
+        userGroup: {
+          with: {
+            participants: true,
+          },
+        },
+      },
+    });
     
     let totalParticipants = 0;
-    
-    // Count participants across all group purchases for this product
-    for (const gp of productGroupPurchases) {
-      const participantCount = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(groupParticipants)
-        .where(eq(groupParticipants.groupPurchaseId, gp.id));
-      
-      totalParticipants += participantCount[0]?.count || 0;
+    for (const item of collectionsWithProduct) {
+      totalParticipants += item.userGroup.participants?.length || 0;
     }
     
     return totalParticipants;
@@ -345,12 +343,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
   }
 
-  async updateGroupPurchaseTargets(productId: number, newMinimumParticipants: number): Promise<void> {
-    await db
-      .update(groupPurchases)
-      .set({ targetParticipants: newMinimumParticipants })
-      .where(eq(groupPurchases.productId, productId));
-  }
 
   async getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]> {
     return await db
@@ -491,11 +483,6 @@ export class DatabaseStorage implements IStorage {
             seller: true,
             category: true,
             discountTiers: true,
-            groupPurchases: {
-              with: {
-                participants: true,
-              },
-            },
           },
         },
       },
@@ -1009,17 +996,18 @@ export class DatabaseStorage implements IStorage {
       
       const totalProducts = productsResult[0]?.count || 0;
 
-      // Get active group purchases count
-      const activeGroupsResult = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(groupPurchases)
-        .innerJoin(products, eq(groupPurchases.productId, products.id))
+      // Get active collections count (collections containing seller's products)
+      const activeCollectionsResult = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${userGroups.id})` })
+        .from(userGroups)
+        .innerJoin(userGroupItems, eq(userGroups.id, userGroupItems.userGroupId))
+        .innerJoin(products, eq(userGroupItems.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
-          eq(groupPurchases.status, "active")
+          eq(userGroups.isPublic, true)
         ));
 
-      const activeGroups = activeGroupsResult[0]?.count || 0;
+      const activeGroups = activeCollectionsResult[0]?.count || 0;
 
       return {
         totalRevenue: Number(totalRevenue) || 0,
@@ -1040,6 +1028,36 @@ export class DatabaseStorage implements IStorage {
         growthPercentage: 0,
       };
     }
+  }
+
+  async getAllPublicCollections(): Promise<UserGroupWithDetails[]> {
+    const groups = await db.query.userGroups.findMany({
+      where: eq(userGroups.isPublic, true),
+      with: {
+        user: true,
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+              },
+            },
+          },
+        },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    return groups.map(group => ({
+      ...group,
+      participantCount: group.participants?.length || 0,
+    }));
   }
 
   // User group operations
@@ -1234,24 +1252,7 @@ export class DatabaseStorage implements IStorage {
         .from(userGroupItems)
         .where(eq(userGroupItems.userGroupId, userGroupId));
 
-      // Join all group purchases for products in this collection
-      for (const item of groupItems) {
-        // Find active group purchase for this product
-        const [groupPurchase] = await db
-          .select()
-          .from(groupPurchases)
-          .where(eq(groupPurchases.productId, item.productId));
-
-        if (groupPurchase) {
-          // Check if user is already participating
-          const existingParticipation = await this.getUserGroupParticipation(groupPurchase.id, userId);
-          
-          if (!existingParticipation) {
-            // Join with the same quantity as specified in the collection
-            await this.joinGroupPurchase(groupPurchase.id, userId, item.quantity);
-          }
-        }
-      }
+      // User is now part of the collection, no additional group purchase logic needed
 
       return true;
     } catch (error) {
@@ -1271,19 +1272,7 @@ export class DatabaseStorage implements IStorage {
         .from(userGroupItems)
         .where(eq(userGroupItems.userGroupId, userGroupId));
 
-      // Leave all group purchases for products in this collection
-      for (const item of groupItems) {
-        // Find active group purchase for this product
-        const [groupPurchase] = await db
-          .select()
-          .from(groupPurchases)
-          .where(eq(groupPurchases.productId, item.productId));
-
-        if (groupPurchase) {
-          // Leave the group purchase
-          await this.leaveGroupPurchase(groupPurchase.id, userId);
-        }
-      }
+      // User is now removed from the collection, no additional group purchase logic needed
 
       return true;
     } catch (error) {

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Users, ShoppingCart, Zap } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import type { GroupPurchaseWithDetails, Category } from "@shared/schema";
+import type { UserGroupWithDetails, Category } from "@shared/schema";
 
 interface Product {
   id: number;
@@ -41,8 +41,8 @@ export default function Browse() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("newest");
 
-  const { data: groupPurchases, isLoading: groupPurchasesLoading } = useQuery<GroupPurchaseWithDetails[]>({
-    queryKey: ["/api/group-purchases"],
+  const { data: collections, isLoading: collectionsLoading } = useQuery<UserGroupWithDetails[]>({
+    queryKey: ["/api/collections"],
   });
 
   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
@@ -53,13 +53,13 @@ export default function Browse() {
     queryKey: ["/api/categories"],
   });
 
-  // Fetch user's participating groups
-  const { data: userParticipations = [] } = useQuery<number[]>({
-    queryKey: ["/api/user/participating-groups"],
+  // Fetch user's own collections to exclude them from browse
+  const { data: userCollections = [] } = useQuery<UserGroupWithDetails[]>({
+    queryKey: ["/api/user-groups"],
     enabled: !!user,
   });
 
-  const isLoading = groupPurchasesLoading || productsLoading;
+  const isLoading = collectionsLoading || productsLoading;
 
   // Filter and sort products
   const filteredAndSortedProducts = products
@@ -84,29 +84,26 @@ export default function Browse() {
       }
     }) || [];
 
-  // Filter and sort group purchases for "Other Groups" section
-  const filteredAndSortedPurchases = groupPurchases
-    ?.filter((groupPurchase) => {
-      const matchesSearch = groupPurchase.product.name
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-      const matchesCategory = 
-        selectedCategory === "all" || 
-        groupPurchase.product.category?.id.toString() === selectedCategory;
-      // Hide groups that user is already participating in
-      const notAlreadyParticipating = !userParticipations.includes(groupPurchase.id);
-      return matchesSearch && matchesCategory && notAlreadyParticipating;
+  // Filter and sort collections for "Other Collections" section
+  const filteredAndSortedCollections = collections
+    ?.filter((collection) => {
+      // Check if any product in collection matches search
+      const matchesSearch = collection.items.some(item => 
+        item.product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      // Check if any product in collection matches category
+      const matchesCategory = selectedCategory === "all" || 
+        collection.items.some(item => 
+          item.product.category?.id.toString() === selectedCategory
+        );
+      // Hide collections owned by current user
+      const notOwnedByUser = collection.userId !== user?.id;
+      return matchesSearch && matchesCategory && notOwnedByUser;
     })
     ?.sort((a, b) => {
       switch (sortBy) {
-        case "price-low":
-          return parseFloat(a.currentPrice.toString()) - parseFloat(b.currentPrice.toString());
-        case "price-high":
-          return parseFloat(b.currentPrice.toString()) - parseFloat(a.currentPrice.toString());
         case "popular":
-          return (b.currentParticipants || 0) - (a.currentParticipants || 0);
-        case "ending-soon":
-          return new Date(a.endTime || new Date()).getTime() - new Date(b.endTime || new Date()).getTime();
+          return (b.participantCount || 0) - (a.participantCount || 0);
         case "newest":
         default:
           return new Date(b.createdAt || new Date()).getTime() - new Date(a.createdAt || new Date()).getTime();
@@ -177,7 +174,7 @@ export default function Browse() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
               <span data-testid="text-results-count">
-                {filteredAndSortedProducts.length} products, {filteredAndSortedPurchases.length} group {filteredAndSortedPurchases.length === 1 ? 'deal' : 'deals'} found
+                {filteredAndSortedProducts.length} products, {filteredAndSortedCollections.length} collection{filteredAndSortedCollections.length === 1 ? '' : 's'} found
               </span>
               {searchTerm && (
                 <span>for "{searchTerm}"</span>
@@ -307,12 +304,12 @@ export default function Browse() {
           )}
         </div>
 
-        {/* Other Groups Section */}
+        {/* Other Collections Section */}
         <div className="mb-12">
           <div className="flex items-center space-x-2 mb-6">
-            <Zap className="h-6 w-6 text-green-600" />
-            <h2 className="text-2xl font-bold text-foreground">Other Groups</h2>
-            <Badge variant="secondary">{filteredAndSortedPurchases.length} active groups</Badge>
+            <Users className="h-6 w-6 text-purple-600" />
+            <h2 className="text-2xl font-bold text-foreground">Other Collections</h2>
+            <Badge variant="secondary">{filteredAndSortedCollections.length} public collections</Badge>
           </div>
           
           {isLoading ? (
@@ -326,26 +323,66 @@ export default function Browse() {
                 </div>
               ))}
             </div>
-          ) : filteredAndSortedPurchases.length === 0 ? (
+          ) : filteredAndSortedCollections.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                 <Users className="w-6 h-6 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No group deals found</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No collections found</h3>
               <p className="text-muted-foreground text-sm">
                 {searchTerm || selectedCategory !== "all" 
                   ? "Try adjusting your filters or search terms." 
-                  : "No group purchases are currently active. Check back later for new deals!"
+                  : "No public collections are available. Check back later for new collections!"
                 }
               </p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredAndSortedPurchases.map((groupPurchase) => (
-                <ProductCard 
-                  key={groupPurchase.id} 
-                  groupPurchase={groupPurchase}
-                />
+              {filteredAndSortedCollections.map((collection) => (
+                <Card key={collection.id} className="group hover:shadow-lg transition-shadow duration-200" data-testid={`card-collection-${collection.id}`}>
+                  <CardContent className="p-0">
+                    <Link href={`/groups/${collection.shareToken}`}>
+                      <div className="cursor-pointer">
+                        <div className="relative">
+                          <img
+                            src={collection.items[0]?.product.imageUrl || "/api/placeholder/400/300"}
+                            alt={collection.name}
+                            className="w-full h-48 object-cover rounded-t-lg"
+                            data-testid={`img-collection-${collection.id}`}
+                          />
+                          <div className="absolute top-3 right-3">
+                            <Badge variant="secondary" className="bg-white/90 text-gray-800">
+                              {collection.items.length} products
+                            </Badge>
+                          </div>
+                          <div className="absolute top-3 left-3">
+                            <Badge variant="default" className="bg-purple-600 text-white">
+                              {collection.participantCount}/5 joined
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-lg text-foreground mb-2 group-hover:text-primary transition-colors" data-testid={`text-collection-name-${collection.id}`}>
+                            {collection.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                            {collection.description}
+                          </p>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-muted-foreground">
+                                by {collection.user.firstName} {collection.user.lastName}
+                              </p>
+                              <Button size="sm" data-testid={`button-view-collection-${collection.id}`}>
+                                View Collection
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}

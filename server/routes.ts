@@ -575,6 +575,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all public collections for browsing
+  app.get('/api/collections', async (req, res) => {
+    try {
+      const collections = await storage.getAllPublicCollections();
+      res.json(collections);
+    } catch (error) {
+      console.error("Error fetching public collections:", error);
+      res.status(500).json({ message: "Failed to fetch collections" });
+    }
+  });
+
   app.post('/api/user-groups', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
