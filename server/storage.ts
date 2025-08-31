@@ -562,6 +562,11 @@ export class DatabaseStorage implements IStorage {
       ),
       with: {
         user: true,
+        participants: {
+          with: {
+            user: true,
+          },
+        },
       },
     });
     
@@ -583,6 +588,7 @@ export class DatabaseStorage implements IStorage {
         return {
           ...group,
           items: groupItems,
+          participantCount: group.participants?.length || 0,
         } as UserGroupWithDetails;
       })
     );
