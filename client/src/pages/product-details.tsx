@@ -22,9 +22,10 @@ interface Product {
   description: string;
   originalPrice: string;
   imageUrl: string;
+  minimumParticipants?: number;
   discountTiers?: Array<{
     id: number;
-    minQuantity: number;
+    participantCount: number;
     finalPrice: string;
   }>;
   seller: {
@@ -262,15 +263,13 @@ export default function ProductDetails() {
     );
   }
   
-  // Calculate pricing based on product type
+  // Calculate pricing based on product type  
   const displayPrice = (() => {
     if (individualProduct) {
-      // For individual products, show discounted price if available
-      return individualProduct.discountTiers && individualProduct.discountTiers.length > 0 
-        ? individualProduct.discountTiers[0].finalPrice
-        : individualProduct.originalPrice;
+      // For individual products, show original price (no discount until group forms)
+      return individualProduct.originalPrice;
     } else if (groupPurchase) {
-      // For group purchases, use current price or first discount tier
+      // For group purchases, show current price based on participants
       return product.discountTiers && product.discountTiers.length > 0 
         ? product.discountTiers[0].finalPrice.toString()
         : groupPurchase.currentPrice.toString();
@@ -278,11 +277,11 @@ export default function ProductDetails() {
     return product?.originalPrice || "0";
   })();
   
-  const currentDiscount = parseFloat(product?.originalPrice?.toString() || "0") - parseFloat(displayPrice);
+  const currentDiscount = individualProduct ? 0 : parseFloat(product?.originalPrice?.toString() || "0") - parseFloat(displayPrice);
   
-  // For individual products, simulate group purchase properties
-  const minParticipants = individualProduct ? 5 : groupPurchase?.targetParticipants || 5;
-  const currentParticipants = individualProduct ? 1 : groupPurchase?.currentParticipants || 0;
+  // For individual products, use product's minimum participants
+  const minParticipants = individualProduct ? individualProduct.minimumParticipants || 10 : groupPurchase?.targetParticipants || 5;
+  const currentParticipants = individualProduct ? 0 : groupPurchase?.currentParticipants || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -353,22 +352,35 @@ export default function ProductDetails() {
               {/* Pricing */}
               <div className="bg-muted/30 p-6 rounded-lg mb-6">
                 <div>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
-                        ${displayPrice}
-                      </span>
-                      <span className="text-xl text-muted-foreground line-through">
-                        ${product.originalPrice}
+                  {individualProduct ? (
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-3xl font-bold text-foreground" data-testid="text-current-price">
+                          ${displayPrice}
+                        </span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        Individual price
                       </span>
                     </div>
-                    <span className="text-lg font-semibold text-accent">
-                      Save ${currentDiscount.toFixed(2)}
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
+                          ${displayPrice}
+                        </span>
+                        <span className="text-xl text-muted-foreground line-through">
+                          ${product.originalPrice}
+                        </span>
+                      </div>
+                      <span className="text-lg font-semibold text-accent">
+                        Save ${currentDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     {individualProduct 
-                      ? (currentDiscount > 0 ? "Special discount available!" : "Regular pricing")
+                      ? "Start a group purchase to unlock bulk discounts!"
                       : "Group discount available! Join now to get this great price!"
                     }
                   </p>
@@ -428,7 +440,7 @@ export default function ProductDetails() {
             )}
 
             {/* Group Buying Opportunity for Individual Products */}
-            {individualProduct && (
+            {individualProduct && individualProduct.discountTiers && individualProduct.discountTiers.length > 0 && (
               <Card className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-2 mb-4">
@@ -439,14 +451,15 @@ export default function ProductDetails() {
                     Be the first to start a group purchase for this product and get others to join for bulk discounts!
                   </p>
                   <div className="text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span>5+ people:</span>
-                      <span className="font-semibold text-green-600">15% off (${(parseFloat(product.originalPrice) * 0.85).toFixed(2)})</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>10+ people:</span>
-                      <span className="font-semibold text-green-600">25% off (${(parseFloat(product.originalPrice) * 0.75).toFixed(2)})</span>
-                    </div>
+                    {individualProduct.discountTiers.map((tier) => {
+                      const discountPercent = Math.round(((parseFloat(individualProduct.originalPrice) - parseFloat(tier.finalPrice)) / parseFloat(individualProduct.originalPrice)) * 100);
+                      return (
+                        <div key={tier.id} className="flex justify-between">
+                          <span>{tier.participantCount}+ people:</span>
+                          <span className="font-semibold text-green-600">{discountPercent}% off (${tier.finalPrice})</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
