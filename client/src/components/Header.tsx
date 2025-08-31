@@ -84,7 +84,7 @@ export default function Header() {
                   Orders
                 </a>
                 <a href="/my-groups" className="text-foreground hover:text-primary font-medium transition-colors">
-                  My Groups
+                  My Collections
                 </a>
               </>
             )}
@@ -260,7 +260,7 @@ export default function Header() {
                   Orders
                 </a>
                 <a href="/my-groups" className="block py-2 text-foreground hover:text-primary font-medium">
-                  My Groups
+                  My Collections
                 </a>
               </>
             )}

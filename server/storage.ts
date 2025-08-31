@@ -3,12 +3,9 @@ import {
   products,
   categories,
   discountTiers,
-  groupPurchases,
-  groupParticipants,
   orders,
   userAddresses,
   cartItems,
-  groupSimilarityCache,
   userGroups,
   userGroupItems,
   userGroupParticipants,
@@ -23,16 +20,10 @@ import {
   type InsertCategory,
   type DiscountTier,
   type InsertDiscountTier,
-  type GroupPurchase,
-  type InsertGroupPurchase,
-  type GroupParticipant,
-  type InsertGroupParticipant,
   type Order,
   type InsertOrder,
   type CartItem,
   type InsertCartItem,
-  type GroupSimilarityCache,
-  type InsertGroupSimilarityCache,
   type UserGroup,
   type InsertUserGroup,
   type UserGroupItem,
@@ -40,7 +31,6 @@ import {
   type UserGroupParticipant,
   type InsertUserGroupParticipant,
   type ProductWithDetails,
-  type GroupPurchaseWithDetails,
   type UserGroupWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
@@ -74,15 +64,6 @@ export interface IStorage {
   createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier>;
   getDiscountTiersByProduct(productId: number): Promise<DiscountTier[]>;
 
-  // Group purchase operations
-  getActiveGroupPurchases(): Promise<GroupPurchaseWithDetails[]>;
-  getGroupPurchase(id: number): Promise<GroupPurchaseWithDetails | undefined>;
-  createGroupPurchase(groupPurchase: InsertGroupPurchase): Promise<GroupPurchase>;
-  joinGroupPurchase(groupPurchaseId: number, userId: string, quantity?: number): Promise<GroupParticipant>;
-  leaveGroupPurchase(groupPurchaseId: number, userId: string): Promise<boolean>;
-  getUserGroupParticipation(groupPurchaseId: number, userId: string): Promise<GroupParticipant | undefined>;
-  getUserParticipatingGroups(userId: string): Promise<number[]>;
-  updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase>;
 
   // User address operations
   getUserAddresses(userId: string): Promise<UserAddress[]>;
@@ -272,12 +253,6 @@ export class DatabaseStorage implements IStorage {
         seller: true,
         category: true,
         discountTiers: true,
-        groupPurchases: {
-          with: {
-            participants: true,
-          },
-          where: eq(groupPurchases.status, "active"),
-        },
       },
       where: eq(products.isActive, true),
       orderBy: desc(products.createdAt),
@@ -291,11 +266,7 @@ export class DatabaseStorage implements IStorage {
         seller: true,
         category: true,
         discountTiers: true,
-        groupPurchases: {
-          with: {
-            participants: true,
-          },
-        },
+
       },
     });
   }
@@ -312,11 +283,7 @@ export class DatabaseStorage implements IStorage {
         seller: true,
         category: true,
         discountTiers: true,
-        groupPurchases: {
-          with: {
-            participants: true,
-          },
-        },
+
       },
       orderBy: desc(products.createdAt),
     });
@@ -393,177 +360,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(discountTiers.participantCount);
   }
 
-  // Group purchase operations
-  async getActiveGroupPurchases(): Promise<GroupPurchaseWithDetails[]> {
-    return await db.query.groupPurchases.findMany({
-      where: and(
-        eq(groupPurchases.status, "active"),
-        gte(groupPurchases.endTime, new Date())
-      ),
-      with: {
-        product: {
-          with: {
-            seller: true,
-            category: true,
-            discountTiers: true,
-            groupPurchases: {
-              with: {
-                participants: true,
-              },
-            },
-          },
-        },
-        participants: {
-          with: {
-            user: true,
-          },
-        },
-      },
-      orderBy: desc(groupPurchases.createdAt),
-    });
-  }
-
-  async getGroupPurchase(id: number): Promise<GroupPurchaseWithDetails | undefined> {
-    return await db.query.groupPurchases.findFirst({
-      where: eq(groupPurchases.id, id),
-      with: {
-        product: {
-          with: {
-            seller: true,
-            category: true,
-            discountTiers: true,
-            groupPurchases: {
-              with: {
-                participants: true,
-              },
-            },
-          },
-        },
-        participants: {
-          with: {
-            user: true,
-          },
-        },
-      },
-    });
-  }
-
-  async createGroupPurchase(groupPurchase: InsertGroupPurchase): Promise<GroupPurchase> {
-    const [newGroupPurchase] = await db.insert(groupPurchases).values(groupPurchase).returning();
-    return newGroupPurchase;
-  }
-
-  async joinGroupPurchase(groupPurchaseId: number, userId: string, quantity: number = 1): Promise<GroupParticipant> {
-    const [participant] = await db
-      .insert(groupParticipants)
-      .values({
-        groupPurchaseId,
-        userId,
-        quantity,
-      })
-      .returning();
-
-    // Update participant count
-    await this.updateGroupPurchaseProgress(groupPurchaseId);
-
-    return participant;
-  }
-
-  async leaveGroupPurchase(groupPurchaseId: number, userId: string): Promise<boolean> {
-    const result = await db
-      .delete(groupParticipants)
-      .where(and(
-        eq(groupParticipants.groupPurchaseId, groupPurchaseId),
-        eq(groupParticipants.userId, userId)
-      ))
-      .returning();
-
-    if (result.length > 0) {
-      // Update participant count after someone leaves
-      await this.updateGroupPurchaseProgress(groupPurchaseId);
-      return true;
-    }
-    return false;
-  }
-
-  async getUserGroupParticipation(groupPurchaseId: number, userId: string): Promise<GroupParticipant | undefined> {
-    const [participant] = await db
-      .select()
-      .from(groupParticipants)
-      .where(and(
-        eq(groupParticipants.groupPurchaseId, groupPurchaseId),
-        eq(groupParticipants.userId, userId)
-      ));
-    
-    return participant;
-  }
-
-  async getUserParticipatingGroups(userId: string): Promise<number[]> {
-    const participations = await db
-      .select({ groupPurchaseId: groupParticipants.groupPurchaseId })
-      .from(groupParticipants)
-      .where(eq(groupParticipants.userId, userId));
-    
-    return participations.map(p => p.groupPurchaseId);
-  }
-
-  async getAllGroupPurchases(): Promise<GroupPurchase[]> {
-    return await db.select().from(groupPurchases);
-  }
-
-  async updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase> {
-    // Get current participant count
-    const participantCount = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(groupParticipants)
-      .where(eq(groupParticipants.groupPurchaseId, groupPurchaseId));
-
-    const count = participantCount[0]?.count || 0;
-
-    // Get the group purchase to check minimum requirements
-    const [groupPurchase] = await db
-      .select()
-      .from(groupPurchases)
-      .innerJoin(products, eq(groupPurchases.productId, products.id))
-      .where(eq(groupPurchases.id, groupPurchaseId));
-
-    if (!groupPurchase) {
-      throw new Error("Group purchase not found");
-    }
-
-    // Always calculate the correct current price based on participant count
-    let currentPrice = groupPurchase.products.originalPrice;
-    
-    // Check if we have enough participants for discount
-    if (count >= groupPurchase.products.minimumParticipants) {
-      // Get discount tiers for this product
-      const tiers = await db
-        .select()
-        .from(discountTiers)
-        .where(eq(discountTiers.productId, groupPurchase.products.id))
-        .orderBy(desc(discountTiers.participantCount));
-
-      // Find the best applicable discount tier
-      for (const tier of tiers) {
-        if (count >= tier.participantCount) {
-          currentPrice = tier.finalPrice;
-          break;
-        }
-      }
-    }
-
-    // Update group purchase
-    const [updatedGroupPurchase] = await db
-      .update(groupPurchases)
-      .set({ 
-        currentParticipants: count,
-        currentPrice: currentPrice
-      })
-      .where(eq(groupPurchases.id, groupPurchaseId))
-      .returning();
-
-    return updatedGroupPurchase;
-  }
 
   // User address operations
   async getUserAddresses(userId: string): Promise<UserAddress[]> {
@@ -791,11 +587,7 @@ export class DatabaseStorage implements IStorage {
             product: {
               with: {
                 discountTiers: true,
-                groupPurchases: {
-                  with: {
-                    participants: true,
-                  },
-                },
+
               },
             },
           },
@@ -1263,11 +1055,7 @@ export class DatabaseStorage implements IStorage {
                 seller: true,
                 category: true,
                 discountTiers: true,
-                groupPurchases: {
-                  with: {
-                    participants: true,
-                  },
-                },
+
               },
             },
           },
@@ -1300,11 +1088,7 @@ export class DatabaseStorage implements IStorage {
                 seller: true,
                 category: true,
                 discountTiers: true,
-                groupPurchases: {
-                  with: {
-                    participants: true,
-                  },
-                },
+
               },
             },
           },
@@ -1337,11 +1121,7 @@ export class DatabaseStorage implements IStorage {
                 seller: true,
                 category: true,
                 discountTiers: true,
-                groupPurchases: {
-                  with: {
-                    participants: true,
-                  },
-                },
+
               },
             },
           },

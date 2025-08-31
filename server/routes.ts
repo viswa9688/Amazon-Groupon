@@ -8,8 +8,6 @@ import {
   insertProductSchema,
   insertCategorySchema,
   insertDiscountTierSchema,
-  insertGroupPurchaseSchema,
-  insertGroupParticipantSchema,
   insertOrderSchema,
   insertUserAddressSchema,
   insertCartItemSchema,
@@ -249,96 +247,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Group purchase routes
-  app.get('/api/group-purchases', async (req, res) => {
-    try {
-      const groupPurchases = await storage.getActiveGroupPurchases();
-      res.json(groupPurchases);
-    } catch (error) {
-      console.error("Error fetching group purchases:", error);
-      res.status(500).json({ message: "Failed to fetch group purchases" });
-    }
-  });
 
-  app.get('/api/group-purchases/:id', async (req, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const groupPurchase = await storage.getGroupPurchase(groupId);
-      if (!groupPurchase) {
-        return res.status(404).json({ message: "Group purchase not found" });
-      }
-      res.json(groupPurchase);
-    } catch (error) {
-      console.error("Error fetching group purchase:", error);
-      res.status(500).json({ message: "Failed to fetch group purchase" });
-    }
-  });
 
-  app.post('/api/group-purchases', isAuthenticated, async (req: any, res) => {
-    try {
-      const groupPurchaseData = insertGroupPurchaseSchema.parse(req.body);
-      const groupPurchase = await storage.createGroupPurchase(groupPurchaseData);
-      res.status(201).json(groupPurchase);
-    } catch (error) {
-      console.error("Error creating group purchase:", error);
-      res.status(400).json({ message: "Failed to create group purchase" });
-    }
-  });
 
-  app.post('/api/group-purchases/:id/join', isAuthenticated, async (req: any, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
-      const { quantity = 1 } = req.body;
 
-      const participant = await storage.joinGroupPurchase(groupId, userId, quantity);
-      res.status(201).json(participant);
-    } catch (error) {
-      console.error("Error joining group purchase:", error);
-      res.status(400).json({ message: "Failed to join group purchase" });
-    }
-  });
 
-  app.delete('/api/group-purchases/:id/leave', isAuthenticated, async (req: any, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
-
-      const success = await storage.leaveGroupPurchase(groupId, userId);
-      if (success) {
-        res.json({ message: "Left group purchase successfully" });
-      } else {
-        res.status(404).json({ message: "Participation not found" });
-      }
-    } catch (error) {
-      console.error("Error leaving group purchase:", error);
-      res.status(400).json({ message: "Failed to leave group purchase" });
-    }
-  });
-
-  app.get('/api/group-purchases/:id/participation', isAuthenticated, async (req: any, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
-
-      const participation = await storage.getUserGroupParticipation(groupId, userId);
-      res.json({ isParticipating: !!participation, participation });
-    } catch (error) {
-      console.error("Error checking participation:", error);
-      res.status(500).json({ message: "Failed to check participation" });
-    }
-  });
 
   // Get all groups user is participating in
-  app.get('/api/user/participating-groups', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const participatingGroups = await storage.getUserParticipatingGroups(userId);
-      res.json(participatingGroups);
-    } catch (error) {
-      console.error("Error fetching user participating groups:", error);
-      res.status(500).json({ message: "Failed to fetch participating groups" });
-    }
-  });
 
   // Order routes
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
@@ -1001,14 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const endTime = new Date();
       endTime.setDate(endTime.getDate() + 30); // 30 days from now
       
-      const groupPurchase = await storage.createGroupPurchase({
-        productId: product.id!,
-        targetParticipants: productData.minimumParticipants,
-        currentPrice: productData.originalPrice,
-        endTime,
-      });
-      
-      res.status(201).json({ product, groupPurchase });
+      res.status(201).json({ product });
     } catch (error) {
       console.error("Error creating product:", error);
       res.status(400).json({ message: "Failed to create product" });
@@ -1041,10 +949,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedProductData = insertProductSchema.parse(productData);
       const product = await storage.updateProduct(productId, validatedProductData);
       
-      // Update related group purchases if minimum participants changed
-      if (existingProduct.minimumParticipants !== productData.minimumParticipants) {
-        await storage.updateGroupPurchaseTargets(productId, productData.minimumParticipants);
-      }
       
       // Update discount tier if provided
       if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
@@ -1306,23 +1210,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Temporary endpoint to recalculate pricing for existing group purchases
-  app.post('/api/admin/recalculate-prices', async (req, res) => {
-    try {
-      // Get all active group purchases
-      const groupPurchases = await storage.getAllGroupPurchases();
-      
-      // Recalculate prices for each one
-      for (const gp of groupPurchases) {
-        await storage.updateGroupPurchaseProgress(gp.id);
-      }
-      
-      res.json({ message: `Updated ${groupPurchases.length} group purchases` });
-    } catch (error) {
-      console.error("Error recalculating prices:", error);
-      res.status(500).json({ message: "Failed to recalculate prices" });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;

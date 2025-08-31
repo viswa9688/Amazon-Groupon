@@ -74,26 +74,7 @@ export const discountTiers = pgTable("discount_tiers", {
   finalPrice: decimal("final_price", { precision: 10, scale: 2 }).notNull(),
 });
 
-// Group purchases
-export const groupPurchases = pgTable("group_purchases", {
-  id: serial("id").primaryKey(),
-  productId: integer("product_id").notNull().references(() => products.id),
-  currentParticipants: integer("current_participants").default(0),
-  targetParticipants: integer("target_participants").notNull(),
-  currentPrice: decimal("current_price", { precision: 10, scale: 2 }).notNull(),
-  endTime: timestamp("end_time").notNull(),
-  status: varchar("status", { length: 20 }).default("active"), // active, completed, expired
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
-// User participation in group purchases
-export const groupParticipants = pgTable("group_participants", {
-  id: serial("id").primaryKey(),
-  groupPurchaseId: integer("group_purchase_id").notNull().references(() => groupPurchases.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  quantity: integer("quantity").default(1),
-  joinedAt: timestamp("joined_at").defaultNow(),
-});
 
 // User addresses table
 export const userAddresses = pgTable("user_addresses", {
@@ -150,24 +131,12 @@ export const userGroupParticipants = pgTable("user_group_participants", {
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
-// Group similarity cache for performance
-export const groupSimilarityCache = pgTable("group_similarity_cache", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  groupPurchaseId: integer("group_purchase_id").notNull().references(() => groupPurchases.id),
-  similarityScore: decimal("similarity_score", { precision: 5, scale: 2 }).notNull(),
-  matchingProducts: integer("matching_products").notNull(),
-  totalCartProducts: integer("total_cart_products").notNull(),
-  potentialSavings: decimal("potential_savings", { precision: 10, scale: 2 }).notNull(),
-  calculatedAt: timestamp("calculated_at").defaultNow(),
-});
 
 // Orders
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
   productId: integer("product_id").notNull().references(() => products.id),
-  groupPurchaseId: integer("group_purchase_id").references(() => groupPurchases.id), // Optional for individual orders
   addressId: integer("address_id").references(() => userAddresses.id), // Reference to user address
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
@@ -183,11 +152,9 @@ export const orders = pgTable("orders", {
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   products: many(products),
-  groupParticipants: many(groupParticipants),
   orders: many(orders),
   addresses: many(userAddresses),
   cartItems: many(cartItems),
-  groupSimilarityCache: many(groupSimilarityCache),
   userGroups: many(userGroups),
 }));
 
@@ -199,25 +166,14 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   seller: one(users, { fields: [products.sellerId], references: [users.id] }),
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
   discountTiers: many(discountTiers),
-  groupPurchases: many(groupPurchases),
   orders: many(orders),
 }));
 
-export const groupPurchasesRelations = relations(groupPurchases, ({ one, many }) => ({
-  product: one(products, { fields: [groupPurchases.productId], references: [products.id] }),
-  participants: many(groupParticipants),
-  orders: many(orders),
-}));
 
-export const groupParticipantsRelations = relations(groupParticipants, ({ one }) => ({
-  groupPurchase: one(groupPurchases, { fields: [groupParticipants.groupPurchaseId], references: [groupPurchases.id] }),
-  user: one(users, { fields: [groupParticipants.userId], references: [users.id] }),
-}));
 
 export const ordersRelations = relations(orders, ({ one }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
   product: one(products, { fields: [orders.productId], references: [products.id] }),
-  groupPurchase: one(groupPurchases, { fields: [orders.groupPurchaseId], references: [groupPurchases.id] }),
   address: one(userAddresses, { fields: [orders.addressId], references: [userAddresses.id] }),
 }));
 
@@ -230,10 +186,6 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   product: one(products, { fields: [cartItems.productId], references: [products.id] }),
 }));
 
-export const groupSimilarityCacheRelations = relations(groupSimilarityCache, ({ one }) => ({
-  user: one(users, { fields: [groupSimilarityCache.userId], references: [users.id] }),
-  groupPurchase: one(groupPurchases, { fields: [groupSimilarityCache.groupPurchaseId], references: [groupPurchases.id] }),
-}));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
   products: many(products),
@@ -271,15 +223,7 @@ export const insertDiscountTierSchema = createInsertSchema(discountTiers).omit({
   id: true,
 });
 
-export const insertGroupPurchaseSchema = createInsertSchema(groupPurchases).omit({
-  id: true,
-  createdAt: true,
-});
 
-export const insertGroupParticipantSchema = createInsertSchema(groupParticipants).omit({
-  id: true,
-  joinedAt: true,
-});
 
 export const insertUserAddressSchema = createInsertSchema(userAddresses).omit({
   id: true,
@@ -298,10 +242,6 @@ export const insertCartItemSchema = createInsertSchema(cartItems).omit({
   addedAt: true,
 });
 
-export const insertGroupSimilarityCacheSchema = createInsertSchema(groupSimilarityCache).omit({
-  id: true,
-  calculatedAt: true,
-});
 
 export const insertUserGroupSchema = createInsertSchema(userGroups).omit({
   id: true,
@@ -334,18 +274,12 @@ export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type DiscountTier = typeof discountTiers.$inferSelect;
 export type InsertDiscountTier = z.infer<typeof insertDiscountTierSchema>;
-export type GroupPurchase = typeof groupPurchases.$inferSelect;
-export type InsertGroupPurchase = z.infer<typeof insertGroupPurchaseSchema>;
-export type GroupParticipant = typeof groupParticipants.$inferSelect;
-export type InsertGroupParticipant = z.infer<typeof insertGroupParticipantSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type UserAddress = typeof userAddresses.$inferSelect;
 export type InsertUserAddress = z.infer<typeof insertUserAddressSchema>;
 export type CartItem = typeof cartItems.$inferSelect;
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
-export type GroupSimilarityCache = typeof groupSimilarityCache.$inferSelect;
-export type InsertGroupSimilarityCache = z.infer<typeof insertGroupSimilarityCacheSchema>;
 export type UserGroup = typeof userGroups.$inferSelect;
 export type InsertUserGroup = z.infer<typeof insertUserGroupSchema>;
 export type UserGroupItem = typeof userGroupItems.$inferSelect;
@@ -358,16 +292,8 @@ export type ProductWithDetails = Product & {
   seller: User;
   category: Category | null;
   discountTiers: DiscountTier[];
-  groupPurchases: (GroupPurchase & {
-    participants: GroupParticipant[];
-  })[];
 };
 
-// Group purchase with details
-export type GroupPurchaseWithDetails = GroupPurchase & {
-  product: ProductWithDetails;
-  participants: (GroupParticipant & { user: User })[];
-};
 
 // User group with details
 export type UserGroupWithDetails = UserGroup & {

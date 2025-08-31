@@ -3,9 +3,12 @@ import {
   categories, 
   products, 
   discountTiers, 
-  groupPurchases,
-  users
+  users,
+  userGroups,
+  userGroupItems,
+  userGroupParticipants
 } from "@shared/schema";
+import { nanoid } from "nanoid";
 
 export async function seedDatabase() {
   try {
@@ -343,38 +346,117 @@ export async function seedDatabase() {
     await db.insert(discountTiers).values(discountTierData);
     console.log("Seeded discount tiers:", discountTierData.length);
 
-    // Seed group purchases
-    const groupPurchaseData = insertedProducts.map((product, index) => {
-      const endTime = new Date();
-      endTime.setDate(endTime.getDate() + Math.floor(Math.random() * 7) + 1); // 1-7 days from now
-      
-      const currentParticipants = Math.floor(Math.random() * product.minimumParticipants * 1.5);
-      const originalPrice = parseFloat(product.originalPrice.toString());
-      
-      // Calculate current price based on participants
-      let currentPrice = originalPrice;
-      if (currentParticipants >= product.minimumParticipants * 3) {
-        currentPrice = originalPrice * 0.5; // 50% off
-      } else if (currentParticipants >= product.minimumParticipants * 2) {
-        currentPrice = originalPrice * 0.65; // 35% off
-      } else if (currentParticipants >= product.minimumParticipants) {
-        currentPrice = originalPrice * 0.8; // 20% off
-      } else if (currentParticipants >= Math.floor(product.minimumParticipants / 2)) {
-        currentPrice = originalPrice * 0.9; // 10% off
-      }
-
-      return {
-        productId: product.id,
-        currentParticipants,
-        targetParticipants: product.minimumParticipants * 3,
-        currentPrice: currentPrice.toFixed(2),
-        endTime,
-        status: "active" as const,
+    // Create buyer users to join collections
+    const buyerUsers = [];
+    for (let i = 1; i <= 15; i++) {
+      const buyer = {
+        id: `buyer-${i}`,
+        email: `buyer${i}@oneant.com`,
+        firstName: `Buyer`,
+        lastName: `${i}`,
+        isSeller: false,
       };
-    });
+      buyerUsers.push(buyer);
+    }
+    
+    const insertedBuyers = await db.insert(users).values(buyerUsers).returning();
+    console.log("Seeded buyer users:", insertedBuyers.length);
 
-    await db.insert(groupPurchases).values(groupPurchaseData);
-    console.log("Seeded group purchases:", groupPurchaseData.length);
+    // Create collections that cover all products (distributed among users)
+    const collectionsData = [];
+    const allUsers = [sampleSeller[0], johnSeller[0], ...insertedBuyers];
+    
+    // Helper function to create collections
+    const createCollection = (name: string, description: string, ownerId: string, productIds: number[]) => {
+      return {
+        userId: ownerId,
+        name,
+        description,
+        shareToken: nanoid(32),
+        isPublic: true,
+      };
+    };
+    
+    // Distribute products across collections (3-4 products per collection)
+    const productChunks = [];
+    for (let i = 0; i < insertedProducts.length; i += 3) {
+      productChunks.push(insertedProducts.slice(i, i + 3));
+    }
+    
+    // Create collections with descriptive names
+    const collectionNames = [
+      "Tech Essentials Bundle",
+      "Home Comfort Collection", 
+      "Fitness & Wellness Pack",
+      "Fashion Forward Set",
+      "Smart Living Bundle",
+      "Gaming & Entertainment", 
+      "Health & Beauty Kit",
+      "Kitchen & Dining Set",
+      "Outdoor Adventure Pack",
+      "Learning & Development Bundle"
+    ];
+    
+    for (let i = 0; i < productChunks.length; i++) {
+      const chunk = productChunks[i];
+      const ownerIndex = i % allUsers.length;
+      const owner = allUsers[ownerIndex];
+      
+      const collectionName = collectionNames[i] || `Collection ${i + 1}`;
+      const description = `Curated bundle featuring ${chunk.length} amazing products at discounted prices when 5+ people join!`;
+      
+      collectionsData.push(createCollection(
+        collectionName,
+        description,
+        owner.id,
+        chunk.map(p => p.id)
+      ));
+    }
+    
+    const insertedCollections = await db.insert(userGroups).values(collectionsData).returning();
+    console.log("Seeded collections:", insertedCollections.length);
+    
+    // Add products to collections
+    const collectionItems = [];
+    for (let i = 0; i < productChunks.length && i < insertedCollections.length; i++) {
+      const chunk = productChunks[i];
+      const collection = insertedCollections[i];
+      
+      for (const product of chunk) {
+        collectionItems.push({
+          userGroupId: collection.id,
+          productId: product.id,
+          quantity: 1,
+        });
+      }
+    }
+    
+    await db.insert(userGroupItems).values(collectionItems);
+    console.log("Seeded collection items:", collectionItems.length);
+    
+    // Add participants to collections (5 people per collection for discounts)
+    const participantsData = [];
+    for (const collection of insertedCollections) {
+      // Add the collection owner as first participant
+      participantsData.push({
+        userGroupId: collection.id,
+        userId: collection.userId,
+      });
+      
+      // Add 4 more random participants from different users
+      const otherUsers = allUsers.filter(u => u.id !== collection.userId);
+      const shuffled = otherUsers.sort(() => 0.5 - Math.random());
+      
+      for (let i = 0; i < Math.min(4, shuffled.length); i++) {
+        participantsData.push({
+          userGroupId: collection.id,
+          userId: shuffled[i].id,
+        });
+      }
+    }
+    
+    await db.insert(userGroupParticipants).values(participantsData);
+    console.log("Seeded collection participants:", participantsData.length);
 
     console.log("Database seeding completed successfully!");
   } catch (error) {
