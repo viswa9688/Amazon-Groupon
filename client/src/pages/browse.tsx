@@ -341,7 +341,7 @@ export default function Browse() {
               {filteredAndSortedCollections.map((collection) => (
                 <Card key={collection.id} className="group hover:shadow-lg transition-shadow duration-200" data-testid={`card-collection-${collection.id}`}>
                   <CardContent className="p-0">
-                    <Link href={`/groups/${collection.shareToken}`}>
+                    <Link href={`/shared/${collection.shareToken}`}>
                       <div className="cursor-pointer">
                         <div className="relative">
                           <img
