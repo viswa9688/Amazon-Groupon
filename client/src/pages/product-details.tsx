@@ -16,6 +16,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Users, Clock, Star, ShoppingCart } from "lucide-react";
 import type { GroupPurchaseWithDetails } from "@shared/schema";
 
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  originalPrice: string;
+  imageUrl: string;
+  discountTiers?: Array<{
+    id: number;
+    minQuantity: number;
+    finalPrice: string;
+  }>;
+  seller: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    profileImageUrl?: string;
+  };
+  category: {
+    id: number;
+    name: string;
+  };
+}
+
 export default function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const { user, isAuthenticated } = useAuth();
@@ -23,15 +46,26 @@ export default function ProductDetails() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [, navigate] = useLocation();
 
-  const { data: groupPurchase, isLoading } = useQuery<GroupPurchaseWithDetails>({
-    queryKey: ["/api/group-purchases", id],
+  // Try to fetch as individual product first
+  const { data: individualProduct, isLoading: productLoading } = useQuery<Product>({
+    queryKey: ["/api/products", id],
     enabled: !!id,
+    retry: false,
+  });
+
+  // If not an individual product, try to fetch as group purchase
+  const { data: groupPurchase, isLoading: groupLoading } = useQuery<GroupPurchaseWithDetails>({
+    queryKey: ["/api/group-purchases", id],
+    enabled: !!id && !individualProduct,
+    retry: false,
   });
 
   const { data: participation } = useQuery<{ isParticipating: boolean; participation: any }>({
     queryKey: ["/api/group-purchases", id, "participation"],
-    enabled: !!id && isAuthenticated,
+    enabled: !!id && isAuthenticated && !!groupPurchase,
   });
+
+  const isLoading = productLoading || groupLoading;
 
   // Check user addresses before joining
   const { data: userAddresses } = useQuery({
@@ -125,9 +159,10 @@ export default function ProductDetails() {
 
   const addToCartMutation = useMutation({
     mutationFn: async () => {
-      if (!groupPurchase) throw new Error("Product not found");
+      const productId = individualProduct?.id || groupPurchase?.product.id;
+      if (!productId) throw new Error("Product not found");
       return apiRequest("POST", "/api/cart", {
-        productId: groupPurchase.product.id,
+        productId: productId,
         quantity: 1,
       });
     },
@@ -181,7 +216,7 @@ export default function ProductDetails() {
     );
   }
 
-  if (!groupPurchase) {
+  if (!individualProduct && !groupPurchase) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -189,7 +224,7 @@ export default function ProductDetails() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-bold text-foreground mb-4">Product Not Found</h1>
             <p className="text-muted-foreground mb-6">
-              The group purchase you're looking for doesn't exist or has ended.
+              The product you're looking for doesn't exist.
             </p>
             <Button onClick={() => window.history.back()}>
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -201,15 +236,53 @@ export default function ProductDetails() {
     );
   }
 
-  const { product } = groupPurchase;
+  // Get the product data from either individual product or group purchase
+  const product = individualProduct || groupPurchase?.product;
   const isUserParticipant = participation?.isParticipating || false;
+  const isGroupPurchase = !!groupPurchase;
+
+  // Early return if no product found
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold text-foreground mb-4">Product Not Found</h1>
+            <p className="text-muted-foreground mb-6">
+              The product you're looking for doesn't exist.
+            </p>
+            <Button onClick={() => window.history.back()}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
-  // Show seller's intended discount price immediately if set, otherwise show current price
-  const displayPrice = product.discountTiers && product.discountTiers.length > 0 
-    ? product.discountTiers[0].finalPrice.toString()
-    : groupPurchase.currentPrice.toString();
+  // Calculate pricing based on product type
+  const displayPrice = (() => {
+    if (individualProduct) {
+      // For individual products, show discounted price if available
+      return individualProduct.discountTiers && individualProduct.discountTiers.length > 0 
+        ? individualProduct.discountTiers[0].finalPrice
+        : individualProduct.originalPrice;
+    } else if (groupPurchase) {
+      // For group purchases, use current price or first discount tier
+      return product.discountTiers && product.discountTiers.length > 0 
+        ? product.discountTiers[0].finalPrice.toString()
+        : groupPurchase.currentPrice.toString();
+    }
+    return product?.originalPrice || "0";
+  })();
   
-  const currentDiscount = parseFloat(product.originalPrice.toString()) - parseFloat(displayPrice);
+  const currentDiscount = parseFloat(product?.originalPrice?.toString() || "0") - parseFloat(displayPrice);
+  
+  // For individual products, simulate group purchase properties
+  const minParticipants = individualProduct ? 5 : groupPurchase?.targetParticipants || 5;
+  const currentParticipants = individualProduct ? 1 : groupPurchase?.currentParticipants || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -268,8 +341,8 @@ export default function ProductDetails() {
                 <h1 className="text-3xl font-bold text-foreground" data-testid="text-product-name">
                   {product.name}
                 </h1>
-                <Badge variant={groupPurchase.status === "active" ? "default" : "secondary"}>
-                  {groupPurchase.status === "active" ? "Active" : "Ended"}
+                <Badge variant={isGroupPurchase && groupPurchase?.status === "active" ? "default" : "secondary"}>
+                  {individualProduct ? "Individual Product" : (groupPurchase?.status === "active" ? "Active Group" : "Ended")}
                 </Badge>
               </div>
               
@@ -293,7 +366,12 @@ export default function ProductDetails() {
                       Save ${currentDiscount.toFixed(2)}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">Group discount available! Join now to get this great price!</p>
+                  <p className="text-sm text-muted-foreground">
+                    {individualProduct 
+                      ? (currentDiscount > 0 ? "Special discount available!" : "Regular pricing")
+                      : "Group discount available! Join now to get this great price!"
+                    }
+                  </p>
                 </div>
               </div>
             </div>
@@ -302,34 +380,42 @@ export default function ProductDetails() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">Group Progress</h3>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {individualProduct ? "Group Buying Potential" : "Group Progress"}
+                  </h3>
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" />
                     <span data-testid="text-participant-count">
-                      {groupPurchase.currentParticipants || 0} of {groupPurchase.targetParticipants} people
+                      {currentParticipants} of {minParticipants} people
                     </span>
                   </div>
                 </div>
                 
                 <GroupProgress
-                  current={groupPurchase.currentParticipants || 0}
-                  target={groupPurchase.targetParticipants}
+                  current={currentParticipants}
+                  target={minParticipants}
                 />
                 
                 <div className="mt-4 text-sm text-muted-foreground">
-                  {groupPurchase.targetParticipants - (groupPurchase.currentParticipants || 0) > 0 ? (
+                  {individualProduct ? (
                     <span>
-                      {groupPurchase.targetParticipants - (groupPurchase.currentParticipants || 0)} more people needed to reach the goal!
+                      Start a group purchase for this product to unlock bulk discounts! Need {minParticipants - currentParticipants} more people.
                     </span>
                   ) : (
-                    <span className="text-accent font-medium">Goal reached! Maximum discount unlocked!</span>
+                    minParticipants - currentParticipants > 0 ? (
+                      <span>
+                        {minParticipants - currentParticipants} more people needed to reach the goal!
+                      </span>
+                    ) : (
+                      <span className="text-accent font-medium">Goal reached! Maximum discount unlocked!</span>
+                    )
                   )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Countdown Timer */}
-            {groupPurchase.status === "active" && (
+            {isGroupPurchase && groupPurchase.status === "active" && (
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-2 mb-4">
@@ -341,29 +427,78 @@ export default function ProductDetails() {
               </Card>
             )}
 
+            {/* Group Buying Opportunity for Individual Products */}
+            {individualProduct && (
+              <Card className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-foreground">Start a Group Purchase</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Be the first to start a group purchase for this product and get others to join for bulk discounts!
+                  </p>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>5+ people:</span>
+                      <span className="font-semibold text-green-600">15% off (${(parseFloat(product.originalPrice) * 0.85).toFixed(2)})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>10+ people:</span>
+                      <span className="font-semibold text-green-600">25% off (${(parseFloat(product.originalPrice) * 0.75).toFixed(2)})</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-4">
               {!isAuthenticated ? (
                 <div className="space-y-3">
-                  <Button 
-                    size="lg" 
-                    className="w-full bg-primary hover:bg-primary/90"
-                    onClick={() => setAuthModalOpen(true)}
-                    data-testid="button-login-to-join"
-                  >
-                    Login to Join Group Purchase
-                  </Button>
-                  <Button 
-                    size="lg" 
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setAuthModalOpen(true)}
-                    data-testid="button-login-to-buy"
-                  >
-                    Login to Buy Individual
-                  </Button>
+                  {isGroupPurchase ? (
+                    <>
+                      <Button 
+                        size="lg" 
+                        className="w-full bg-primary hover:bg-primary/90"
+                        onClick={() => setAuthModalOpen(true)}
+                        data-testid="button-login-to-join"
+                      >
+                        Login to Join Group Purchase
+                      </Button>
+                      <Button 
+                        size="lg" 
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setAuthModalOpen(true)}
+                        data-testid="button-login-to-buy"
+                      >
+                        Login to Buy Individual
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button 
+                        size="lg" 
+                        className="w-full bg-primary hover:bg-primary/90"
+                        onClick={() => setAuthModalOpen(true)}
+                        data-testid="button-login-to-buy"
+                      >
+                        Login to Buy Now
+                      </Button>
+                      <Button 
+                        size="lg" 
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setAuthModalOpen(true)}
+                        data-testid="button-login-to-start-group"
+                      >
+                        Login to Start Group Purchase
+                      </Button>
+                    </>
+                  )}
                 </div>
-              ) : isUserParticipant ? (
+              ) : isGroupPurchase && isUserParticipant ? (
                 <div className="space-y-4">
                   <div className="text-center p-4 bg-accent/10 rounded-lg">
                     <p className="text-accent font-semibold">✓ You're part of this group!</p>
@@ -376,7 +511,7 @@ export default function ProductDetails() {
                     <Button 
                       size="lg" 
                       className="w-full bg-primary hover:bg-primary/90"
-                      onClick={() => navigate(`/checkout/${groupPurchase.productId}/group`)}
+                      onClick={() => navigate(`/checkout/${groupPurchase?.productId}/group`)}
                       data-testid="button-pay-group"
                     >
                       Pay for Group Purchase - ${displayPrice}
@@ -394,7 +529,57 @@ export default function ProductDetails() {
                     </Button>
                   </div>
                 </div>
-              ) : groupPurchase.status === "active" ? (
+              ) : individualProduct ? (
+                <div className="space-y-3">
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-primary hover:bg-primary/90"
+                    onClick={() => navigate(`/checkout/${individualProduct.id}/individual`)}
+                    data-testid="button-buy-now"
+                  >
+                    Buy Now - ${displayPrice}
+                  </Button>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      onClick={() => addToCartMutation.mutate()}
+                      disabled={addToCartMutation.isPending}
+                      data-testid="button-add-to-cart"
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      {addToCartMutation.isPending ? "Adding..." : "Add to Cart"}
+                    </Button>
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      onClick={() => {
+                        toast({
+                          title: "Coming Soon",
+                          description: "Group purchase creation is coming soon!",
+                        });
+                      }}
+                      data-testid="button-start-group"
+                    >
+                      Start Group
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground text-center">
+                    Ships immediately • Free returns within 30 days
+                  </p>
+                </div>
+              ) : isGroupPurchase && groupPurchase.status === "active" ? (
                 <div className="space-y-3">
                   <Button 
                     size="lg" 
@@ -450,7 +635,7 @@ export default function ProductDetails() {
                     size="lg" 
                     variant="outline"
                     className="w-full"
-                    onClick={() => navigate(`/checkout/${groupPurchase.productId}/individual`)}
+                    onClick={() => navigate(`/checkout/${groupPurchase?.productId}/individual`)}
                     disabled={false}
                     data-testid="button-buy-individual-ended"
                   >
