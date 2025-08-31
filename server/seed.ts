@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { 
   categories, 
   products, 
@@ -12,7 +13,16 @@ import { nanoid } from "nanoid";
 
 export async function seedDatabase() {
   try {
-    // Seed categories
+    // Check if data already exists
+    const existingCategories = await db.select().from(categories).limit(1);
+    const existingCollections = await db.select().from(userGroups).limit(1);
+    
+    if (existingCategories.length > 0 && existingCollections.length > 5) {
+      console.log("Database already seeded, skipping...");
+      return;
+    }
+
+    // Seed categories (handle duplicates)
     const categoryData = [
       { name: "Electronics", slug: "electronics", icon: "Laptop" },
       { name: "Fashion", slug: "fashion", icon: "Shirt" },
@@ -23,30 +33,46 @@ export async function seedDatabase() {
       { name: "Books", slug: "books", icon: "Book" },
     ];
 
-    const insertedCategories = await db.insert(categories).values(categoryData).returning();
+    let insertedCategories;
+    if (existingCategories.length === 0) {
+      insertedCategories = await db.insert(categories).values(categoryData).returning();
+      console.log("Seeded categories:", insertedCategories.length);
+    } else {
+      insertedCategories = await db.select().from(categories);
+      console.log("Using existing categories:", insertedCategories.length);
+    }
     console.log("Seeded categories:", insertedCategories.length);
 
-    // Create sample seller users
-    const sampleSeller = await db.insert(users).values({
-      id: "sample-seller-123",
-      email: "seller@oneant.com",
-      firstName: "John",
-      lastName: "Seller",
-      isSeller: true,
-    }).returning();
+    // Create sample seller users (handle duplicates)
+    let sampleSeller, johnSeller;
+    try {
+      sampleSeller = await db.insert(users).values({
+        id: "sample-seller-123",
+        email: "seller@oneant.com",
+        firstName: "John",
+        lastName: "Seller",
+        isSeller: true,
+      }).returning();
+    } catch (e) {
+      sampleSeller = await db.select().from(users).where(eq(users.id, "sample-seller-123"));
+    }
 
-    const johnSeller = await db.insert(users).values({
-      id: "john-seller-456",
-      email: "john@oneant.com",
-      firstName: "John",
-      lastName: "Smith",
-      isSeller: true,
-    }).returning();
+    try {
+      johnSeller = await db.insert(users).values({
+        id: "john-seller-456",
+        email: "john@oneant.com",
+        firstName: "John",
+        lastName: "Smith",
+        isSeller: true,
+      }).returning();
+    } catch (e) {
+      johnSeller = await db.select().from(users).where(eq(users.id, "john-seller-456"));
+    }
 
     // Seed sample products
     const productData = [
       {
-        sellerId: sampleSeller[0].id,
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
         categoryId: insertedCategories[0].id,
         name: "Premium Wireless Headphones",
         description: "High-quality wireless headphones with noise cancellation and premium sound quality. Perfect for music lovers and professionals.",
@@ -56,7 +82,7 @@ export async function seedDatabase() {
         maximumParticipants: 100,
       },
       {
-        sellerId: sampleSeller[0].id,
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
         categoryId: insertedCategories[3].id,
         name: "Smart Fitness Tracker",
         description: "Advanced fitness tracker with heart rate monitoring, GPS, and 7-day battery life. Track your health and fitness goals.",
@@ -66,7 +92,7 @@ export async function seedDatabase() {
         maximumParticipants: 200,
       },
       {
-        sellerId: sampleSeller[0].id,
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
         categoryId: insertedCategories[0].id,
         name: "Portable Bluetooth Speaker",
         description: "Waterproof portable speaker with 360-degree sound and 12-hour battery life. Perfect for outdoor adventures.",
@@ -76,7 +102,7 @@ export async function seedDatabase() {
         maximumParticipants: 300,
       },
       {
-        sellerId: sampleSeller[0].id,
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
         categoryId: insertedCategories[1].id,
         name: "Premium Cotton T-Shirt Set",
         description: "Set of 3 premium cotton t-shirts in different colors. Comfortable, durable, and stylish for everyday wear.",
@@ -86,7 +112,7 @@ export async function seedDatabase() {
         maximumParticipants: 250,
       },
       {
-        sellerId: sampleSeller[0].id,
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
         categoryId: insertedCategories[4].id,
         name: "Wireless Gaming Mouse",
         description: "High-precision wireless gaming mouse with customizable RGB lighting and ultra-fast response time.",
@@ -96,7 +122,7 @@ export async function seedDatabase() {
         maximumParticipants: 150,
       },
       {
-        sellerId: sampleSeller[0].id,
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
         categoryId: insertedCategories[2].id,
         name: "Smart Plant Monitoring System",
         description: "Monitor your plants' health with smart sensors that track moisture, light, and temperature. Includes mobile app.",
@@ -107,7 +133,7 @@ export async function seedDatabase() {
       },
       // John's 20 additional products
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[0].id, // Electronics
         name: "4K Ultra HD Smart TV",
         description: "55-inch 4K Ultra HD Smart TV with HDR and built-in streaming apps. Perfect for entertainment.",
@@ -117,7 +143,7 @@ export async function seedDatabase() {
         maximumParticipants: 50,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[0].id, // Electronics
         name: "Wireless Charging Pad",
         description: "Fast wireless charging pad compatible with all Qi-enabled devices. Sleek and efficient design.",
@@ -127,7 +153,7 @@ export async function seedDatabase() {
         maximumParticipants: 200,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[0].id, // Electronics
         name: "USB-C Hub Multi-Port Adapter",
         description: "7-in-1 USB-C hub with HDMI, USB 3.0, SD card reader, and fast charging support.",
@@ -137,7 +163,7 @@ export async function seedDatabase() {
         maximumParticipants: 150,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[0].id, // Electronics
         name: "Smartphone Camera Lens Kit",
         description: "Professional smartphone camera lens kit with wide-angle, macro, and telephoto lenses.",
@@ -147,7 +173,7 @@ export async function seedDatabase() {
         maximumParticipants: 100,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[1].id, // Fashion
         name: "Luxury Leather Handbag",
         description: "Genuine leather handbag with multiple compartments and adjustable strap. Timeless elegance.",
@@ -157,7 +183,7 @@ export async function seedDatabase() {
         maximumParticipants: 75,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[1].id, // Fashion
         name: "Designer Sunglasses",
         description: "UV protection designer sunglasses with polarized lenses and lightweight titanium frame.",
@@ -167,7 +193,7 @@ export async function seedDatabase() {
         maximumParticipants: 80,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[1].id, // Fashion
         name: "Premium Wool Scarf",
         description: "Soft cashmere blend scarf in multiple colors. Perfect for any season and occasion.",
@@ -177,7 +203,7 @@ export async function seedDatabase() {
         maximumParticipants: 180,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[1].id, // Fashion
         name: "Athletic Performance Sneakers",
         description: "High-performance athletic sneakers with advanced cushioning and breathable mesh design.",
@@ -187,7 +213,7 @@ export async function seedDatabase() {
         maximumParticipants: 120,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[2].id, // Home & Garden
         name: "Smart Home Security Camera",
         description: "1080p HD security camera with night vision, motion detection, and smartphone app control.",
@@ -197,7 +223,7 @@ export async function seedDatabase() {
         maximumParticipants: 150,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[2].id, // Home & Garden
         name: "Ceramic Non-Stick Cookware Set",
         description: "10-piece ceramic non-stick cookware set with heat-resistant handles and dishwasher-safe design.",
@@ -207,7 +233,7 @@ export async function seedDatabase() {
         maximumParticipants: 60,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[2].id, // Home & Garden
         name: "LED String Lights",
         description: "50ft waterproof LED string lights with remote control and 8 lighting modes for outdoor decoration.",
@@ -217,7 +243,7 @@ export async function seedDatabase() {
         maximumParticipants: 300,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[2].id, // Home & Garden
         name: "Bamboo Cutting Board Set",
         description: "Set of 3 eco-friendly bamboo cutting boards in different sizes with built-in compartments.",
@@ -227,7 +253,7 @@ export async function seedDatabase() {
         maximumParticipants: 200,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[3].id, // Sports & Fitness
         name: "Adjustable Dumbbell Set",
         description: "Space-saving adjustable dumbbell set with weight range from 5-50 lbs per dumbbell.",
@@ -237,7 +263,7 @@ export async function seedDatabase() {
         maximumParticipants: 40,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[3].id, // Sports & Fitness
         name: "Yoga Mat with Carrying Strap",
         description: "Extra-thick yoga mat with non-slip surface and alignment lines. Includes carrying strap.",
@@ -247,7 +273,7 @@ export async function seedDatabase() {
         maximumParticipants: 250,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[3].id, // Sports & Fitness
         name: "Resistance Bands Set",
         description: "Complete resistance bands set with 5 different resistance levels, handles, and door anchor.",
@@ -257,7 +283,7 @@ export async function seedDatabase() {
         maximumParticipants: 400,
       },
       {
-        sellerId: johnSeller[0].id,
+        sellerId: johnSeller[0]?.id || "john-seller-456",
         categoryId: insertedCategories[3].id, // Sports & Fitness
         name: "Premium Protein Shaker Bottle",
         description: "BPA-free protein shaker bottle with mixing ball and measurement marks. Leak-proof design.",
@@ -267,8 +293,8 @@ export async function seedDatabase() {
         maximumParticipants: 500,
       },
       {
-        sellerId: johnSeller[0].id,
-        categoryId: insertedCategories[6].id, // Books
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
         name: "Personal Development Book Bundle",
         description: "Collection of 5 bestselling personal development books including productivity and mindfulness guides.",
         imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -277,8 +303,8 @@ export async function seedDatabase() {
         maximumParticipants: 150,
       },
       {
-        sellerId: johnSeller[0].id,
-        categoryId: insertedCategories[6].id, // Books
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
         name: "Business Strategy Masterclass Book",
         description: "Comprehensive business strategy guide with case studies from successful entrepreneurs and companies.",
         imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -287,8 +313,8 @@ export async function seedDatabase() {
         maximumParticipants: 200,
       },
       {
-        sellerId: johnSeller[0].id,
-        categoryId: insertedCategories[6].id, // Books
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
         name: "Cookbook Collection - Healthy Meals",
         description: "Set of 3 cookbooks featuring healthy recipes, meal prep ideas, and nutrition guides for families.",
         imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -297,8 +323,8 @@ export async function seedDatabase() {
         maximumParticipants: 175,
       },
       {
-        sellerId: johnSeller[0].id,
-        categoryId: insertedCategories[6].id, // Books
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
         name: "Children's Educational Book Set",
         description: "Interactive educational book set for children ages 3-8 with colorful illustrations and learning activities.",
         imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -308,8 +334,15 @@ export async function seedDatabase() {
       },
     ];
 
-    const insertedProducts = await db.insert(products).values(productData).returning();
-    console.log("Seeded products:", insertedProducts.length);
+    let insertedProducts;
+    try {
+      insertedProducts = await db.insert(products).values(productData).returning();
+      console.log("Seeded products:", insertedProducts.length);
+    } catch (e) {
+      console.log("Products already exist, fetching existing ones");
+      insertedProducts = await db.select().from(products);
+      console.log("Using existing products:", insertedProducts.length);
+    }
 
     // Seed discount tiers for each product
     const discountTierData = [];
@@ -359,12 +392,23 @@ export async function seedDatabase() {
       buyerUsers.push(buyer);
     }
     
-    const insertedBuyers = await db.insert(users).values(buyerUsers).returning();
-    console.log("Seeded buyer users:", insertedBuyers.length);
+    let insertedBuyers;
+    try {
+      insertedBuyers = await db.insert(users).values(buyerUsers).returning();
+      console.log("Seeded buyer users:", insertedBuyers.length);
+    } catch (e) {
+      console.log("Buyer users already exist, fetching existing ones");
+      insertedBuyers = await db.select().from(users).where(eq(users.isSeller, false));
+      console.log("Using existing buyer users:", insertedBuyers.length);
+    }
 
     // Create collections that cover all products (distributed among users)
     const collectionsData = [];
-    const allUsers = [sampleSeller[0], johnSeller[0], ...insertedBuyers];
+    const allUsers = [
+      sampleSeller[0] || { id: "sample-seller-123" }, 
+      johnSeller[0] || { id: "john-seller-456" }, 
+      ...insertedBuyers
+    ];
     
     // Helper function to create collections
     const createCollection = (name: string, description: string, ownerId: string, productIds: number[]) => {
@@ -413,8 +457,15 @@ export async function seedDatabase() {
       ));
     }
     
-    const insertedCollections = await db.insert(userGroups).values(collectionsData).returning();
-    console.log("Seeded collections:", insertedCollections.length);
+    let insertedCollections;
+    try {
+      insertedCollections = await db.insert(userGroups).values(collectionsData).returning();
+      console.log("Seeded collections:", insertedCollections.length);
+    } catch (e) {
+      console.log("Collections already exist, fetching existing ones");
+      insertedCollections = await db.select().from(userGroups);
+      console.log("Using existing collections:", insertedCollections.length);
+    }
     
     // Add products to collections
     const collectionItems = [];
