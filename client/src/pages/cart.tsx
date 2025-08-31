@@ -363,15 +363,26 @@ export default function Cart() {
               {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleClearCart}
-            disabled={clearCartMutation.isPending}
-            data-testid="button-clear-cart"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Clear Cart
-          </Button>
+          <div className="flex space-x-3">
+            <Button
+              onClick={() => setShowCreateCollection(true)}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              disabled={createCollectionFromCart.isPending}
+              data-testid="button-create-own-collection"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Make Your Collection
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleClearCart}
+              disabled={clearCartMutation.isPending}
+              data-testid="button-clear-cart"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear Cart
+            </Button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -746,27 +757,17 @@ export default function Cart() {
                   <p className="text-muted-foreground text-xs">
                     Collections that are full (5/5 members) or that you're already in are filtered out.
                   </p>
-                  <div className="mt-4 space-y-3">
-                    <Button 
-                      onClick={() => setShowCreateCollection(true)}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                      data-testid="button-create-own-collection"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Make This Your Own Collection
-                    </Button>
-                    <div className="space-x-2">
-                      <Link href="/browse">
-                        <Button variant="outline" size="sm" data-testid="button-browse-collections">
-                          Browse Collections
-                        </Button>
-                      </Link>
-                      <Link href="/my-groups">
-                        <Button variant="outline" size="sm" data-testid="button-view-my-groups">
-                          My Collections
-                        </Button>
-                      </Link>
-                    </div>
+                  <div className="mt-4 space-x-2">
+                    <Link href="/browse">
+                      <Button variant="outline" size="sm" data-testid="button-browse-collections">
+                        Browse Collections
+                      </Button>
+                    </Link>
+                    <Link href="/my-groups">
+                      <Button variant="outline" size="sm" data-testid="button-view-my-groups">
+                        My Collections
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
