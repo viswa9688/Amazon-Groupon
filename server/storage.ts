@@ -41,7 +41,7 @@ import {
   type UserGroupWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql, gte } from "drizzle-orm";
+import { eq, desc, and, or, sql, gte, not } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -112,6 +112,9 @@ export interface IStorage {
   addItemToUserGroup(groupId: number, productId: number, quantity: number): Promise<UserGroupItem>;
   removeItemFromUserGroup(groupId: number, productId: number): Promise<boolean>;
   updateUserGroupItemQuantity(groupId: number, productId: number, quantity: number): Promise<UserGroupItem>;
+  joinUserGroup(userGroupId: number, userId: string): Promise<boolean>;
+  leaveUserGroup(userGroupId: number, userId: string): Promise<boolean>;
+  isUserInUserGroup(userGroupId: number, userId: string): Promise<boolean>;
   
   // Group matching and optimization operations
   findSimilarGroups(userId: string): Promise<Array<{
@@ -763,32 +766,39 @@ export class DatabaseStorage implements IStorage {
     const cartProductIds = userCart.map(item => item.productId);
     
     // Get all public user groups (excluding user's own groups)
-    const publicUserGroups = await db
-      .select()
-      .from(userGroups)
-      .where(and(
+    const publicUserGroups = await db.query.userGroups.findMany({
+      where: and(
         eq(userGroups.isPublic, true),
         not(eq(userGroups.userId, userId))
-      ));
+      ),
+      with: {
+        user: true,
+      },
+    });
     
     // Get detailed user groups with items
     const userGroupsWithDetails = await Promise.all(
       publicUserGroups.map(async (group) => {
-        const groupItems = await db
-          .select({
-            id: userGroupItems.id,
-            productId: userGroupItems.productId,
-            quantity: userGroupItems.quantity,
-            product: products,
-          })
-          .from(userGroupItems)
-          .innerJoin(products, eq(userGroupItems.productId, products.id))
-          .where(eq(userGroupItems.userGroupId, group.id));
+        const groupItems = await db.query.userGroupItems.findMany({
+          where: eq(userGroupItems.userGroupId, group.id),
+          with: {
+            product: {
+              with: {
+                discountTiers: true,
+                groupPurchases: {
+                  with: {
+                    participants: true,
+                  },
+                },
+              },
+            },
+          },
+        });
 
         return {
           ...group,
           items: groupItems,
-        };
+        } as UserGroupWithDetails;
       })
     );
     
@@ -1390,6 +1400,103 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userGroups.id, groupId));
     
     return item;
+  }
+
+  async joinUserGroup(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      // Get all products in this user group
+      const groupItems = await db
+        .select()
+        .from(userGroupItems)
+        .where(eq(userGroupItems.userGroupId, userGroupId));
+
+      // Join all group purchases for products in this collection
+      for (const item of groupItems) {
+        // Find active group purchase for this product
+        const [groupPurchase] = await db
+          .select()
+          .from(groupPurchases)
+          .where(eq(groupPurchases.productId, item.productId));
+
+        if (groupPurchase) {
+          // Check if user is already participating
+          const existingParticipation = await this.getUserGroupParticipation(groupPurchase.id, userId);
+          
+          if (!existingParticipation) {
+            // Join with the same quantity as specified in the collection
+            await this.joinGroupPurchase(groupPurchase.id, userId, item.quantity);
+          }
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error joining user group:", error);
+      return false;
+    }
+  }
+
+  async leaveUserGroup(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      // Get all products in this user group
+      const groupItems = await db
+        .select()
+        .from(userGroupItems)
+        .where(eq(userGroupItems.userGroupId, userGroupId));
+
+      // Leave all group purchases for products in this collection
+      for (const item of groupItems) {
+        // Find active group purchase for this product
+        const [groupPurchase] = await db
+          .select()
+          .from(groupPurchases)
+          .where(eq(groupPurchases.productId, item.productId));
+
+        if (groupPurchase) {
+          // Leave the group purchase
+          await this.leaveGroupPurchase(groupPurchase.id, userId);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error leaving user group:", error);
+      return false;
+    }
+  }
+
+  async isUserInUserGroup(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      // Get all products in this user group
+      const groupItems = await db
+        .select()
+        .from(userGroupItems)
+        .where(eq(userGroupItems.userGroupId, userGroupId));
+
+      if (groupItems.length === 0) {
+        return false;
+      }
+
+      // Check if user is participating in ANY of the group purchases for this collection
+      for (const item of groupItems) {
+        const [groupPurchase] = await db
+          .select()
+          .from(groupPurchases)
+          .where(eq(groupPurchases.productId, item.productId));
+
+        if (groupPurchase) {
+          const participation = await this.getUserGroupParticipation(groupPurchase.id, userId);
+          if (participation) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error checking user group participation:", error);
+      return false;
+    }
   }
 }
 

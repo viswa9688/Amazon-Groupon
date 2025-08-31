@@ -1,20 +1,79 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Share2, Users, TrendingUp, DollarSign, Crown, ShoppingCart } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Package, Share2, Users, TrendingUp, DollarSign, Crown, ShoppingCart, UserPlus, UserMinus, LogIn } from "lucide-react";
 import type { UserGroupWithDetails } from "@shared/schema";
 
 export default function SharedGroupPage() {
   const { shareToken } = useParams();
+  const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Get shared group details
   const { data: sharedGroup, isLoading, error } = useQuery<UserGroupWithDetails>({
     queryKey: ["/api/shared", shareToken],
     enabled: !!shareToken,
+  });
+
+  // Check if user is participating in this collection
+  const { data: participationData } = useQuery({
+    queryKey: ["/api/user-groups", sharedGroup?.id, "participation"],
+    enabled: isAuthenticated && !!sharedGroup?.id,
+  });
+
+  const isParticipating = (participationData as any)?.isParticipating || false;
+
+  // Mutation for joining collection
+  const joinMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/user-groups/${sharedGroup?.id}/join`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "You've joined this collection. You're now part of all group purchases!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", sharedGroup?.id, "participation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shared", shareToken] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to join",
+        description: error.message || "Unable to join this collection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation for leaving collection
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/user-groups/${sharedGroup?.id}/leave`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Left collection",
+        description: "You've left this collection and all its group purchases",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", sharedGroup?.id, "participation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shared", shareToken] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to leave",
+        description: error.message || "Unable to leave this collection",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -71,6 +130,19 @@ export default function SharedGroupPage() {
     return sum + savings;
   }, 0) || 0;
 
+  // Calculate total participants across all items in the collection
+  const totalParticipants = sharedGroup.items?.reduce((sum, item) => {
+    const groupPurchase = item.product.groupPurchases?.[0];
+    return sum + (groupPurchase?.currentParticipants || 0);
+  }, 0) || 0;
+
+  // Calculate average progress toward discount goals
+  const averageProgress = sharedGroup.items?.reduce((sum, item) => {
+    const groupPurchase = item.product.groupPurchases?.[0];
+    const progress = groupPurchase ? ((groupPurchase.currentParticipants || 0) / item.product.minimumParticipants) * 100 : 0;
+    return sum + Math.min(progress, 100);
+  }, 0) / Math.max(totalItems, 1) || 0;
+
   const handleShare = async () => {
     const shareUrl = window.location.href;
     try {
@@ -113,11 +185,43 @@ export default function SharedGroupPage() {
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  Shared by someone in the OneAnt community • Created {new Date(sharedGroup.createdAt).toLocaleDateString()}
+                  Shared by someone in the OneAnt community • Created {sharedGroup.createdAt ? new Date(sharedGroup.createdAt).toLocaleDateString() : 'Unknown'}
                 </p>
               </div>
               
               <div className="flex flex-col gap-3">
+                {!isAuthenticated ? (
+                  <Button 
+                    onClick={() => window.location.href = '/api/login'}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    data-testid="button-login-to-join"
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign In to Join
+                  </Button>
+                ) : isParticipating ? (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => leaveMutation.mutate()}
+                    disabled={leaveMutation.isPending}
+                    className="border-red-200 hover:bg-red-50 text-red-600 dark:border-red-800 dark:hover:bg-red-900/20"
+                    data-testid="button-leave-collection"
+                  >
+                    <UserMinus className="w-4 h-4 mr-2" />
+                    {leaveMutation.isPending ? 'Leaving...' : 'Leave Collection'}
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => joinMutation.mutate()}
+                    disabled={joinMutation.isPending}
+                    className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+                    data-testid="button-join-collection"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    {joinMutation.isPending ? 'Joining...' : 'Join Collection'}
+                  </Button>
+                )}
+                
                 <Button 
                   variant="outline" 
                   onClick={handleShare}
@@ -194,9 +298,24 @@ export default function SharedGroupPage() {
                                 </>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Available for group purchase
-                            </p>
+                            <div className="mt-2 space-y-1">
+                              {item.product.groupPurchases?.[0] && (
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>{item.product.groupPurchases[0].currentParticipants || 0} / {item.product.minimumParticipants} participants</span>
+                                  <span>{Math.min(((item.product.groupPurchases[0].currentParticipants || 0) / item.product.minimumParticipants) * 100, 100).toFixed(0)}%</span>
+                                </div>
+                              )}
+                              {item.product.groupPurchases?.[0] && (
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
+                                    style={{ 
+                                      width: `${Math.min(((item.product.groupPurchases[0].currentParticipants || 0) / item.product.minimumParticipants) * 100, 100)}%` 
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
                           
                           {/* Quantity Display */}
@@ -233,6 +352,12 @@ export default function SharedGroupPage() {
                     </p>
                     <p className="text-sm text-muted-foreground">Total Items</p>
                   </div>
+                  <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="text-shared-total-participants">
+                      {totalParticipants}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Participants</p>
+                  </div>
                   <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                     <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-shared-total-value">
                       ${totalValue.toFixed(2)}
@@ -244,6 +369,12 @@ export default function SharedGroupPage() {
                       ${potentialSavings.toFixed(2)}
                     </p>
                     <p className="text-sm text-muted-foreground">Potential Savings</p>
+                  </div>
+                  <div className="text-center p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid="text-shared-average-progress">
+                      {averageProgress.toFixed(0)}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">Average Progress</p>
                   </div>
                 </div>
               </CardContent>

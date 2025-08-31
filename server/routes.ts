@@ -835,6 +835,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User group join/leave routes
+  app.post('/api/user-groups/:id/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Check if the group exists and is public
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup) {
+        return res.status(404).json({ message: "User group not found" });
+      }
+
+      if (!userGroup.isPublic) {
+        return res.status(403).json({ message: "This group is private" });
+      }
+
+      // Check if user is already in the group
+      const isAlreadyInGroup = await storage.isUserInUserGroup(userGroupId, userId);
+      if (isAlreadyInGroup) {
+        return res.status(400).json({ message: "Already joined this collection" });
+      }
+
+      const success = await storage.joinUserGroup(userGroupId, userId);
+      if (success) {
+        res.status(201).json({ message: "Successfully joined collection" });
+      } else {
+        res.status(400).json({ message: "Failed to join collection" });
+      }
+    } catch (error) {
+      console.error("Error joining user group:", error);
+      res.status(500).json({ message: "Failed to join collection" });
+    }
+  });
+
+  app.delete('/api/user-groups/:id/leave', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Check if user is in the group
+      const isInGroup = await storage.isUserInUserGroup(userGroupId, userId);
+      if (!isInGroup) {
+        return res.status(400).json({ message: "Not a member of this collection" });
+      }
+
+      const success = await storage.leaveUserGroup(userGroupId, userId);
+      if (success) {
+        res.json({ message: "Successfully left collection" });
+      } else {
+        res.status(400).json({ message: "Failed to leave collection" });
+      }
+    } catch (error) {
+      console.error("Error leaving user group:", error);
+      res.status(500).json({ message: "Failed to leave collection" });
+    }
+  });
+
+  // Check user group participation status
+  app.get('/api/user-groups/:id/participation', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      const isParticipating = await storage.isUserInUserGroup(userGroupId, userId);
+      res.json({ isParticipating });
+    } catch (error) {
+      console.error("Error checking user group participation:", error);
+      res.status(500).json({ message: "Failed to check participation status" });
+    }
+  });
+
   // Public route to view shared groups
   app.get('/api/shared/:shareToken', async (req, res) => {
     try {
