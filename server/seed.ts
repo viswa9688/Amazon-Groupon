@@ -17,7 +17,7 @@ export async function seedDatabase() {
     const existingCategories = await db.select().from(categories).limit(1);
     const existingCollections = await db.select().from(userGroups).limit(1);
     
-    if (existingCategories.length > 0 && existingCollections.length > 5) {
+    if (existingCategories.length > 0 && existingCollections.length > 0) {
       console.log("Database already seeded, skipping...");
       return;
     }
