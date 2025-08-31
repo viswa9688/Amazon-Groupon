@@ -673,12 +673,23 @@ export class DatabaseStorage implements IStorage {
     // Get similar user groups using our enhanced algorithm
     const similarGroups = await this.findSimilarGroups(userId);
     
-    if (similarGroups.length === 0) return [];
+    // Filter out groups the user is already in and groups that are full (5/5)
+    const availableGroups = [];
+    for (const group of similarGroups) {
+      const isAlreadyMember = await this.isUserInUserGroup(group.userGroup.id, userId);
+      const isFull = (group.userGroup.participantCount || 0) >= 5;
+      
+      if (!isAlreadyMember && !isFull) {
+        availableGroups.push(group);
+      }
+    }
+    
+    if (availableGroups.length === 0) return [];
     
     const suggestions = [];
     
     // Strategy 1: Best Single User Group (highest match + savings)
-    const bestSingleGroup = similarGroups[0];
+    const bestSingleGroup = availableGroups[0];
     if (bestSingleGroup) {
       const coveredProductIds = new Set(bestSingleGroup.matchingItems.map(item => item.productId));
       const uncoveredProducts = cartProducts.filter(product => !coveredProductIds.has(product.id));
@@ -695,7 +706,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Strategy 2: Multi-Group Coverage - Combine multiple user groups for maximum coverage
-    const topGroups = similarGroups.slice(0, 3);
+    const topGroups = availableGroups.slice(0, 3);
     if (topGroups.length > 1) {
       const allCoveredProductIds = new Set<number>();
       let totalCombinedSavings = 0;

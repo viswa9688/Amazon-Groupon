@@ -127,6 +127,7 @@ export default function Cart() {
   const queryClient = useQueryClient();
   const [optimizing, setOptimizing] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [expandedStrategies, setExpandedStrategies] = useState<Set<number>>(new Set());
 
   // Fetch cart items
   const { data: cartItems = [], isLoading: cartLoading } = useQuery<CartItem[]>({
@@ -633,7 +634,7 @@ export default function Cart() {
                         
                         <div className="space-y-2">
                           <div className="grid grid-cols-1 gap-2">
-                            {suggestion.userGroups.slice(0, 2).map((userGroup, groupIndex) => {
+                            {(expandedStrategies.has(index) ? suggestion.userGroups : suggestion.userGroups.slice(0, 2)).map((userGroup, groupIndex) => {
                               const collectionProgress = Math.min(((userGroup.participantCount || 0) / 5) * 100, 100);
                               const discountsActive = (userGroup.participantCount || 0) >= 5;
                               
@@ -659,10 +660,21 @@ export default function Cart() {
                                 </div>
                               );
                             })}
-                            {suggestion.userGroups.length > 2 && (
-                              <div className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                            {suggestion.userGroups.length > 2 && !expandedStrategies.has(index) && (
+                              <button 
+                                onClick={() => setExpandedStrategies(prev => new Set([...prev, index]))}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline text-center py-1"
+                              >
                                 +{suggestion.userGroups.length - 2} more collections
-                              </div>
+                              </button>
+                            )}
+                            {suggestion.userGroups.length > 2 && expandedStrategies.has(index) && (
+                              <button 
+                                onClick={() => setExpandedStrategies(prev => { const newSet = new Set(prev); newSet.delete(index); return newSet; })}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline text-center py-1"
+                              >
+                                Show less
+                              </button>
                             )}
                           </div>
                           
@@ -698,14 +710,22 @@ export default function Cart() {
                   <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                     <Sparkles className="w-6 h-6 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No Similar Collections Found</h3>
-                  <p className="text-muted-foreground text-sm">
-                    We couldn't find any collections with similar products. Try browsing for existing collections or start your own!
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Available Collections</h3>
+                  <p className="text-muted-foreground text-sm mb-2">
+                    Great news! You're already part of all the best collections for your cart items, or they're currently full.
                   </p>
-                  <div className="mt-4">
+                  <p className="text-muted-foreground text-xs">
+                    Collections that are full (5/5 members) or that you're already in are filtered out.
+                  </p>
+                  <div className="mt-4 space-x-2">
                     <Link href="/browse">
                       <Button variant="outline" size="sm" data-testid="button-browse-collections">
                         Browse Collections
+                      </Button>
+                    </Link>
+                    <Link href="/my-groups">
+                      <Button variant="outline" size="sm" data-testid="button-view-my-groups">
+                        My Collections
                       </Button>
                     </Link>
                   </div>
