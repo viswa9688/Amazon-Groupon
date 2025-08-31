@@ -42,36 +42,73 @@ interface CartItem {
 }
 
 interface SimilarGroup {
-  groupPurchase: {
+  userGroup: {
     id: number;
-    product: {
-      id: number;
-      name: string;
-      originalPrice: string;
+    name: string;
+    description: string;
+    isPublic: boolean;
+    shareToken: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
     };
-    currentPrice: string;
-    currentParticipants: number;
-    targetParticipants: number;
-    endTime: string;
+    items: Array<{
+      id: number;
+      productId: number;
+      quantity: number;
+      product: {
+        id: number;
+        name: string;
+        originalPrice: string;
+        discountTiers: Array<{
+          finalPrice: string;
+          minQuantity: number;
+        }>;
+      };
+    }>;
+    participantCount?: number;
   };
   similarityScore: number;
   matchingProducts: number;
   totalCartProducts: number;
   potentialSavings: number;
+  matchingItems: Array<{
+    productId: number;
+    productName: string;
+    cartQuantity: number;
+    groupQuantity: number;
+    individualSavings: number;
+  }>;
 }
 
 interface OptimizationSuggestion {
-  groups: Array<{
+  userGroups: Array<{
     id: number;
-    product: {
-      id: number;
-      name: string;
-      originalPrice: string;
+    name: string;
+    description: string;
+    isPublic: boolean;
+    shareToken: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
     };
-    currentPrice: string;
-    currentParticipants: number;
-    targetParticipants: number;
-    endTime: string;
+    items: Array<{
+      id: number;
+      productId: number;
+      quantity: number;
+      product: {
+        id: number;
+        name: string;
+        originalPrice: string;
+        discountTiers: Array<{
+          finalPrice: string;
+          minQuantity: number;
+        }>;
+      };
+    }>;
+    participantCount?: number;
   }>;
   totalSavings: number;
   coverage: number;
@@ -80,6 +117,8 @@ interface OptimizationSuggestion {
     name: string;
     originalPrice: string;
   }>;
+  recommendationType: 'single_best' | 'multi_group' | 'complete_coverage';
+  description: string;
 }
 
 export default function Cart() {
@@ -196,7 +235,7 @@ export default function Cart() {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
-        description: "Add some products to your cart first to see similar groups.",
+        description: "Add some products to your cart first to see similar collections.",
         variant: "destructive",
       });
       return;
@@ -408,11 +447,11 @@ export default function Cart() {
                   </div>
                   {showSuggestions && similarGroups.length > 0 && (
                     <div className="text-sm text-green-600 text-center">
-                      Save ${calculatePotentialSavings().toFixed(2)} by joining groups!
+                      Save ${calculatePotentialSavings().toFixed(2)} by joining collections!
                     </div>
                   )}
                   
-                  {/* Show Similar Groups Button */}
+                  {/* Show Similar Collections Button */}
                   <div className="pt-2">
                     <Button 
                       variant="outline" 
@@ -422,51 +461,112 @@ export default function Cart() {
                       data-testid="button-show-suggestions"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      {optimizing ? "Finding Groups..." : "Show Similar Groups"}
+                      {optimizing ? "Finding Collections..." : "Show Similar Collections"}
                     </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Group Matching Suggestions */}
+            {/* Collection Matching Suggestions */}
             {showSuggestions && !groupsLoading && similarGroups.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Sparkles className="h-5 w-5 text-yellow-500" />
-                    <span>Smart Group Suggestions</span>
+                    <span>Similar Collections</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {similarGroups.slice(0, 3).map((group, index) => (
-                      <div key={group.groupPurchase.id} className="p-3 border rounded-lg" data-testid={`card-group-suggestion-${group.groupPurchase.id}`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-sm" data-testid={`text-suggestion-product-${group.groupPurchase.id}`}>
-                            {group.groupPurchase.product.name}
-                          </h4>
-                          <Badge variant="secondary">
-                            {group.similarityScore.toFixed(0)}% match
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <div>
-                            <p className="text-gray-600 dark:text-gray-400">
-                              {group.groupPurchase.currentParticipants}/{group.groupPurchase.targetParticipants} people
-                            </p>
-                            <p className="font-bold text-green-600">
-                              Save ${group.potentialSavings.toFixed(2)}
-                            </p>
+                    {similarGroups.slice(0, 3).map((group, index) => {
+                      const collectionProgress = Math.min(((group.userGroup.participantCount || 0) / 5) * 100, 100);
+                      const discountsActive = (group.userGroup.participantCount || 0) >= 5;
+                      
+                      return (
+                        <div key={group.userGroup.id} className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20" data-testid={`card-collection-suggestion-${group.userGroup.id}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h4 className="font-semibold text-base" data-testid={`text-collection-name-${group.userGroup.id}`}>
+                                {group.userGroup.name}
+                              </h4>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                by {group.userGroup.user.firstName} {group.userGroup.user.lastName}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="font-medium">
+                              {group.similarityScore.toFixed(0)}% match
+                            </Badge>
                           </div>
-                          <Link href={`/product/${group.groupPurchase.product.id}`}>
-                            <Button size="sm" variant="outline" data-testid={`button-join-group-${group.groupPurchase.id}`}>
-                              Join Group
-                            </Button>
-                          </Link>
+                          
+                          <div className="space-y-3">
+                            {/* Collection Progress */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Progress</span>
+                                <span className="font-medium">
+                                  {group.userGroup.participantCount || 0} / 5 members
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${collectionProgress}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-center">
+                                {discountsActive 
+                                  ? "🎉 Discounts Active!" 
+                                  : `${5 - (group.userGroup.participantCount || 0)} more needed for discounts`}
+                              </p>
+                            </div>
+                            
+                            {/* Matching Products */}
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-purple-600 dark:text-purple-400">
+                                Matching Products ({group.matchingProducts}):
+                              </p>
+                              <div className="space-y-1">
+                                {group.matchingItems.slice(0, 3).map((item) => (
+                                  <div key={item.productId} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded">
+                                    <span className="font-medium">{item.productName}</span>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-gray-600 dark:text-gray-400">
+                                        Qty: {item.cartQuantity}
+                                      </span>
+                                      <span className="font-bold text-green-600">
+                                        Save ${item.individualSavings.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                                {group.matchingItems.length > 3 && (
+                                  <div className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                                    +{group.matchingItems.length - 3} more matching products
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between pt-2">
+                              <div>
+                                <p className="text-sm font-bold text-green-600">
+                                  Total Savings: ${group.potentialSavings.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  {group.userGroup.items.length} items in collection
+                                </p>
+                              </div>
+                              <Link href={`/user-group/${group.userGroup.id}`}>
+                                <Button size="sm" variant="outline" data-testid={`button-view-collection-${group.userGroup.id}`}>
+                                  View Collection
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -478,7 +578,7 @@ export default function Cart() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Zap className="h-5 w-5 text-blue-500" />
-                    <span>Smart Optimization Strategies</span>
+                    <span>Smart Collection Strategies</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -489,7 +589,7 @@ export default function Cart() {
                           <div className="flex items-center space-x-2">
                             <BarChart3 className="h-4 w-4 text-blue-600" />
                             <span className="font-medium text-sm">
-                              {index === 0 ? "Best Overall Strategy" : index === 1 ? "Maximum Savings Focus" : "Single Group Option"}
+                              {suggestion.description}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -504,20 +604,35 @@ export default function Cart() {
                         
                         <div className="space-y-2">
                           <div className="grid grid-cols-1 gap-2">
-                            {suggestion.groups.slice(0, 2).map((group, groupIndex) => (
-                              <div key={group.id} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded">
-                                <span className="font-medium">{group.product.name}</span>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-gray-600 dark:text-gray-400">
-                                    {group.currentParticipants}/{group.targetParticipants}
-                                  </span>
-                                  <span className="font-bold text-green-600">${group.currentPrice}</span>
+                            {suggestion.userGroups.slice(0, 2).map((userGroup, groupIndex) => {
+                              const collectionProgress = Math.min(((userGroup.participantCount || 0) / 5) * 100, 100);
+                              const discountsActive = (userGroup.participantCount || 0) >= 5;
+                              
+                              return (
+                                <div key={userGroup.id} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-3 rounded">
+                                  <div className="flex-1">
+                                    <span className="font-medium">{userGroup.name}</span>
+                                    <div className="flex items-center space-x-3 mt-1">
+                                      <span className="text-gray-600 dark:text-gray-400">
+                                        {userGroup.participantCount || 0}/5 members
+                                      </span>
+                                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+                                        <div 
+                                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-1 rounded-full"
+                                          style={{ width: `${collectionProgress}%` }}
+                                        />
+                                      </div>
+                                      <span className={`text-xs ${discountsActive ? 'text-green-600' : 'text-orange-600'}`}>
+                                        {discountsActive ? 'Active' : 'Pending'}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
-                            {suggestion.groups.length > 2 && (
+                              );
+                            })}
+                            {suggestion.userGroups.length > 2 && (
                               <div className="text-xs text-gray-600 dark:text-gray-400 text-center">
-                                +{suggestion.groups.length - 2} more groups
+                                +{suggestion.userGroups.length - 2} more collections
                               </div>
                             )}
                           </div>
@@ -548,14 +663,14 @@ export default function Cart() {
                   <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                     <Sparkles className="w-6 h-6 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No Similar Groups Found</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Similar Collections Found</h3>
                   <p className="text-muted-foreground text-sm">
-                    We couldn't find any active groups with similar products. Try browsing for existing groups or start your own!
+                    We couldn't find any collections with similar products. Try browsing for existing collections or start your own!
                   </p>
                   <div className="mt-4">
                     <Link href="/browse">
-                      <Button variant="outline" size="sm" data-testid="button-browse-groups">
-                        Browse Groups
+                      <Button variant="outline" size="sm" data-testid="button-browse-collections">
+                        Browse Collections
                       </Button>
                     </Link>
                   </div>
