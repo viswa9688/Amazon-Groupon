@@ -352,7 +352,22 @@ export default function ProductDetails() {
               {/* Pricing */}
               <div className="bg-muted/30 p-6 rounded-lg mb-6">
                 <div>
-                  {individualProduct ? (
+                  {individualProduct && individualProduct.discountTiers && individualProduct.discountTiers.length > 0 ? (
+                    // Individual product with discount tier display
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-3xl font-bold text-accent" data-testid="text-current-price">
+                          ${individualProduct.discountTiers[0].finalPrice}
+                        </span>
+                        <span className="text-xl text-muted-foreground line-through">
+                          ${product.originalPrice}
+                        </span>
+                      </div>
+                      <span className="text-lg font-semibold text-accent">
+                        Save ${(parseFloat(product.originalPrice.toString()) - parseFloat(individualProduct.discountTiers[0].finalPrice)).toFixed(2)}
+                      </span>
+                    </div>
+                  ) : individualProduct ? (
                     <div className="flex items-baseline justify-between mb-2">
                       <div className="flex items-center space-x-3">
                         <span className="text-3xl font-bold text-foreground" data-testid="text-current-price">
@@ -379,7 +394,9 @@ export default function ProductDetails() {
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    {individualProduct 
+                    {individualProduct && individualProduct.discountTiers && individualProduct.discountTiers.length > 0
+                      ? "Group discount available! Start a group purchase to get this great price!"
+                      : individualProduct 
                       ? "Start a group purchase to unlock bulk discounts!"
                       : "Group discount available! Join now to get this great price!"
                     }
