@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Users, ShoppingCart, Zap } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import type { GroupPurchaseWithDetails, Category } from "@shared/schema";
 
 interface Product {
@@ -30,6 +31,7 @@ interface Product {
 }
 
 export default function Browse() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("newest");
@@ -44,6 +46,12 @@ export default function Browse() {
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+
+  // Fetch user's participating groups
+  const { data: userParticipations = [] } = useQuery<number[]>({
+    queryKey: ["/api/user/participating-groups"],
+    enabled: !!user,
   });
 
   const isLoading = groupPurchasesLoading || productsLoading;
@@ -80,7 +88,9 @@ export default function Browse() {
       const matchesCategory = 
         selectedCategory === "all" || 
         groupPurchase.product.category?.id.toString() === selectedCategory;
-      return matchesSearch && matchesCategory;
+      // Hide groups that user is already participating in
+      const notAlreadyParticipating = !userParticipations.includes(groupPurchase.id);
+      return matchesSearch && matchesCategory && notAlreadyParticipating;
     })
     ?.sort((a, b) => {
       switch (sortBy) {

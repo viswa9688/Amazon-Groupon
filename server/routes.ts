@@ -326,6 +326,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all groups user is participating in
+  app.get('/api/user/participating-groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const participatingGroups = await storage.getUserParticipatingGroups(userId);
+      res.json(participatingGroups);
+    } catch (error) {
+      console.error("Error fetching user participating groups:", error);
+      res.status(500).json({ message: "Failed to fetch participating groups" });
+    }
+  });
+
   // Order routes
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {

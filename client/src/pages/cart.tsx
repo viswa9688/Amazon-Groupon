@@ -86,6 +86,7 @@ export default function Cart() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [optimizing, setOptimizing] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Fetch cart items
   const { data: cartItems = [], isLoading: cartLoading } = useQuery<CartItem[]>({
@@ -93,16 +94,16 @@ export default function Cart() {
     enabled: !!user,
   });
 
-  // Fetch similar groups
-  const { data: similarGroups = [], isLoading: groupsLoading } = useQuery<SimilarGroup[]>({
+  // Fetch similar groups (only when user clicks show suggestions)
+  const { data: similarGroups = [], isLoading: groupsLoading, refetch: refetchSimilarGroups } = useQuery<SimilarGroup[]>({
     queryKey: ["/api/cart/similar-groups"],
-    enabled: !!user && cartItems.length > 0,
+    enabled: false, // Disabled by default, only fetch when manually triggered
   });
 
-  // Fetch optimization suggestions
-  const { data: optimizationSuggestions = [], isLoading: optimizationLoading } = useQuery<OptimizationSuggestion[]>({
+  // Fetch optimization suggestions (only when user clicks show suggestions)
+  const { data: optimizationSuggestions = [], isLoading: optimizationLoading, refetch: refetchOptimizationSuggestions } = useQuery<OptimizationSuggestion[]>({
     queryKey: ["/api/cart/optimization-suggestions"],
-    enabled: !!user && cartItems.length > 0,
+    enabled: false, // Disabled by default, only fetch when manually triggered
   });
 
   // Update cart item quantity mutation
@@ -114,6 +115,7 @@ export default function Cart() {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/similar-groups"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/optimization-suggestions"] });
+      setShowSuggestions(false); // Reset suggestions when cart changes
       toast({
         title: "Cart Updated",
         description: "Item quantity updated successfully.",
@@ -137,6 +139,7 @@ export default function Cart() {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/similar-groups"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/optimization-suggestions"] });
+      setShowSuggestions(false); // Reset suggestions when cart changes
       toast({
         title: "Item Removed",
         description: "Item removed from cart successfully.",
@@ -160,6 +163,7 @@ export default function Cart() {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/similar-groups"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart/optimization-suggestions"] });
+      setShowSuggestions(false); // Reset suggestions when cart changes
       toast({
         title: "Cart Cleared",
         description: "All items removed from cart.",
@@ -185,6 +189,28 @@ export default function Cart() {
 
   const handleClearCart = () => {
     clearCartMutation.mutate();
+  };
+
+  const handleShowSuggestions = () => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "Empty Cart",
+        description: "Add some products to your cart first to see similar groups.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setOptimizing(true);
+    setShowSuggestions(true);
+    
+    // Fetch similar groups and optimization suggestions
+    Promise.all([
+      refetchSimilarGroups(),
+      refetchOptimizationSuggestions()
+    ]).finally(() => {
+      setOptimizing(false);
+    });
   };
 
   const calculateCartTotal = () => {
@@ -366,7 +392,7 @@ export default function Cart() {
                     <span>Subtotal</span>
                     <span data-testid="text-cart-subtotal">${calculateCartTotal().toFixed(2)}</span>
                   </div>
-                  {similarGroups.length > 0 && (
+                  {showSuggestions && similarGroups.length > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Potential Savings</span>
                       <span data-testid="text-potential-savings">-${calculatePotentialSavings().toFixed(2)}</span>
@@ -377,17 +403,31 @@ export default function Cart() {
                     <span>Total</span>
                     <span data-testid="text-cart-total">${calculateCartTotal().toFixed(2)}</span>
                   </div>
-                  {similarGroups.length > 0 && (
+                  {showSuggestions && similarGroups.length > 0 && (
                     <div className="text-sm text-green-600 text-center">
                       Save ${calculatePotentialSavings().toFixed(2)} by joining groups!
                     </div>
                   )}
+                  
+                  {/* Show Similar Groups Button */}
+                  <div className="pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
+                      onClick={handleShowSuggestions}
+                      disabled={optimizing || cartItems.length === 0}
+                      data-testid="button-show-suggestions"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      {optimizing ? "Finding Groups..." : "Show Similar Groups"}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Group Matching Suggestions */}
-            {!groupsLoading && similarGroups.length > 0 && (
+            {showSuggestions && !groupsLoading && similarGroups.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
@@ -430,7 +470,7 @@ export default function Cart() {
             )}
 
             {/* Optimization Strategies */}
-            {!optimizationLoading && optimizationSuggestions.length > 0 && (
+            {showSuggestions && !optimizationLoading && optimizationSuggestions.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
@@ -493,6 +533,28 @@ export default function Cart() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* No suggestions message */}
+            {showSuggestions && !groupsLoading && !optimizationLoading && similarGroups.length === 0 && optimizationSuggestions.length === 0 && (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Similar Groups Found</h3>
+                  <p className="text-muted-foreground text-sm">
+                    We couldn't find any active groups with similar products. Try browsing for existing groups or start your own!
+                  </p>
+                  <div className="mt-4">
+                    <Link href="/browse">
+                      <Button variant="outline" size="sm" data-testid="button-browse-groups">
+                        Browse Groups
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>

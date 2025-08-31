@@ -71,6 +71,7 @@ export interface IStorage {
   joinGroupPurchase(groupPurchaseId: number, userId: string, quantity?: number): Promise<GroupParticipant>;
   leaveGroupPurchase(groupPurchaseId: number, userId: string): Promise<boolean>;
   getUserGroupParticipation(groupPurchaseId: number, userId: string): Promise<GroupParticipant | undefined>;
+  getUserParticipatingGroups(userId: string): Promise<number[]>;
   updateGroupPurchaseProgress(groupPurchaseId: number): Promise<GroupPurchase>;
 
   // User address operations
@@ -459,6 +460,15 @@ export class DatabaseStorage implements IStorage {
       ));
     
     return participant;
+  }
+
+  async getUserParticipatingGroups(userId: string): Promise<number[]> {
+    const participations = await db
+      .select({ groupPurchaseId: groupParticipants.groupPurchaseId })
+      .from(groupParticipants)
+      .where(eq(groupParticipants.userId, userId));
+    
+    return participations.map(p => p.groupPurchaseId);
   }
 
   async getAllGroupPurchases(): Promise<GroupPurchase[]> {
