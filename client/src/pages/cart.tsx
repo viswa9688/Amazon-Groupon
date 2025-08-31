@@ -253,6 +253,35 @@ export default function Cart() {
     });
   };
 
+  // Apply Strategy - Join all collections in the optimization strategy
+  const applyOptimizationStrategy = useMutation({
+    mutationFn: async (userGroupIds: number[]) => {
+      const joinPromises = userGroupIds.map(id => 
+        apiRequest("POST", `/api/user-groups/${id}/join`)
+      );
+      await Promise.all(joinPromises);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Strategy Applied!",
+        description: "Successfully joined all recommended collections",
+      });
+      // Refresh all data
+      Promise.all([
+        refetchSimilarGroups(),
+        refetchOptimizationSuggestions(),
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] })
+      ]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Apply Strategy",
+        description: error.message || "Some collections couldn't be joined",
+        variant: "destructive",
+      });
+    },
+  });
+
   const calculateCartTotal = () => {
     return cartItems.reduce((total, item) => {
       return total + (parseFloat(item.product.originalPrice) * item.quantity);
@@ -645,8 +674,14 @@ export default function Cart() {
                         </div>
                         
                         <div className="mt-3 flex justify-end">
-                          <Button size="sm" className="text-xs" data-testid={`button-apply-optimization-${index}`}>
-                            Apply Strategy
+                          <Button 
+                            size="sm" 
+                            className="text-xs" 
+                            onClick={() => applyOptimizationStrategy.mutate(suggestion.userGroups.map(ug => ug.id))}
+                            disabled={applyOptimizationStrategy.isPending}
+                            data-testid={`button-apply-optimization-${index}`}
+                          >
+                            {applyOptimizationStrategy.isPending ? "Joining..." : "Apply Strategy"}
                           </Button>
                         </div>
                       </div>
