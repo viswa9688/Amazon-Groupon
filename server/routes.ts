@@ -13,6 +13,8 @@ import {
   insertOrderSchema,
   insertUserAddressSchema,
   insertCartItemSchema,
+  insertUserGroupSchema,
+  insertUserGroupItemSchema,
 } from "@shared/schema";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -643,6 +645,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error clearing cart:", error);
       res.status(500).json({ message: "Failed to clear cart" });
+    }
+  });
+
+  // User Groups routes
+  app.get('/api/user-groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userGroups = await storage.getUserGroups(userId);
+      res.json(userGroups);
+    } catch (error) {
+      console.error("Error fetching user groups:", error);
+      res.status(500).json({ message: "Failed to fetch user groups" });
+    }
+  });
+
+  app.post('/api/user-groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Generate random share token
+      const shareToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      const userGroupData = insertUserGroupSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const userGroup = await storage.createUserGroup({ ...userGroupData, shareToken });
+      res.status(201).json(userGroup);
+    } catch (error) {
+      console.error("Error creating user group:", error);
+      res.status(400).json({ message: "Failed to create user group" });
+    }
+  });
+
+  app.get('/api/user-groups/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+
+      const userGroup = await storage.getUserGroup(groupId);
+      if (!userGroup) {
+        return res.status(404).json({ message: "User group not found" });
+      }
+
+      res.json(userGroup);
+    } catch (error) {
+      console.error("Error fetching user group:", error);
+      res.status(500).json({ message: "Failed to fetch user group" });
+    }
+  });
+
+  app.put('/api/user-groups/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groupId = parseInt(req.params.id);
+      
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+
+      // Verify ownership
+      const existingGroup = await storage.getUserGroup(groupId);
+      if (!existingGroup || existingGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updates = insertUserGroupSchema.partial().parse(req.body);
+      const updatedGroup = await storage.updateUserGroup(groupId, updates);
+      res.json(updatedGroup);
+    } catch (error) {
+      console.error("Error updating user group:", error);
+      res.status(400).json({ message: "Failed to update user group" });
+    }
+  });
+
+  app.delete('/api/user-groups/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groupId = parseInt(req.params.id);
+      
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+
+      // Verify ownership
+      const existingGroup = await storage.getUserGroup(groupId);
+      if (!existingGroup || existingGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const success = await storage.deleteUserGroup(groupId);
+      if (success) {
+        res.json({ message: "User group deleted successfully" });
+      } else {
+        res.status(404).json({ message: "User group not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting user group:", error);
+      res.status(500).json({ message: "Failed to delete user group" });
+    }
+  });
+
+  app.post('/api/user-groups/:id/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groupId = parseInt(req.params.id);
+      
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+
+      // Verify ownership
+      const existingGroup = await storage.getUserGroup(groupId);
+      if (!existingGroup || existingGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { productId, quantity = 1 } = req.body;
+      if (!productId) {
+        return res.status(400).json({ message: "Product ID is required" });
+      }
+
+      const item = await storage.addItemToUserGroup(groupId, productId, quantity);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error adding item to user group:", error);
+      res.status(400).json({ message: "Failed to add item to user group" });
+    }
+  });
+
+  app.delete('/api/user-groups/:id/items/:productId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groupId = parseInt(req.params.id);
+      const productId = parseInt(req.params.productId);
+      
+      if (isNaN(groupId) || isNaN(productId)) {
+        return res.status(400).json({ message: "Invalid group ID or product ID" });
+      }
+
+      // Verify ownership
+      const existingGroup = await storage.getUserGroup(groupId);
+      if (!existingGroup || existingGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const success = await storage.removeItemFromUserGroup(groupId, productId);
+      if (success) {
+        res.json({ message: "Item removed from user group" });
+      } else {
+        res.status(404).json({ message: "Item not found in user group" });
+      }
+    } catch (error) {
+      console.error("Error removing item from user group:", error);
+      res.status(500).json({ message: "Failed to remove item from user group" });
+    }
+  });
+
+  app.put('/api/user-groups/:id/items/:productId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groupId = parseInt(req.params.id);
+      const productId = parseInt(req.params.productId);
+      
+      if (isNaN(groupId) || isNaN(productId)) {
+        return res.status(400).json({ message: "Invalid group ID or product ID" });
+      }
+
+      // Verify ownership
+      const existingGroup = await storage.getUserGroup(groupId);
+      if (!existingGroup || existingGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { quantity } = req.body;
+      if (!quantity || quantity < 1) {
+        return res.status(400).json({ message: "Valid quantity is required" });
+      }
+
+      const updatedItem = await storage.updateUserGroupItemQuantity(groupId, productId, quantity);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating user group item quantity:", error);
+      res.status(400).json({ message: "Failed to update item quantity" });
+    }
+  });
+
+  // Public route to view shared groups
+  app.get('/api/shared/:shareToken', async (req, res) => {
+    try {
+      const { shareToken } = req.params;
+      const userGroup = await storage.getUserGroupByShareToken(shareToken);
+      
+      if (!userGroup) {
+        return res.status(404).json({ message: "Shared group not found" });
+      }
+      
+      if (!userGroup.isPublic) {
+        return res.status(403).json({ message: "This group is private" });
+      }
+
+      res.json(userGroup);
+    } catch (error) {
+      console.error("Error fetching shared group:", error);
+      res.status(500).json({ message: "Failed to fetch shared group" });
     }
   });
 

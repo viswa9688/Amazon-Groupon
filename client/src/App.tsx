@@ -14,6 +14,8 @@ import Checkout from "@/pages/checkout";
 import Orders from "@/pages/orders";
 import OrderDetails from "@/pages/order-details";
 import MyGroups from "@/pages/my-groups";
+import UserGroup from "@/pages/user-group";
+import SharedGroup from "@/pages/shared-group";
 import Address from "@/pages/profile";
 import PersonalInfo from "@/pages/personal-info.tsx";
 import AdminSuper from "@/pages/admin-super";
@@ -37,6 +39,7 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/browse" component={Browse} />
+          <Route path="/shared/:shareToken" component={SharedGroup} />
           <Route path="/admin-super" component={AdminSuper} />
           <Route component={NotFound} />
         </>
@@ -48,6 +51,8 @@ function Router() {
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/seller/analytics" component={SellerAnalytics} />
           <Route path="/my-groups" component={MyGroups} />
+          <Route path="/user-group/:id" component={UserGroup} />
+          <Route path="/shared/:shareToken" component={SharedGroup} />
           <Route path="/address" component={Address} />
           <Route path="/personal-info" component={PersonalInfo} />
           <Route path="/product/:id" component={ProductDetails} />

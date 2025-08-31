@@ -9,6 +9,8 @@ import {
   userAddresses,
   cartItems,
   groupSimilarityCache,
+  userGroups,
+  userGroupItems,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
@@ -30,8 +32,13 @@ import {
   type InsertCartItem,
   type GroupSimilarityCache,
   type InsertGroupSimilarityCache,
+  type UserGroup,
+  type InsertUserGroup,
+  type UserGroupItem,
+  type InsertUserGroupItem,
   type ProductWithDetails,
   type GroupPurchaseWithDetails,
+  type UserGroupWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte } from "drizzle-orm";
@@ -95,19 +102,39 @@ export interface IStorage {
   removeFromCart(cartItemId: number): Promise<boolean>;
   clearUserCart(userId: string): Promise<boolean>;
   
+  // User group operations
+  getUserGroups(userId: string): Promise<UserGroupWithDetails[]>;
+  getUserGroup(groupId: number): Promise<UserGroupWithDetails | undefined>;
+  getUserGroupByShareToken(shareToken: string): Promise<UserGroupWithDetails | undefined>;
+  createUserGroup(userGroup: InsertUserGroup & { shareToken: string }): Promise<UserGroup>;
+  updateUserGroup(groupId: number, updates: Partial<InsertUserGroup>): Promise<UserGroup>;
+  deleteUserGroup(groupId: number): Promise<boolean>;
+  addItemToUserGroup(groupId: number, productId: number, quantity: number): Promise<UserGroupItem>;
+  removeItemFromUserGroup(groupId: number, productId: number): Promise<boolean>;
+  updateUserGroupItemQuantity(groupId: number, productId: number, quantity: number): Promise<UserGroupItem>;
+  
   // Group matching and optimization operations
   findSimilarGroups(userId: string): Promise<Array<{
-    groupPurchase: GroupPurchaseWithDetails;
+    userGroup: UserGroupWithDetails;
     similarityScore: number;
     matchingProducts: number;
     totalCartProducts: number;
     potentialSavings: number;
+    matchingItems: Array<{
+      productId: number;
+      productName: string;
+      cartQuantity: number;
+      groupQuantity: number;
+      individualSavings: number;
+    }>;
   }>>;
   getOptimizationSuggestions(userId: string): Promise<Array<{
-    groups: GroupPurchaseWithDetails[];
+    userGroups: UserGroupWithDetails[];
     totalSavings: number;
     coverage: number;
     uncoveredProducts: ProductWithDetails[];
+    recommendationType: 'single_best' | 'multi_group' | 'complete_coverage';
+    description: string;
   }>>;
   
   // Seller metrics operations
@@ -714,13 +741,20 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
-  // Group matching and optimization operations
+  // Group matching and optimization operations - Now focuses on user-created groups
   async findSimilarGroups(userId: string): Promise<Array<{
-    groupPurchase: GroupPurchaseWithDetails;
+    userGroup: UserGroupWithDetails;
     similarityScore: number;
     matchingProducts: number;
     totalCartProducts: number;
     potentialSavings: number;
+    matchingItems: Array<{
+      productId: number;
+      productName: string;
+      cartQuantity: number;
+      groupQuantity: number;
+      individualSavings: number;
+    }>;
   }>> {
     // Get user's cart
     const userCart = await this.getUserCart(userId);
@@ -728,39 +762,86 @@ export class DatabaseStorage implements IStorage {
 
     const cartProductIds = userCart.map(item => item.productId);
     
-    // Get all active group purchases
-    const activeGroups = await this.getActiveGroupPurchases();
+    // Get all public user groups (excluding user's own groups)
+    const publicUserGroups = await db
+      .select()
+      .from(userGroups)
+      .where(and(
+        eq(userGroups.isPublic, true),
+        not(eq(userGroups.userId, userId))
+      ));
     
-    // Calculate similarity for each group with enhanced algorithm
+    // Get detailed user groups with items
+    const userGroupsWithDetails = await Promise.all(
+      publicUserGroups.map(async (group) => {
+        const groupItems = await db
+          .select({
+            id: userGroupItems.id,
+            productId: userGroupItems.productId,
+            quantity: userGroupItems.quantity,
+            product: products,
+          })
+          .from(userGroupItems)
+          .innerJoin(products, eq(userGroupItems.productId, products.id))
+          .where(eq(userGroupItems.userGroupId, group.id));
+
+        return {
+          ...group,
+          items: groupItems,
+        };
+      })
+    );
+    
+    // Calculate similarity for each user group
     const similarities = [];
     
-    for (const group of activeGroups) {
-      const groupProductId = group.product.id;
-      const matchingProducts = cartProductIds.includes(groupProductId) ? 1 : 0;
+    for (const userGroup of userGroupsWithDetails) {
+      const groupProductIds = userGroup.items.map(item => item.productId);
+      const matchingProductIds = cartProductIds.filter(id => groupProductIds.includes(id));
       
-      if (matchingProducts > 0) {
+      if (matchingProductIds.length > 0) {
         // Calculate similarity as (matching_products / total_cart_products) * 100
-        const similarityScore = (matchingProducts / cartProductIds.length) * 100;
+        const similarityScore = (matchingProductIds.length / cartProductIds.length) * 100;
         
-        // Calculate potential savings
-        const cartItem = userCart.find(item => item.productId === groupProductId);
-        const originalPrice = parseFloat(group.product.originalPrice);
-        const discountedPrice = parseFloat(group.currentPrice);
-        const potentialSavings = cartItem ? (originalPrice - discountedPrice) * cartItem.quantity : 0;
+        // Calculate potential savings for matching products
+        let totalPotentialSavings = 0;
+        const matchingItems = [];
         
-        // Calculate additional metrics for better optimization
-        const savingsPercentage = potentialSavings > 0 ? (potentialSavings / (originalPrice * (cartItem?.quantity || 1))) * 100 : 0;
-        const groupProgress = ((group.currentParticipants || 0) / group.targetParticipants) * 100;
+        for (const productId of matchingProductIds) {
+          const cartItem = userCart.find(item => item.productId === productId);
+          const groupItem = userGroup.items.find(item => item.productId === productId);
+          
+          if (cartItem && groupItem) {
+            const originalPrice = parseFloat(groupItem.product.originalPrice);
+            const discountTier = groupItem.product.discountTiers?.[0];
+            const discountedPrice = discountTier ? parseFloat(discountTier.finalPrice) : originalPrice;
+            const savingsPerUnit = originalPrice - discountedPrice;
+            const individualSavings = savingsPerUnit * cartItem.quantity;
+            
+            totalPotentialSavings += individualSavings;
+            
+            matchingItems.push({
+              productId: productId,
+              productName: groupItem.product.name,
+              cartQuantity: cartItem.quantity,
+              groupQuantity: groupItem.quantity,
+              individualSavings: individualSavings,
+            });
+          }
+        }
         
-        // Enhanced scoring: Consider similarity, savings amount, and group progress
-        const optimizedScore = similarityScore + (savingsPercentage * 0.3) + (Math.min(groupProgress, 80) * 0.1);
+        // Enhanced scoring: Favor groups with more matching products and higher savings
+        const matchingProductsBonus = matchingProductIds.length * 10; // Bonus for multiple matches
+        const savingsBonus = totalPotentialSavings > 50 ? 20 : totalPotentialSavings > 20 ? 10 : 0;
+        const optimizedScore = similarityScore + matchingProductsBonus + savingsBonus;
         
         similarities.push({
-          groupPurchase: group,
-          similarityScore: Math.round(optimizedScore), // Round for display
-          matchingProducts,
+          userGroup,
+          similarityScore: Math.round(optimizedScore),
+          matchingProducts: matchingProductIds.length,
           totalCartProducts: cartProductIds.length,
-          potentialSavings,
+          potentialSavings: totalPotentialSavings,
+          matchingItems,
         });
       }
     }
@@ -775,92 +856,99 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOptimizationSuggestions(userId: string): Promise<Array<{
-    groups: GroupPurchaseWithDetails[];
+    userGroups: UserGroupWithDetails[];
     totalSavings: number;
     coverage: number;
     uncoveredProducts: ProductWithDetails[];
+    recommendationType: 'single_best' | 'multi_group' | 'complete_coverage';
+    description: string;
   }>> {
     const userCart = await this.getUserCart(userId);
     if (userCart.length === 0) return [];
 
     const cartProducts = userCart.map(item => item.product);
-    const activeGroups = await this.getActiveGroupPurchases();
+    const cartProductIds = userCart.map(item => item.productId);
     
-    // Find groups that match cart products with savings calculation
-    const matchingGroupsWithSavings = activeGroups
-      .map(group => {
-        const cartItem = userCart.find(item => item.productId === group.product.id);
-        if (!cartItem) return null;
-        
-        const originalPrice = parseFloat(group.product.originalPrice);
-        const discountedPrice = parseFloat(group.currentPrice);
-        const savings = (originalPrice - discountedPrice) * cartItem.quantity;
-        const savingsPercentage = (savings / (originalPrice * cartItem.quantity)) * 100;
-        
-        return {
-          group,
-          savings,
-          savingsPercentage,
-          cartItem,
-          productId: group.product.id,
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null && item.savings > 0)
-      .sort((a, b) => b.savings - a.savings); // Sort by highest savings first
+    // Get similar user groups using our enhanced algorithm
+    const similarGroups = await this.findSimilarGroups(userId);
     
-    if (matchingGroupsWithSavings.length === 0) return [];
+    if (similarGroups.length === 0) return [];
     
     const suggestions = [];
     
-    // Strategy 1: Maximum Coverage - Try to cover as many products as possible
-    const allGroupsCombination = matchingGroupsWithSavings.slice(0, Math.min(5, matchingGroupsWithSavings.length));
-    const totalSavingsAllGroups = allGroupsCombination.reduce((sum, item) => sum + item.savings, 0);
-    const coveredProductIds = new Set(allGroupsCombination.map(item => item.productId));
-    const uncoveredProducts = cartProducts.filter(product => !coveredProductIds.has(product.id));
-    const coverageAllGroups = (coveredProductIds.size / cartProducts.length) * 100;
-    
-    if (allGroupsCombination.length > 0) {
-      suggestions.push({
-        groups: allGroupsCombination.map(item => item.group),
-        totalSavings: totalSavingsAllGroups,
-        coverage: coverageAllGroups,
-        uncoveredProducts,
-      });
-    }
-    
-    // Strategy 2: Maximum Savings - Focus on highest savings even if coverage is lower
-    const top3HighestSavings = matchingGroupsWithSavings.slice(0, 3);
-    const totalSavingsTop3 = top3HighestSavings.reduce((sum, item) => sum + item.savings, 0);
-    const coveredProductIdsTop3 = new Set(top3HighestSavings.map(item => item.productId));
-    const uncoveredProductsTop3 = cartProducts.filter(product => !coveredProductIdsTop3.has(product.id));
-    const coverageTop3 = (coveredProductIdsTop3.size / cartProducts.length) * 100;
-    
-    if (top3HighestSavings.length > 0 && totalSavingsTop3 !== totalSavingsAllGroups) {
-      suggestions.push({
-        groups: top3HighestSavings.map(item => item.group),
-        totalSavings: totalSavingsTop3,
-        coverage: coverageTop3,
-        uncoveredProducts: uncoveredProductsTop3,
-      });
-    }
-    
-    // Strategy 3: Best Single Group (highest individual savings)
-    const bestSingleGroup = matchingGroupsWithSavings[0];
-    if (bestSingleGroup && suggestions.length < 2) {
-      const uncoveredProductsSingle = cartProducts.filter(product => product.id !== bestSingleGroup.productId);
-      const coverageSingle = (1 / cartProducts.length) * 100;
+    // Strategy 1: Best Single User Group (highest match + savings)
+    const bestSingleGroup = similarGroups[0];
+    if (bestSingleGroup) {
+      const coveredProductIds = new Set(bestSingleGroup.matchingItems.map(item => item.productId));
+      const uncoveredProducts = cartProducts.filter(product => !coveredProductIds.has(product.id));
+      const coverage = (coveredProductIds.size / cartProducts.length) * 100;
       
       suggestions.push({
-        groups: [bestSingleGroup.group],
-        totalSavings: bestSingleGroup.savings,
-        coverage: coverageSingle,
-        uncoveredProducts: uncoveredProductsSingle,
+        userGroups: [bestSingleGroup.userGroup],
+        totalSavings: bestSingleGroup.potentialSavings,
+        coverage,
+        uncoveredProducts,
+        recommendationType: 'single_best',
+        description: `Join ${bestSingleGroup.userGroup.name} - matches ${bestSingleGroup.matchingProducts} of your items with $${bestSingleGroup.potentialSavings.toFixed(2)} total savings`,
       });
+    }
+    
+    // Strategy 2: Multi-Group Coverage - Combine multiple user groups for maximum coverage
+    const topGroups = similarGroups.slice(0, 3);
+    if (topGroups.length > 1) {
+      const allCoveredProductIds = new Set<number>();
+      let totalCombinedSavings = 0;
+      
+      // Calculate combined coverage and savings (avoiding double-counting)
+      for (const groupRec of topGroups) {
+        for (const matchingItem of groupRec.matchingItems) {
+          if (!allCoveredProductIds.has(matchingItem.productId)) {
+            allCoveredProductIds.add(matchingItem.productId);
+            totalCombinedSavings += matchingItem.individualSavings;
+          }
+        }
+      }
+      
+      const uncoveredProducts = cartProducts.filter(product => !allCoveredProductIds.has(product.id));
+      const combinedCoverage = (allCoveredProductIds.size / cartProducts.length) * 100;
+      
+      // Only suggest multi-group if it provides better coverage than single group
+      if (combinedCoverage > (suggestions[0]?.coverage || 0)) {
+        suggestions.push({
+          userGroups: topGroups.map(rec => rec.userGroup),
+          totalSavings: totalCombinedSavings,
+          coverage: combinedCoverage,
+          uncoveredProducts,
+          recommendationType: 'multi_group',
+          description: `Join ${topGroups.length} collections to cover ${allCoveredProductIds.size} products with $${totalCombinedSavings.toFixed(2)} total savings`,
+        });
+      }
+    }
+    
+    // Strategy 3: Perfect Match - Look for user groups that cover 80%+ of cart items
+    const perfectMatches = similarGroups.filter(rec => rec.similarityScore >= 80);
+    if (perfectMatches.length > 0) {
+      const perfectMatch = perfectMatches[0];
+      const coveredProductIds = new Set(perfectMatch.matchingItems.map(item => item.productId));
+      const uncoveredProducts = cartProducts.filter(product => !coveredProductIds.has(product.id));
+      const coverage = (coveredProductIds.size / cartProducts.length) * 100;
+      
+      // Only add if it's not already the best single group
+      if (perfectMatch.userGroup.id !== bestSingleGroup?.userGroup.id) {
+        suggestions.push({
+          userGroups: [perfectMatch.userGroup],
+          totalSavings: perfectMatch.potentialSavings,
+          coverage,
+          uncoveredProducts,
+          recommendationType: 'complete_coverage',
+          description: `Perfect match! ${perfectMatch.userGroup.name} covers ${perfectMatch.matchingProducts} of your ${cartProducts.length} items`,
+        });
+      }
     }
     
     // Sort suggestions by total savings descending, then by coverage
     return suggestions.sort((a, b) => {
-      if (Math.abs(b.totalSavings - a.totalSavings) < 1) {
+      if (Math.abs(b.totalSavings - a.totalSavings) < 5) {
         return b.coverage - a.coverage;
       }
       return b.totalSavings - a.totalSavings;
@@ -1144,6 +1232,164 @@ export class DatabaseStorage implements IStorage {
         growthPercentage: 0,
       };
     }
+  }
+
+  // User group operations
+  async getUserGroups(userId: string): Promise<UserGroupWithDetails[]> {
+    return await db.query.userGroups.findMany({
+      where: eq(userGroups.userId, userId),
+      with: {
+        user: true,
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+                groupPurchases: {
+                  with: {
+                    participants: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: desc(userGroups.updatedAt),
+    });
+  }
+
+  async getUserGroup(groupId: number): Promise<UserGroupWithDetails | undefined> {
+    return await db.query.userGroups.findFirst({
+      where: eq(userGroups.id, groupId),
+      with: {
+        user: true,
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+                groupPurchases: {
+                  with: {
+                    participants: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getUserGroupByShareToken(shareToken: string): Promise<UserGroupWithDetails | undefined> {
+    return await db.query.userGroups.findFirst({
+      where: eq(userGroups.shareToken, shareToken),
+      with: {
+        user: true,
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+                groupPurchases: {
+                  with: {
+                    participants: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async createUserGroup(userGroupData: InsertUserGroup & { shareToken: string }): Promise<UserGroup> {
+    const [userGroup] = await db.insert(userGroups).values(userGroupData).returning();
+    return userGroup;
+  }
+
+  async updateUserGroup(groupId: number, updates: Partial<InsertUserGroup>): Promise<UserGroup> {
+    const [userGroup] = await db
+      .update(userGroups)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userGroups.id, groupId))
+      .returning();
+    return userGroup;
+  }
+
+  async deleteUserGroup(groupId: number): Promise<boolean> {
+    // First delete all items in the group
+    await db.delete(userGroupItems).where(eq(userGroupItems.userGroupId, groupId));
+    
+    // Then delete the group
+    const result = await db.delete(userGroups).where(eq(userGroups.id, groupId)).returning();
+    return result.length > 0;
+  }
+
+  async addItemToUserGroup(groupId: number, productId: number, quantity: number): Promise<UserGroupItem> {
+    const [item] = await db
+      .insert(userGroupItems)
+      .values({
+        userGroupId: groupId,
+        productId,
+        quantity,
+      })
+      .returning();
+    
+    // Update the group's updatedAt timestamp
+    await db
+      .update(userGroups)
+      .set({ updatedAt: new Date() })
+      .where(eq(userGroups.id, groupId));
+    
+    return item;
+  }
+
+  async removeItemFromUserGroup(groupId: number, productId: number): Promise<boolean> {
+    const result = await db
+      .delete(userGroupItems)
+      .where(and(
+        eq(userGroupItems.userGroupId, groupId),
+        eq(userGroupItems.productId, productId)
+      ))
+      .returning();
+    
+    if (result.length > 0) {
+      // Update the group's updatedAt timestamp
+      await db
+        .update(userGroups)
+        .set({ updatedAt: new Date() })
+        .where(eq(userGroups.id, groupId));
+    }
+    
+    return result.length > 0;
+  }
+
+  async updateUserGroupItemQuantity(groupId: number, productId: number, quantity: number): Promise<UserGroupItem> {
+    const [item] = await db
+      .update(userGroupItems)
+      .set({ quantity })
+      .where(and(
+        eq(userGroupItems.userGroupId, groupId),
+        eq(userGroupItems.productId, productId)
+      ))
+      .returning();
+    
+    // Update the group's updatedAt timestamp
+    await db
+      .update(userGroups)
+      .set({ updatedAt: new Date() })
+      .where(eq(userGroups.id, groupId));
+    
+    return item;
   }
 }
 
