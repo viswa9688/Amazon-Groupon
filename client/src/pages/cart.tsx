@@ -10,6 +10,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkle
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import Header from "@/components/Header";
 
 interface CartItem {
   id: number;
@@ -234,6 +235,7 @@ export default function Cart() {
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-16">
             <ShoppingCart className="h-24 w-24 text-gray-400 mx-auto mb-6" />
@@ -254,6 +256,7 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
