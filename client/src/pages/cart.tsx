@@ -387,7 +387,7 @@ export default function Cart() {
                       </div>
 
                       {/* Show active group purchases for this product */}
-                      {item.product.groupPurchases.length > 0 && (
+                      {item.product.groupPurchases?.length > 0 && (
                         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                           <div className="flex items-center space-x-2 mb-2">
                             <Users className="h-4 w-4 text-blue-600" />
@@ -395,7 +395,7 @@ export default function Cart() {
                               Active Group Purchase
                             </span>
                           </div>
-                          {item.product.groupPurchases.map((group) => (
+                          {item.product.groupPurchases?.map((group) => (
                             <div key={group.id} className="flex items-center justify-between">
                               <div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
