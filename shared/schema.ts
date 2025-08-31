@@ -142,6 +142,14 @@ export const userGroupItems = pgTable("user_group_items", {
   addedAt: timestamp("added_at").defaultNow(),
 });
 
+// Collection participants - tracks who joined each collection
+export const userGroupParticipants = pgTable("user_group_participants", {
+  id: serial("id").primaryKey(),
+  userGroupId: integer("user_group_id").notNull().references(() => userGroups.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
 // Group similarity cache for performance
 export const groupSimilarityCache = pgTable("group_similarity_cache", {
   id: serial("id").primaryKey(),
@@ -234,11 +242,17 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
 export const userGroupsRelations = relations(userGroups, ({ one, many }) => ({
   user: one(users, { fields: [userGroups.userId], references: [users.id] }),
   items: many(userGroupItems),
+  participants: many(userGroupParticipants),
 }));
 
 export const userGroupItemsRelations = relations(userGroupItems, ({ one }) => ({
   userGroup: one(userGroups, { fields: [userGroupItems.userGroupId], references: [userGroups.id] }),
   product: one(products, { fields: [userGroupItems.productId], references: [products.id] }),
+}));
+
+export const userGroupParticipantsRelations = relations(userGroupParticipants, ({ one }) => ({
+  userGroup: one(userGroups, { fields: [userGroupParticipants.userGroupId], references: [userGroups.id] }),
+  user: one(users, { fields: [userGroupParticipants.userId], references: [users.id] }),
 }));
 
 // Insert schemas
@@ -301,6 +315,11 @@ export const insertUserGroupItemSchema = createInsertSchema(userGroupItems).omit
   addedAt: true,
 });
 
+export const insertUserGroupParticipantSchema = createInsertSchema(userGroupParticipants).omit({
+  id: true,
+  joinedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -331,6 +350,8 @@ export type UserGroup = typeof userGroups.$inferSelect;
 export type InsertUserGroup = z.infer<typeof insertUserGroupSchema>;
 export type UserGroupItem = typeof userGroupItems.$inferSelect;
 export type InsertUserGroupItem = z.infer<typeof insertUserGroupItemSchema>;
+export type UserGroupParticipant = typeof userGroupParticipants.$inferSelect;
+export type InsertUserGroupParticipant = z.infer<typeof insertUserGroupParticipantSchema>;
 
 // Product with relations type
 export type ProductWithDetails = Product & {
@@ -352,4 +373,6 @@ export type GroupPurchaseWithDetails = GroupPurchase & {
 export type UserGroupWithDetails = UserGroup & {
   user: User;
   items: (UserGroupItem & { product: ProductWithDetails })[];
+  participants?: (UserGroupParticipant & { user: User })[];
+  participantCount?: number;
 };

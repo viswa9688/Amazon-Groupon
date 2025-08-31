@@ -319,6 +319,12 @@ export default function UserGroupPage() {
     return sum + savings;
   }, 0) || 0;
 
+  // Use collection-level participant count
+  const collectionParticipants = userGroup.participantCount || 0;
+  
+  // Collection-level progress - 5 people needed for discount activation
+  const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
+
   // Filter products not already in the group
   const availableProducts = allProducts?.filter(product => 
     !userGroup.items?.some(item => item.productId === product.id)
@@ -658,6 +664,26 @@ export default function UserGroupPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-foreground">
+                      {collectionParticipants} / 5 members
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {collectionParticipants >= 5 
+                        ? "Discounts active! 🎉" 
+                        : `${5 - collectionParticipants} more needed for discounts`}
+                    </p>
+                  </div>
+                  
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${collectionProgress}%` }}
+                    />
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 gap-4">
                   <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                     <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-total-items">

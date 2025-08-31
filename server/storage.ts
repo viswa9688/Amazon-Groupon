@@ -11,6 +11,7 @@ import {
   groupSimilarityCache,
   userGroups,
   userGroupItems,
+  userGroupParticipants,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
@@ -36,6 +37,8 @@ import {
   type InsertUserGroup,
   type UserGroupItem,
   type InsertUserGroupItem,
+  type UserGroupParticipant,
+  type InsertUserGroupParticipant,
   type ProductWithDetails,
   type GroupPurchaseWithDetails,
   type UserGroupWithDetails,
@@ -115,6 +118,9 @@ export interface IStorage {
   joinUserGroup(userGroupId: number, userId: string): Promise<boolean>;
   leaveUserGroup(userGroupId: number, userId: string): Promise<boolean>;
   isUserInUserGroup(userGroupId: number, userId: string): Promise<boolean>;
+  getUserGroupParticipantCount(userGroupId: number): Promise<number>;
+  addUserGroupParticipant(userGroupId: number, userId: string): Promise<UserGroupParticipant>;
+  removeUserGroupParticipant(userGroupId: number, userId: string): Promise<boolean>;
   
   // Group matching and optimization operations
   findSimilarGroups(userId: string): Promise<Array<{
@@ -1246,7 +1252,7 @@ export class DatabaseStorage implements IStorage {
 
   // User group operations
   async getUserGroups(userId: string): Promise<UserGroupWithDetails[]> {
-    return await db.query.userGroups.findMany({
+    const groups = await db.query.userGroups.findMany({
       where: eq(userGroups.userId, userId),
       with: {
         user: true,
@@ -1266,13 +1272,24 @@ export class DatabaseStorage implements IStorage {
             },
           },
         },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
       },
       orderBy: desc(userGroups.updatedAt),
     });
+
+    // Add participant count to each group
+    return groups.map(group => ({
+      ...group,
+      participantCount: group.participants?.length || 0,
+    }));
   }
 
   async getUserGroup(groupId: number): Promise<UserGroupWithDetails | undefined> {
-    return await db.query.userGroups.findFirst({
+    const group = await db.query.userGroups.findFirst({
       where: eq(userGroups.id, groupId),
       with: {
         user: true,
@@ -1292,12 +1309,24 @@ export class DatabaseStorage implements IStorage {
             },
           },
         },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
       },
     });
+
+    if (!group) return undefined;
+
+    return {
+      ...group,
+      participantCount: group.participants?.length || 0,
+    };
   }
 
   async getUserGroupByShareToken(shareToken: string): Promise<UserGroupWithDetails | undefined> {
-    return await db.query.userGroups.findFirst({
+    const group = await db.query.userGroups.findFirst({
       where: eq(userGroups.shareToken, shareToken),
       with: {
         user: true,
@@ -1317,8 +1346,20 @@ export class DatabaseStorage implements IStorage {
             },
           },
         },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
       },
     });
+
+    if (!group) return undefined;
+
+    return {
+      ...group,
+      participantCount: group.participants?.length || 0,
+    };
   }
 
   async createUserGroup(userGroupData: InsertUserGroup & { shareToken: string }): Promise<UserGroup> {
@@ -1404,6 +1445,9 @@ export class DatabaseStorage implements IStorage {
 
   async joinUserGroup(userGroupId: number, userId: string): Promise<boolean> {
     try {
+      // Add user to the collection participants table
+      await this.addUserGroupParticipant(userGroupId, userId);
+
       // Get all products in this user group
       const groupItems = await db
         .select()
@@ -1438,6 +1482,9 @@ export class DatabaseStorage implements IStorage {
 
   async leaveUserGroup(userGroupId: number, userId: string): Promise<boolean> {
     try {
+      // Remove user from the collection participants table
+      await this.removeUserGroupParticipant(userGroupId, userId);
+
       // Get all products in this user group
       const groupItems = await db
         .select()
@@ -1467,34 +1514,75 @@ export class DatabaseStorage implements IStorage {
 
   async isUserInUserGroup(userGroupId: number, userId: string): Promise<boolean> {
     try {
-      // Get all products in this user group
-      const groupItems = await db
+      // Check if user is in the collection participants table
+      const [participant] = await db
         .select()
-        .from(userGroupItems)
-        .where(eq(userGroupItems.userGroupId, userGroupId));
+        .from(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
 
-      if (groupItems.length === 0) {
-        return false;
-      }
-
-      // Check if user is participating in ANY of the group purchases for this collection
-      for (const item of groupItems) {
-        const [groupPurchase] = await db
-          .select()
-          .from(groupPurchases)
-          .where(eq(groupPurchases.productId, item.productId));
-
-        if (groupPurchase) {
-          const participation = await this.getUserGroupParticipation(groupPurchase.id, userId);
-          if (participation) {
-            return true;
-          }
-        }
-      }
-
-      return false;
+      return !!participant;
     } catch (error) {
       console.error("Error checking user group participation:", error);
+      return false;
+    }
+  }
+
+  async getUserGroupParticipantCount(userGroupId: number): Promise<number> {
+    try {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(userGroupParticipants)
+        .where(eq(userGroupParticipants.userGroupId, userGroupId));
+
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting user group participant count:", error);
+      return 0;
+    }
+  }
+
+  async addUserGroupParticipant(userGroupId: number, userId: string): Promise<UserGroupParticipant> {
+    try {
+      // Check if already participating
+      const existing = await db
+        .select()
+        .from(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      if (existing.length > 0) {
+        return existing[0];
+      }
+
+      const [participant] = await db
+        .insert(userGroupParticipants)
+        .values({ userGroupId, userId })
+        .returning();
+
+      return participant;
+    } catch (error) {
+      console.error("Error adding user group participant:", error);
+      throw error;
+    }
+  }
+
+  async removeUserGroupParticipant(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      const result = await db
+        .delete(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      return true;
+    } catch (error) {
+      console.error("Error removing user group participant:", error);
       return false;
     }
   }

@@ -130,18 +130,11 @@ export default function SharedGroupPage() {
     return sum + savings;
   }, 0) || 0;
 
-  // Calculate total participants across all items in the collection
-  const totalParticipants = sharedGroup.items?.reduce((sum, item) => {
-    const groupPurchase = item.product.groupPurchases?.[0];
-    return sum + (groupPurchase?.currentParticipants || 0);
-  }, 0) || 0;
-
-  // Calculate average progress toward discount goals
-  const averageProgress = sharedGroup.items?.reduce((sum, item) => {
-    const groupPurchase = item.product.groupPurchases?.[0];
-    const progress = groupPurchase ? ((groupPurchase.currentParticipants || 0) / item.product.minimumParticipants) * 100 : 0;
-    return sum + Math.min(progress, 100);
-  }, 0) / Math.max(totalItems, 1) || 0;
+  // Use collection-level participant count
+  const collectionParticipants = sharedGroup.participantCount || 0;
+  
+  // Collection-level progress - 5 people needed for discount activation
+  const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -298,23 +291,10 @@ export default function SharedGroupPage() {
                                 </>
                               )}
                             </div>
-                            <div className="mt-2 space-y-1">
-                              {item.product.groupPurchases?.[0] && (
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{item.product.groupPurchases[0].currentParticipants || 0} / {item.product.minimumParticipants} participants</span>
-                                  <span>{Math.min(((item.product.groupPurchases[0].currentParticipants || 0) / item.product.minimumParticipants) * 100, 100).toFixed(0)}%</span>
-                                </div>
-                              )}
-                              {item.product.groupPurchases?.[0] && (
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                  <div 
-                                    className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
-                                    style={{ 
-                                      width: `${Math.min(((item.product.groupPurchases[0].currentParticipants || 0) / item.product.minimumParticipants) * 100, 100)}%` 
-                                    }}
-                                  />
-                                </div>
-                              )}
+                            <div className="mt-2">
+                              <p className="text-xs text-muted-foreground">
+                                Bundle item #{sharedGroup.items.indexOf(item) + 1}
+                              </p>
                             </div>
                           </div>
                           
@@ -353,10 +333,10 @@ export default function SharedGroupPage() {
                     <p className="text-sm text-muted-foreground">Total Items</p>
                   </div>
                   <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="text-shared-total-participants">
-                      {totalParticipants}
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="text-shared-collection-participants">
+                      {collectionParticipants}
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Participants</p>
+                    <p className="text-sm text-muted-foreground">Collection Members</p>
                   </div>
                   <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                     <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-shared-total-value">
@@ -371,11 +351,44 @@ export default function SharedGroupPage() {
                     <p className="text-sm text-muted-foreground">Potential Savings</p>
                   </div>
                   <div className="text-center p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid="text-shared-average-progress">
-                      {averageProgress.toFixed(0)}%
+                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid="text-shared-collection-progress">
+                      {collectionProgress.toFixed(0)}%
                     </p>
-                    <p className="text-sm text-muted-foreground">Average Progress</p>
+                    <p className="text-sm text-muted-foreground">Discount Progress</p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Collection Progress */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  <span>Collection Status</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-foreground">
+                    {collectionParticipants} / 5 members
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {collectionParticipants >= 5 
+                      ? "Discounts active! 🎉" 
+                      : `${5 - collectionParticipants} more needed for discounts`}
+                  </p>
+                </div>
+                
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${collectionProgress}%` }}
+                  />
+                </div>
+                
+                <div className="text-center text-xs text-muted-foreground">
+                  {collectionProgress.toFixed(0)}% complete
                 </div>
               </CardContent>
             </Card>

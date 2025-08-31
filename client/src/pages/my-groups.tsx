@@ -457,18 +457,11 @@ export default function MyGroups() {
                     return sum + savings;
                   }, 0) || 0;
                   
-                  // Calculate total participants across all group purchases in this collection
-                  const totalParticipants = userGroup.items?.reduce((sum, item) => {
-                    const groupPurchase = item.product.groupPurchases?.[0];
-                    return sum + (groupPurchase?.currentParticipants || 0);
-                  }, 0) || 0;
+                  // Use collection-level participant count
+                  const collectionParticipants = userGroup.participantCount || 0;
                   
-                  // Calculate average progress across all items
-                  const averageProgress = userGroup.items?.length > 0 ? userGroup.items.reduce((sum, item) => {
-                    const groupPurchase = item.product.groupPurchases?.[0];
-                    const progress = groupPurchase ? ((groupPurchase.currentParticipants || 0) / item.product.minimumParticipants) * 100 : 0;
-                    return sum + Math.min(progress, 100);
-                  }, 0) / userGroup.items.length : 0;
+                  // Collection-level progress - 5 people needed for discount activation
+                  const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
 
                   return (
                     <Card key={userGroup.id} className="overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg" data-testid={`card-user-group-${userGroup.id}`}>
@@ -519,9 +512,9 @@ export default function MyGroups() {
                           </div>
                           <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                             <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid={`text-group-participants-count-${userGroup.id}`}>
-                              {totalParticipants}
+                              {collectionParticipants}
                             </p>
-                            <p className="text-sm text-muted-foreground">Participants</p>
+                            <p className="text-sm text-muted-foreground">Members</p>
                           </div>
                           <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                             <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid={`text-group-potential-savings-${userGroup.id}`}>
@@ -530,43 +523,47 @@ export default function MyGroups() {
                             <p className="text-sm text-muted-foreground">Potential Savings</p>
                           </div>
                           <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid={`text-group-average-progress-${userGroup.id}`}>
-                              {averageProgress.toFixed(0)}%
+                            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid={`text-group-collection-progress-${userGroup.id}`}>
+                              {collectionProgress.toFixed(0)}%
                             </p>
-                            <p className="text-sm text-muted-foreground">Avg Progress</p>
+                            <p className="text-sm text-muted-foreground">Discount Progress</p>
                           </div>
+                        </div>
+
+                        {/* Collection Status */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <span>{collectionParticipants} / 5 members</span>
+                            <span>{collectionProgress.toFixed(0)}% complete</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${collectionProgress}%` }}
+                            />
+                          </div>
+                          {collectionParticipants >= 5 ? (
+                            <p className="text-sm text-green-600 dark:text-green-400 font-medium text-center">
+                              Discounts active! 🎉
+                            </p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground text-center">
+                              {5 - collectionParticipants} more members needed for discounts
+                            </p>
+                          )}
                         </div>
 
                         {/* Item Preview */}
                         {totalItems > 0 && (
                           <div className="space-y-2">
-                            <h4 className="font-medium text-sm text-muted-foreground">Preview:</h4>
+                            <h4 className="font-medium text-sm text-muted-foreground">Items in collection:</h4>
                             <div className="space-y-2">
-                              {userGroup.items.slice(0, 3).map((item) => {
-                                const groupPurchase = item.product.groupPurchases?.[0];
-                                const currentParticipants = groupPurchase?.currentParticipants || 0;
-                                const minParticipants = item.product.minimumParticipants;
-                                const progress = minParticipants > 0 ? Math.min((currentParticipants / minParticipants) * 100, 100) : 0;
-                                
-                                return (
-                                  <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg space-y-2" data-testid={`item-preview-${item.id}`}>
-                                    <div className="flex items-center justify-between text-sm">
-                                      <span className="text-card-foreground font-medium">{item.product.name}</span>
-                                      <span className="text-muted-foreground">×{item.quantity}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                      <span>{currentParticipants} / {minParticipants} participants</span>
-                                      <span>{progress.toFixed(0)}%</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                                      <div 
-                                        className="bg-gradient-to-r from-blue-500 to-green-500 h-1.5 rounded-full transition-all duration-300"
-                                        style={{ width: `${progress}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              {userGroup.items.slice(0, 3).map((item) => (
+                                <div key={item.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg" data-testid={`item-preview-${item.id}`}>
+                                  <span className="text-card-foreground font-medium truncate">{item.product.name}</span>
+                                  <span className="text-muted-foreground">×{item.quantity}</span>
+                                </div>
+                              ))}
                               {totalItems > 3 && (
                                 <div className="text-center text-sm text-muted-foreground py-1">
                                   +{totalItems - 3} more items
