@@ -91,6 +91,7 @@ export interface IStorage {
   getUserGroup(groupId: number): Promise<UserGroupWithDetails | undefined>;
   getUserGroupByShareToken(shareToken: string): Promise<UserGroupWithDetails | undefined>;
   createUserGroup(userGroup: InsertUserGroup & { shareToken: string }): Promise<UserGroup>;
+  createUserGroupFromCart(userGroupData: InsertUserGroup & { shareToken: string }, cartItems: any[]): Promise<UserGroup>;
   updateUserGroup(groupId: number, updates: Partial<InsertUserGroup>): Promise<UserGroup>;
   deleteUserGroup(groupId: number): Promise<boolean>;
   addItemToUserGroup(groupId: number, productId: number, quantity: number): Promise<UserGroupItem>;
@@ -1192,6 +1193,24 @@ export class DatabaseStorage implements IStorage {
 
   async createUserGroup(userGroupData: InsertUserGroup & { shareToken: string }): Promise<UserGroup> {
     const [userGroup] = await db.insert(userGroups).values(userGroupData).returning();
+    return userGroup;
+  }
+
+  async createUserGroupFromCart(userGroupData: InsertUserGroup & { shareToken: string }, cartItems: any[]): Promise<UserGroup> {
+    // Create the user group first
+    const [userGroup] = await db.insert(userGroups).values(userGroupData).returning();
+    
+    // Add all cart items to the new user group
+    if (cartItems.length > 0) {
+      const groupItems = cartItems.map(item => ({
+        userGroupId: userGroup.id,
+        productId: item.productId,
+        quantity: item.quantity,
+      }));
+      
+      await db.insert(userGroupItems).values(groupItems);
+    }
+    
     return userGroup;
   }
 

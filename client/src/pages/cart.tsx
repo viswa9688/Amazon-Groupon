@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles, Zap, BarChart3 } from "lucide-react";
@@ -128,6 +130,8 @@ export default function Cart() {
   const [optimizing, setOptimizing] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [expandedStrategies, setExpandedStrategies] = useState<Set<number>>(new Set());
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [collectionName, setCollectionName] = useState("");
 
   // Fetch cart items
   const { data: cartItems = [], isLoading: cartLoading } = useQuery<CartItem[]>({
@@ -278,6 +282,31 @@ export default function Cart() {
       toast({
         title: "Failed to Apply Strategy",
         description: error.message || "Some collections couldn't be joined",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create collection from cart items
+  const createCollectionFromCart = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest("POST", "/api/user-groups/from-cart", { name });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Collection Created!",
+        description: `"${collectionName}" collection has been created with your cart items`,
+      });
+      setShowCreateCollection(false);
+      setCollectionName("");
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Create Collection",
+        description: error.message || "Could not create collection",
         variant: "destructive",
       });
     },
@@ -717,17 +746,27 @@ export default function Cart() {
                   <p className="text-muted-foreground text-xs">
                     Collections that are full (5/5 members) or that you're already in are filtered out.
                   </p>
-                  <div className="mt-4 space-x-2">
-                    <Link href="/browse">
-                      <Button variant="outline" size="sm" data-testid="button-browse-collections">
-                        Browse Collections
-                      </Button>
-                    </Link>
-                    <Link href="/my-groups">
-                      <Button variant="outline" size="sm" data-testid="button-view-my-groups">
-                        My Collections
-                      </Button>
-                    </Link>
+                  <div className="mt-4 space-y-3">
+                    <Button 
+                      onClick={() => setShowCreateCollection(true)}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                      data-testid="button-create-own-collection"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Make This Your Own Collection
+                    </Button>
+                    <div className="space-x-2">
+                      <Link href="/browse">
+                        <Button variant="outline" size="sm" data-testid="button-browse-collections">
+                          Browse Collections
+                        </Button>
+                      </Link>
+                      <Link href="/my-groups">
+                        <Button variant="outline" size="sm" data-testid="button-view-my-groups">
+                          My Collections
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -748,6 +787,47 @@ export default function Cart() {
           </div>
         </div>
       </div>
+
+      {/* Create Collection Dialog */}
+      <Dialog open={showCreateCollection} onOpenChange={setShowCreateCollection}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Your Collection</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="collection-name">Collection Name</Label>
+              <Input
+                id="collection-name"
+                placeholder="e.g., My Wellness Bundle"
+                value={collectionName}
+                onChange={(e) => setCollectionName(e.target.value)}
+                data-testid="input-collection-name"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              This will create a public collection with all {cartItems.length} items from your cart. 
+              Other users can discover and join your collection to get group discounts together.
+            </div>
+          </div>
+          <DialogFooter className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCreateCollection(false)}
+              data-testid="button-cancel-collection"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => createCollectionFromCart.mutate(collectionName)}
+              disabled={!collectionName.trim() || createCollectionFromCart.isPending}
+              data-testid="button-confirm-create-collection"
+            >
+              {createCollectionFromCart.isPending ? "Creating..." : "Create Collection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

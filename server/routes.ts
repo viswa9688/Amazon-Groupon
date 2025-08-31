@@ -606,6 +606,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create user group from cart items
+  app.post('/api/user-groups/from-cart', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name } = req.body;
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: "Collection name is required" });
+      }
+      
+      // Get user's cart items
+      const cartItems = await storage.getUserCart(userId);
+      if (cartItems.length === 0) {
+        return res.status(400).json({ message: "Cart is empty" });
+      }
+      
+      // Generate random share token
+      const shareToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      // Create user group
+      const userGroupData = {
+        name: name.trim(),
+        description: `A curated collection of ${cartItems.length} items for group buying`,
+        userId,
+        isPublic: true,
+        shareToken,
+      };
+      
+      const userGroup = await storage.createUserGroupFromCart(userGroupData, cartItems);
+      
+      // Clear the cart after creating collection
+      await storage.clearUserCart(userId);
+      
+      res.status(201).json(userGroup);
+    } catch (error) {
+      console.error("Error creating user group from cart:", error);
+      res.status(400).json({ message: "Failed to create collection from cart" });
+    }
+  });
+
   app.get('/api/user-groups/:id', isAuthenticated, async (req: any, res) => {
     try {
       const groupId = parseInt(req.params.id);
