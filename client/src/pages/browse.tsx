@@ -19,6 +19,11 @@ interface Product {
   description: string;
   originalPrice: string;
   imageUrl: string;
+  discountTiers?: Array<{
+    id: number;
+    participantCount: number;
+    finalPrice: string;
+  }>;
   seller: {
     id: string;
     firstName: string;
@@ -257,18 +262,40 @@ export default function Browse() {
                           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                             {product.description}
                           </p>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-2xl font-bold text-foreground" data-testid={`text-price-${product.id}`}>
-                                ${product.originalPrice}
-                              </p>
+                          <div className="space-y-3">
+                            {/* Pricing with discount tier display */}
+                            {product.discountTiers && product.discountTiers.length > 0 ? (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-2xl font-bold text-accent" data-testid={`text-current-price-${product.id}`}>
+                                    ${product.discountTiers[0].finalPrice}
+                                  </span>
+                                  <span className="text-muted-foreground line-through ml-2">
+                                    ${product.originalPrice}
+                                  </span>
+                                </div>
+                                <div className="text-accent font-semibold">
+                                  Save ${(parseFloat(product.originalPrice) - parseFloat(product.discountTiers[0].finalPrice)).toFixed(2)}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-2xl font-bold text-foreground" data-testid={`text-price-${product.id}`}>
+                                    ${product.originalPrice}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between">
                               <p className="text-sm text-muted-foreground">
                                 by {product.seller.firstName} {product.seller.lastName}
                               </p>
+                              <Button size="sm" data-testid={`button-view-product-${product.id}`}>
+                                View Details
+                              </Button>
                             </div>
-                            <Button size="sm" data-testid={`button-view-product-${product.id}`}>
-                              View Details
-                            </Button>
                           </div>
                         </div>
                       </div>
