@@ -12,6 +12,7 @@ import {
   insertGroupParticipantSchema,
   insertOrderSchema,
   insertUserAddressSchema,
+  insertCartItemSchema,
 } from "@shared/schema";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -551,6 +552,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating order:", error);
       res.status(400).json({ message: "Failed to create order" });
+    }
+  });
+
+  // Cart routes
+  app.get('/api/cart', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const cart = await storage.getUserCart(userId);
+      res.json(cart);
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      res.status(500).json({ message: "Failed to fetch cart" });
+    }
+  });
+
+  app.post('/api/cart', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const cartData = insertCartItemSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const cartItem = await storage.addToCart(cartData);
+      res.status(201).json(cartItem);
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      res.status(400).json({ message: "Failed to add item to cart" });
+    }
+  });
+
+  app.patch('/api/cart/:cartItemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const cartItemId = parseInt(req.params.cartItemId);
+      const { quantity } = req.body;
+      
+      if (isNaN(cartItemId) || !quantity || quantity < 1) {
+        return res.status(400).json({ message: "Invalid cart item ID or quantity" });
+      }
+
+      const updatedItem = await storage.updateCartItemQuantity(cartItemId, quantity);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating cart item:", error);
+      res.status(400).json({ message: "Failed to update cart item" });
+    }
+  });
+
+  app.delete('/api/cart/:cartItemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const cartItemId = parseInt(req.params.cartItemId);
+      
+      if (isNaN(cartItemId)) {
+        return res.status(400).json({ message: "Invalid cart item ID" });
+      }
+
+      const success = await storage.removeFromCart(cartItemId);
+      if (success) {
+        res.json({ message: "Item removed from cart" });
+      } else {
+        res.status(404).json({ message: "Cart item not found" });
+      }
+    } catch (error) {
+      console.error("Error removing from cart:", error);
+      res.status(500).json({ message: "Failed to remove item from cart" });
+    }
+  });
+
+  app.delete('/api/cart', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const success = await storage.clearUserCart(userId);
+      if (success) {
+        res.json({ message: "Cart cleared" });
+      } else {
+        res.json({ message: "Cart was already empty" });
+      }
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({ message: "Failed to clear cart" });
+    }
+  });
+
+  // Group matching and optimization routes
+  app.get('/api/cart/similar-groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const similarGroups = await storage.findSimilarGroups(userId);
+      res.json(similarGroups);
+    } catch (error) {
+      console.error("Error finding similar groups:", error);
+      res.status(500).json({ message: "Failed to find similar groups" });
+    }
+  });
+
+  app.get('/api/cart/optimization-suggestions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const suggestions = await storage.getOptimizationSuggestions(userId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error getting optimization suggestions:", error);
+      res.status(500).json({ message: "Failed to get optimization suggestions" });
     }
   });
 

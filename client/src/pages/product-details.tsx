@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Clock, Star } from "lucide-react";
+import { ArrowLeft, Users, Clock, Star, ShoppingCart } from "lucide-react";
 import type { GroupPurchaseWithDetails } from "@shared/schema";
 
 export default function ProductDetails() {
@@ -118,6 +118,41 @@ export default function ProductDetails() {
       toast({
         title: "Error",
         description: "Failed to leave group purchase. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addToCartMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupPurchase) throw new Error("Product not found");
+      return apiRequest("POST", "/api/cart", {
+        productId: groupPurchase.product.id,
+        quantity: 1,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Added to Cart",
+        description: "Product added to your cart successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to add product to cart. Please try again.",
         variant: "destructive",
       });
     },
@@ -380,16 +415,27 @@ export default function ProductDetails() {
                     </div>
                   </div>
                   
-                  <Button 
-                    size="lg" 
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate(`/checkout/${groupPurchase.productId}/individual`)}
-                    disabled={false}
-                    data-testid="button-buy-individual"
-                  >
-                    Buy Individual - ${product.originalPrice}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      onClick={() => addToCartMutation.mutate()}
+                      disabled={addToCartMutation.isPending}
+                      data-testid="button-add-to-cart"
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      {addToCartMutation.isPending ? "Adding..." : "Add to Cart"}
+                    </Button>
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      onClick={() => navigate(`/checkout/${groupPurchase.productId}/individual`)}
+                      disabled={false}
+                      data-testid="button-buy-individual"
+                    >
+                      Buy Now - ${product.originalPrice}
+                    </Button>
+                  </div>
                   
                   <p className="text-xs text-muted-foreground text-center">
                     Individual purchase ships immediately • Group purchase ships when goal is reached

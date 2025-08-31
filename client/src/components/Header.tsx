@@ -57,6 +57,10 @@ export default function Header() {
             </a>
             {isAuthenticated && (
               <>
+                <a href="/cart" className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span>Cart</span>
+                </a>
                 <a href="/orders" className="text-foreground hover:text-primary font-medium transition-colors">
                   Orders
                 </a>
@@ -218,6 +222,10 @@ export default function Header() {
             </a>
             {isAuthenticated && (
               <>
+                <a href="/cart" className="block py-2 text-foreground hover:text-primary font-medium flex items-center space-x-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span>Cart</span>
+                </a>
                 <a href="/orders" className="block py-2 text-foreground hover:text-primary font-medium">
                   Orders
                 </a>

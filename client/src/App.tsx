@@ -18,6 +18,7 @@ import Address from "@/pages/profile";
 import PersonalInfo from "@/pages/personal-info.tsx";
 import AdminSuper from "@/pages/admin-super";
 import SellerAnalytics from "@/pages/seller-analytics";
+import Cart from "@/pages/cart.tsx";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +44,7 @@ function Router() {
         <>
           <Route path="/" component={Home} />
           <Route path="/browse" component={Browse} />
+          <Route path="/cart" component={Cart} />
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/seller/analytics" component={SellerAnalytics} />
           <Route path="/my-groups" component={MyGroups} />

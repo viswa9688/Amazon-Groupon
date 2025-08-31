@@ -112,6 +112,27 @@ export const userAddresses = pgTable("user_addresses", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Cart items
+export const cartItems = pgTable("cart_items", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull().default(1),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
+// Group similarity cache for performance
+export const groupSimilarityCache = pgTable("group_similarity_cache", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  groupPurchaseId: integer("group_purchase_id").notNull().references(() => groupPurchases.id),
+  similarityScore: decimal("similarity_score", { precision: 5, scale: 2 }).notNull(),
+  matchingProducts: integer("matching_products").notNull(),
+  totalCartProducts: integer("total_cart_products").notNull(),
+  potentialSavings: decimal("potential_savings", { precision: 10, scale: 2 }).notNull(),
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+});
+
 // Orders
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -136,6 +157,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   groupParticipants: many(groupParticipants),
   orders: many(orders),
   addresses: many(userAddresses),
+  cartItems: many(cartItems),
+  groupSimilarityCache: many(groupSimilarityCache),
 }));
 
 export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
@@ -170,6 +193,16 @@ export const ordersRelations = relations(orders, ({ one }) => ({
 
 export const discountTiersRelations = relations(discountTiers, ({ one }) => ({
   product: one(products, { fields: [discountTiers.productId], references: [products.id] }),
+}));
+
+export const cartItemsRelations = relations(cartItems, ({ one }) => ({
+  user: one(users, { fields: [cartItems.userId], references: [users.id] }),
+  product: one(products, { fields: [cartItems.productId], references: [products.id] }),
+}));
+
+export const groupSimilarityCacheRelations = relations(groupSimilarityCache, ({ one }) => ({
+  user: one(users, { fields: [groupSimilarityCache.userId], references: [users.id] }),
+  groupPurchase: one(groupPurchases, { fields: [groupSimilarityCache.groupPurchaseId], references: [groupPurchases.id] }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -214,6 +247,16 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   updatedAt: true,
 });
 
+export const insertCartItemSchema = createInsertSchema(cartItems).omit({
+  id: true,
+  addedAt: true,
+});
+
+export const insertGroupSimilarityCacheSchema = createInsertSchema(groupSimilarityCache).omit({
+  id: true,
+  calculatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -236,6 +279,10 @@ export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type UserAddress = typeof userAddresses.$inferSelect;
 export type InsertUserAddress = z.infer<typeof insertUserAddressSchema>;
+export type CartItem = typeof cartItems.$inferSelect;
+export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
+export type GroupSimilarityCache = typeof groupSimilarityCache.$inferSelect;
+export type InsertGroupSimilarityCache = z.infer<typeof insertGroupSimilarityCacheSchema>;
 
 // Product with relations type
 export type ProductWithDetails = Product & {
