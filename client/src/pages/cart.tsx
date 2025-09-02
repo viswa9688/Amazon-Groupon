@@ -567,6 +567,13 @@ export default function Cart() {
                             ? 'bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-600'
                             : 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20'
                         }`} data-testid={`card-collection-suggestion-${group.userGroup.id}`}>
+                          {group.isAlreadyMember && (
+                            <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                              <p className="text-sm font-medium text-red-600 dark:text-red-400 text-center">
+                                You are already part of this collection
+                              </p>
+                            </div>
+                          )}
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex-1">
                               <div className="flex items-center space-x-2">
