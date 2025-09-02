@@ -279,8 +279,8 @@ export default function ProductDetails() {
   
   const currentDiscount = individualProduct ? 0 : parseFloat(product?.originalPrice?.toString() || "0") - parseFloat(displayPrice);
   
-  // For individual products, use product's minimum participants
-  const minParticipants = individualProduct ? individualProduct.minimumParticipants || 10 : groupPurchase?.targetParticipants || 5;
+  // For individual products, use 5 as the minimum participants for the single discount tier
+  const minParticipants = individualProduct ? 5 : groupPurchase?.targetParticipants || 5;
   const currentParticipants = individualProduct ? 0 : groupPurchase?.currentParticipants || 0;
 
   return (
@@ -468,15 +468,10 @@ export default function ProductDetails() {
                     Be the first to start a group purchase for this product and get others to join for bulk discounts!
                   </p>
                   <div className="text-sm space-y-1">
-                    {individualProduct.discountTiers.map((tier) => {
-                      const discountPercent = Math.round(((parseFloat(individualProduct.originalPrice) - parseFloat(tier.finalPrice)) / parseFloat(individualProduct.originalPrice)) * 100);
-                      return (
-                        <div key={tier.id} className="flex justify-between">
-                          <span>{tier.participantCount}+ people:</span>
-                          <span className="font-semibold text-green-600">{discountPercent}% off (${tier.finalPrice})</span>
-                        </div>
-                      );
-                    })}
+                    <div className="flex justify-between">
+                      <span>5+ people:</span>
+                      <span className="font-semibold text-green-600">15% off (${(parseFloat(individualProduct.originalPrice) * 0.85).toFixed(2)})</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
