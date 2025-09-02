@@ -139,6 +139,9 @@ export default function Header() {
                       <span className="text-sm font-medium text-foreground">
                         {(user as any)?.firstName || 'User'}
                       </span>
+                      {((user as any)?.firstName === 'User' || !(user as any)?.firstName) && (
+                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Complete your profile"></div>
+                      )}
                       <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-hover:rotate-180" />
                     </div>
                     

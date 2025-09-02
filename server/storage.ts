@@ -1124,7 +1124,7 @@ export class DatabaseStorage implements IStorage {
       userId: userGroups.userId,
       name: userGroups.name,
       description: userGroups.description,
-      shareCode: userGroups.shareCode,
+      shareToken: userGroups.shareToken,
       isPublic: userGroups.isPublic,
       createdAt: userGroups.createdAt,
       updatedAt: userGroups.updatedAt,
@@ -1169,7 +1169,11 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Sort by updatedAt desc
-    uniqueGroups.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    uniqueGroups.sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
     // Add participant count to each group (only approved participants)
     return uniqueGroups.map(group => ({
