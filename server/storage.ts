@@ -1186,9 +1186,12 @@ export class DatabaseStorage implements IStorage {
 
     if (!group) return undefined;
 
+    // Only count approved participants
+    const approvedParticipantCount = group.participants?.filter(p => p.status === 'approved').length || 0;
+
     return {
       ...group,
-      participantCount: group.participants?.length || 0,
+      participantCount: approvedParticipantCount,
     };
   }
 
