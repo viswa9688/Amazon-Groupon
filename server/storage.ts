@@ -1197,6 +1197,10 @@ export class DatabaseStorage implements IStorage {
 
   async createUserGroup(userGroupData: InsertUserGroup & { shareToken: string }): Promise<UserGroup> {
     const [userGroup] = await db.insert(userGroups).values(userGroupData).returning();
+    
+    // Automatically add the creator as an approved participant (they count as 1/5)
+    await this.addParticipantDirectly(userGroup.id, userGroupData.userId);
+    
     return userGroup;
   }
 
