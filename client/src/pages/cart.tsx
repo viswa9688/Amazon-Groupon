@@ -82,6 +82,8 @@ interface SimilarGroup {
     groupQuantity: number;
     individualSavings: number;
   }>;
+  isAlreadyMember: boolean;
+  isFull: boolean;
 }
 
 interface OptimizationSuggestion {
@@ -558,12 +560,30 @@ export default function Cart() {
                       const discountsActive = (group.userGroup.participantCount || 0) >= 5;
                       
                       return (
-                        <div key={group.userGroup.id} className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20" data-testid={`card-collection-suggestion-${group.userGroup.id}`}>
+                        <div key={group.userGroup.id} className={`p-4 border rounded-lg ${
+                          group.isAlreadyMember 
+                            ? 'bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-green-200 dark:border-green-700'
+                            : group.isFull 
+                            ? 'bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-600'
+                            : 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20'
+                        }`} data-testid={`card-collection-suggestion-${group.userGroup.id}`}>
                           <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold text-base" data-testid={`text-collection-name-${group.userGroup.id}`}>
-                                {group.userGroup.name}
-                              </h4>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <h4 className="font-semibold text-base" data-testid={`text-collection-name-${group.userGroup.id}`}>
+                                  {group.userGroup.name}
+                                </h4>
+                                {group.isAlreadyMember && (
+                                  <Badge className="bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200">
+                                    ✓ Member
+                                  </Badge>
+                                )}
+                                {group.isFull && !group.isAlreadyMember && (
+                                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                    Full (5/5)
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-xs text-gray-600 dark:text-gray-400">
                                 by {group.userGroup.user.firstName} {group.userGroup.user.lastName}
                               </p>
@@ -632,8 +652,13 @@ export default function Cart() {
                                 </p>
                               </div>
                               <Link href={`/user-group/${group.userGroup.id}`}>
-                                <Button size="sm" variant="outline" data-testid={`button-view-collection-${group.userGroup.id}`}>
-                                  View Collection
+                                <Button 
+                                  size="sm" 
+                                  variant={group.isAlreadyMember ? "default" : "outline"} 
+                                  className={group.isAlreadyMember ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                                  data-testid={`button-view-collection-${group.userGroup.id}`}
+                                >
+                                  {group.isAlreadyMember ? "View Your Collection" : "View Collection"}
                                 </Button>
                               </Link>
                             </div>
@@ -754,12 +779,12 @@ export default function Cart() {
                   <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                     <Sparkles className="w-6 h-6 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No Available Collections</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Matching Collections Found</h3>
                   <p className="text-muted-foreground text-sm mb-2">
-                    Great news! You're already part of all the best collections for your cart items, or they're currently full.
+                    No existing collections match the products in your cart. Create your own collection to get others to join!
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    Collections that are full (5/5 members) or that you're already in are filtered out.
+                    Other users will be able to discover and join your collection for group discounts.
                   </p>
                   <div className="mt-4 space-x-2">
                     <Link href="/browse">

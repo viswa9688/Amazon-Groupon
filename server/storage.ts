@@ -118,6 +118,8 @@ export interface IStorage {
       groupQuantity: number;
       individualSavings: number;
     }>;
+    isAlreadyMember: boolean;
+    isFull: boolean;
   }>>;
   getOptimizationSuggestions(userId: string): Promise<Array<{
     userGroups: UserGroupWithDetails[];
@@ -656,18 +658,20 @@ export class DatabaseStorage implements IStorage {
       return b.similarityScore - a.similarityScore;
     });
     
-    // Filter out groups the user is already in and groups that are full (5/5)
-    const availableSimilarities = [];
+    // Include all groups but mark membership and full status
+    const enhancedSimilarities = [];
     for (const similarity of sortedSimilarities) {
       const isAlreadyMember = await this.isUserInUserGroup(similarity.userGroup.id, userId);
       const isFull = (similarity.userGroup.participantCount || 0) >= 5;
       
-      if (!isAlreadyMember && !isFull) {
-        availableSimilarities.push(similarity);
-      }
+      enhancedSimilarities.push({
+        ...similarity,
+        isAlreadyMember,
+        isFull
+      });
     }
     
-    return availableSimilarities;
+    return enhancedSimilarities;
   }
 
   async getOptimizationSuggestions(userId: string): Promise<Array<{
@@ -687,13 +691,10 @@ export class DatabaseStorage implements IStorage {
     // Get similar user groups using our enhanced algorithm
     const similarGroups = await this.findSimilarGroups(userId);
     
-    // Filter out groups the user is already in and groups that are full (5/5)
+    // Only include groups that are available to join (not already in and not full) for optimization suggestions
     const availableGroups = [];
     for (const group of similarGroups) {
-      const isAlreadyMember = await this.isUserInUserGroup(group.userGroup.id, userId);
-      const isFull = (group.userGroup.participantCount || 0) >= 5;
-      
-      if (!isAlreadyMember && !isFull) {
+      if (!group.isAlreadyMember && !group.isFull) {
         availableGroups.push(group);
       }
     }
