@@ -375,7 +375,7 @@ export default function Cart() {
               data-testid="button-create-own-collection"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Make Your Collection
+              Make This Your Own Collection
             </Button>
             <Button
               variant="outline"

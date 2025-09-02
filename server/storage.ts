@@ -1211,6 +1211,9 @@ export class DatabaseStorage implements IStorage {
       await db.insert(userGroupItems).values(groupItems);
     }
     
+    // Automatically add the creator as a participant (they count as 1/5)
+    await this.addUserGroupParticipant(userGroup.id, userGroupData.userId);
+    
     return userGroup;
   }
 
