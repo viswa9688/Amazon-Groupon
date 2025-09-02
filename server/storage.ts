@@ -34,7 +34,7 @@ import {
   type UserGroupWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql, gte, not, exists } from "drizzle-orm";
+import { eq, desc, and, or, sql, gte, not, exists, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -1119,16 +1119,28 @@ export class DatabaseStorage implements IStorage {
     });
 
     // Get groups where user is an approved participant
-    const participantGroups = await db.query.userGroups.findMany({
-      where: exists(
-        db.select().from(userGroupParticipants).where(
-          and(
-            eq(userGroupParticipants.userGroupId, userGroups.id),
-            eq(userGroupParticipants.userId, userId),
-            eq(userGroupParticipants.status, 'approved')
-          )
+    const participantGroups = await db.select({
+      id: userGroups.id,
+      userId: userGroups.userId,
+      name: userGroups.name,
+      description: userGroups.description,
+      shareCode: userGroups.shareCode,
+      isPublic: userGroups.isPublic,
+      createdAt: userGroups.createdAt,
+      updatedAt: userGroups.updatedAt,
+    }).from(userGroups)
+      .innerJoin(
+        userGroupParticipants,
+        and(
+          eq(userGroupParticipants.userGroupId, userGroups.id),
+          eq(userGroupParticipants.userId, userId),
+          eq(userGroupParticipants.status, 'approved')
         )
-      ),
+      );
+
+    // Now get full details for participant groups
+    const participantGroupsWithDetails = await db.query.userGroups.findMany({
+      where: inArray(userGroups.id, participantGroups.map(g => g.id)),
       with: {
         user: true,
         items: {
@@ -1151,7 +1163,7 @@ export class DatabaseStorage implements IStorage {
     });
 
     // Combine and deduplicate groups
-    const allGroups = [...ownedGroups, ...participantGroups];
+    const allGroups = [...ownedGroups, ...participantGroupsWithDetails];
     const uniqueGroups = allGroups.filter((group, index, self) => 
       index === self.findIndex(g => g.id === group.id)
     );
