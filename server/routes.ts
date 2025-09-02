@@ -827,6 +827,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Already joined this collection" });
       }
 
+      // Check if collection is already full (5 members max)
+      const participantCount = await storage.getUserGroupParticipantCount(userGroupId);
+      if (participantCount >= 5) {
+        return res.status(400).json({ 
+          message: "Collection is full - maximum 5 members allowed",
+          details: "This collection already has 5 members. Collections are limited to 5 people to activate group discounts." 
+        });
+      }
+
       const success = await storage.joinUserGroup(userGroupId, userId);
       if (success) {
         res.status(201).json({ message: "Successfully joined collection" });
