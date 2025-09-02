@@ -67,11 +67,13 @@ export default function Header() {
               <>
                 <a href="/cart" className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1 relative">
                   <div className="relative">
-                    <ShoppingCart className="h-4 w-4" />
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
+                      <ShoppingCart className="h-4 w-4" />
+                    </div>
                     {cartItemCount > 0 && (
                       <Badge 
                         variant="destructive" 
-                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
                         data-testid="cart-count-badge"
                       >
                         {cartItemCount}
@@ -218,12 +220,14 @@ export default function Header() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="relative"
+                className="relative p-2"
                 data-testid="button-cart"
               >
-                <ShoppingCart className="w-4 h-4" />
-                <Badge className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs w-5 h-5 flex items-center justify-center">
-                  0
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
+                  <ShoppingCart className="w-4 h-4" />
+                </div>
+                <Badge className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                  {cartItemCount || 0}
                 </Badge>
               </Button>
             </div>
@@ -243,11 +247,13 @@ export default function Header() {
               <>
                 <a href="/cart" className="block py-2 text-foreground hover:text-primary font-medium flex items-center space-x-2">
                   <div className="relative">
-                    <ShoppingCart className="h-4 w-4" />
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
+                      <ShoppingCart className="h-4 w-4" />
+                    </div>
                     {cartItemCount > 0 && (
                       <Badge 
                         variant="destructive" 
-                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
                         data-testid="mobile-cart-count-badge"
                       >
                         {cartItemCount}
