@@ -295,7 +295,7 @@ export default function Cart() {
     mutationFn: async (name: string) => {
       return apiRequest("POST", "/api/user-groups/from-cart", { name });
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const createdCollection = data as any;
       toast({
         title: "Collection Created!",
@@ -303,11 +303,17 @@ export default function Cart() {
       });
       setShowCreateCollection(false);
       setCollectionName("");
-      // Refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] });
-      // Navigate to the newly created collection
-      setLocation(`/user-group/${createdCollection.id}`);
+      
+      // Refresh data and wait for completion
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] })
+      ]);
+      
+      // Small delay to ensure data is refreshed, then navigate
+      setTimeout(() => {
+        setLocation(`/user-group/${createdCollection.id}`);
+      }, 100);
     },
     onError: (error: Error) => {
       toast({
