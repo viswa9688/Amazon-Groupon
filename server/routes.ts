@@ -821,26 +821,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "This group is private" });
       }
 
-      // Check if user is already in the group
-      const isAlreadyInGroup = await storage.isUserInUserGroup(userGroupId, userId);
-      if (isAlreadyInGroup) {
-        return res.status(400).json({ message: "Already joined this collection" });
+      // Check if user already has a request (any status)
+      const hasRequest = await storage.hasParticipantRequest(userGroupId, userId);
+      if (hasRequest) {
+        return res.status(400).json({ message: "You already have a request for this collection" });
       }
 
-      // Check if collection is already full (5 members max)
+      // Check if collection is already full (5 approved members max)
       const participantCount = await storage.getUserGroupParticipantCount(userGroupId);
       if (participantCount >= 5) {
         return res.status(400).json({ 
           message: "Collection is full - maximum 5 members allowed",
-          details: "This collection already has 5 members. Collections are limited to 5 people to activate group discounts." 
+          details: "This collection already has 5 approved members. Collections are limited to 5 people to activate group discounts." 
         });
       }
 
       const success = await storage.joinUserGroup(userGroupId, userId);
       if (success) {
-        res.status(201).json({ message: "Successfully joined collection" });
+        res.status(201).json({ message: "Request sent! The collection owner will review your request to join." });
       } else {
-        res.status(400).json({ message: "Failed to join collection" });
+        res.status(400).json({ message: "Failed to send request" });
       }
     } catch (error) {
       console.error("Error joining user group:", error);
@@ -890,6 +890,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking user group participation:", error);
       res.status(500).json({ message: "Failed to check participation status" });
+    }
+  });
+
+  // Approval System API Endpoints
+  
+  // Get pending participants for owner to approve/reject
+  app.get('/api/user-groups/:id/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Verify ownership
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup || userGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied - only collection owner can view pending requests" });
+      }
+
+      const pendingParticipants = await storage.getPendingParticipants(userGroupId);
+      res.json(pendingParticipants);
+    } catch (error) {
+      console.error("Error getting pending participants:", error);
+      res.status(500).json({ message: "Failed to get pending participants" });
+    }
+  });
+
+  // Get approved participants
+  app.get('/api/user-groups/:id/approved', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Verify ownership
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup || userGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied - only collection owner can view approved participants" });
+      }
+
+      const approvedParticipants = await storage.getApprovedParticipants(userGroupId);
+      res.json(approvedParticipants);
+    } catch (error) {
+      console.error("Error getting approved participants:", error);
+      res.status(500).json({ message: "Failed to get approved participants" });
+    }
+  });
+
+  // Approve a participant
+  app.post('/api/user-groups/:id/approve/:participantId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const participantId = req.params.participantId;
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Verify ownership
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup || userGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied - only collection owner can approve participants" });
+      }
+
+      // Check if collection would exceed 5 members
+      const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
+      if (approvedCount >= 5) {
+        return res.status(400).json({ 
+          message: "Cannot approve - collection is already full with 5 members" 
+        });
+      }
+
+      const success = await storage.approveParticipant(userGroupId, participantId);
+      if (success) {
+        res.json({ message: "Participant approved successfully" });
+      } else {
+        res.status(400).json({ message: "Failed to approve participant" });
+      }
+    } catch (error) {
+      console.error("Error approving participant:", error);
+      res.status(500).json({ message: "Failed to approve participant" });
+    }
+  });
+
+  // Reject a participant
+  app.post('/api/user-groups/:id/reject/:participantId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const participantId = req.params.participantId;
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Verify ownership
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup || userGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied - only collection owner can reject participants" });
+      }
+
+      const success = await storage.rejectParticipant(userGroupId, participantId);
+      if (success) {
+        res.json({ message: "Participant rejected successfully" });
+      } else {
+        res.status(400).json({ message: "Failed to reject participant" });
+      }
+    } catch (error) {
+      console.error("Error rejecting participant:", error);
+      res.status(500).json({ message: "Failed to reject participant" });
+    }
+  });
+
+  // Add participant directly (owner action)
+  app.post('/api/user-groups/:id/add-participant', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const { participantId } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId) || !participantId) {
+        return res.status(400).json({ message: "Invalid user group ID or participant ID" });
+      }
+
+      // Verify ownership
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup || userGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied - only collection owner can add participants" });
+      }
+
+      // Check if collection would exceed 5 members
+      const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
+      if (approvedCount >= 5) {
+        return res.status(400).json({ 
+          message: "Cannot add participant - collection is already full with 5 members",
+          warning: true
+        });
+      }
+
+      const participant = await storage.addParticipantDirectly(userGroupId, participantId);
+      if (participant) {
+        res.json({ message: "Participant added successfully" });
+      } else {
+        res.status(400).json({ message: "Failed to add participant" });
+      }
+    } catch (error) {
+      console.error("Error adding participant:", error);
+      res.status(500).json({ message: "Failed to add participant" });
+    }
+  });
+
+  // Remove participant (owner action) 
+  app.delete('/api/user-groups/:id/remove/:participantId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      const participantId = req.params.participantId;
+      const userId = req.user.claims.sub;
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      // Verify ownership
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup || userGroup.userId !== userId) {
+        return res.status(403).json({ message: "Access denied - only collection owner can remove participants" });
+      }
+
+      // Prevent owner from removing themselves
+      if (participantId === userId) {
+        return res.status(400).json({ message: "Collection owner cannot remove themselves" });
+      }
+
+      const success = await storage.removeUserGroupParticipant(userGroupId, participantId);
+      if (success) {
+        res.json({ message: "Participant removed successfully" });
+      } else {
+        res.status(400).json({ message: "Failed to remove participant" });
+      }
+    } catch (error) {
+      console.error("Error removing participant:", error);
+      res.status(500).json({ message: "Failed to remove participant" });
     }
   });
 

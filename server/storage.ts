@@ -1212,8 +1212,8 @@ export class DatabaseStorage implements IStorage {
       await db.insert(userGroupItems).values(groupItems);
     }
     
-    // Automatically add the creator as a participant (they count as 1/5)
-    await this.addUserGroupParticipant(userGroup.id, userGroupData.userId);
+    // Automatically add the creator as an approved participant (they count as 1/5)
+    await this.addParticipantDirectly(userGroup.id, userGroupData.userId);
     
     return userGroup;
   }
@@ -1336,13 +1336,14 @@ export class DatabaseStorage implements IStorage {
 
   async isUserInUserGroup(userGroupId: number, userId: string): Promise<boolean> {
     try {
-      // Check if user is in the collection participants table
+      // Check if user is approved in the collection participants table
       const [participant] = await db
         .select()
         .from(userGroupParticipants)
         .where(and(
           eq(userGroupParticipants.userGroupId, userGroupId),
-          eq(userGroupParticipants.userId, userId)
+          eq(userGroupParticipants.userId, userId),
+          eq(userGroupParticipants.status, "approved")
         ));
 
       return !!participant;
@@ -1357,7 +1358,10 @@ export class DatabaseStorage implements IStorage {
       const result = await db
         .select({ count: sql<number>`count(*)` })
         .from(userGroupParticipants)
-        .where(eq(userGroupParticipants.userGroupId, userGroupId));
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.status, "approved")
+        ));
 
       return result[0]?.count || 0;
     } catch (error) {
@@ -1368,7 +1372,7 @@ export class DatabaseStorage implements IStorage {
 
   async addUserGroupParticipant(userGroupId: number, userId: string): Promise<UserGroupParticipant> {
     try {
-      // Check if already participating
+      // Check if already participating (any status)
       const existing = await db
         .select()
         .from(userGroupParticipants)
@@ -1381,9 +1385,10 @@ export class DatabaseStorage implements IStorage {
         return existing[0];
       }
 
+      // Add as pending participant (owner auto-approves later)
       const [participant] = await db
         .insert(userGroupParticipants)
-        .values({ userGroupId, userId })
+        .values({ userGroupId, userId, status: "pending" })
         .returning();
 
       return participant;
@@ -1405,6 +1410,136 @@ export class DatabaseStorage implements IStorage {
       return true;
     } catch (error) {
       console.error("Error removing user group participant:", error);
+      return false;
+    }
+  }
+
+  // New methods for approval system
+  async getPendingParticipants(userGroupId: number): Promise<(UserGroupParticipant & { user: User })[]> {
+    try {
+      const participants = await db
+        .select()
+        .from(userGroupParticipants)
+        .leftJoin(users, eq(userGroupParticipants.userId, users.id))
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.status, "pending")
+        ));
+
+      return participants.map(({ user_group_participants, users }) => ({
+        ...user_group_participants,
+        user: users!
+      }));
+    } catch (error) {
+      console.error("Error getting pending participants:", error);
+      return [];
+    }
+  }
+
+  async getApprovedParticipants(userGroupId: number): Promise<(UserGroupParticipant & { user: User })[]> {
+    try {
+      const participants = await db
+        .select()
+        .from(userGroupParticipants)
+        .leftJoin(users, eq(userGroupParticipants.userId, users.id))
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.status, "approved")
+        ));
+
+      return participants.map(({ user_group_participants, users }) => ({
+        ...user_group_participants,
+        user: users!
+      }));
+    } catch (error) {
+      console.error("Error getting approved participants:", error);
+      return [];
+    }
+  }
+
+  async approveParticipant(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      const result = await db
+        .update(userGroupParticipants)
+        .set({ status: "approved" })
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      return true;
+    } catch (error) {
+      console.error("Error approving participant:", error);
+      return false;
+    }
+  }
+
+  async rejectParticipant(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      const result = await db
+        .update(userGroupParticipants)
+        .set({ status: "rejected" })
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      return true;
+    } catch (error) {
+      console.error("Error rejecting participant:", error);
+      return false;
+    }
+  }
+
+  async addParticipantDirectly(userGroupId: number, userId: string): Promise<UserGroupParticipant | null> {
+    try {
+      // Check if already participating (any status)
+      const existing = await db
+        .select()
+        .from(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      if (existing.length > 0) {
+        // Update to approved if exists
+        await db
+          .update(userGroupParticipants)
+          .set({ status: "approved" })
+          .where(and(
+            eq(userGroupParticipants.userGroupId, userGroupId),
+            eq(userGroupParticipants.userId, userId)
+          ));
+        return { ...existing[0], status: "approved" };
+      }
+
+      // Add directly as approved participant (owner action)
+      const [participant] = await db
+        .insert(userGroupParticipants)
+        .values({ userGroupId, userId, status: "approved" })
+        .returning();
+
+      return participant;
+    } catch (error) {
+      console.error("Error adding participant directly:", error);
+      return null;
+    }
+  }
+
+  async hasParticipantRequest(userGroupId: number, userId: string): Promise<boolean> {
+    try {
+      const [participant] = await db
+        .select()
+        .from(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      return !!participant;
+    } catch (error) {
+      console.error("Error checking participant request:", error);
       return false;
     }
   }

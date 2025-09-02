@@ -128,6 +128,7 @@ export const userGroupParticipants = pgTable("user_group_participants", {
   id: serial("id").primaryKey(),
   userGroupId: integer("user_group_id").notNull().references(() => userGroups.id),
   userId: varchar("user_id").notNull().references(() => users.id),
+  status: varchar("status", { length: 20 }).default("pending"), // pending, approved, rejected
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 

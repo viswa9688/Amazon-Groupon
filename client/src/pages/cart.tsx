@@ -298,10 +298,8 @@ export default function Cart() {
     },
     onSuccess: async (data) => {
       const createdCollection = data as any;
-      console.log("Collection creation response:", createdCollection);
       
       if (!createdCollection || !createdCollection.id) {
-        console.error("No ID in collection creation response:", createdCollection);
         toast({
           title: "Error",
           description: "Collection was created but couldn't redirect properly",
@@ -325,7 +323,6 @@ export default function Cart() {
       
       // Small delay to ensure data is refreshed, then navigate
       setTimeout(() => {
-        console.log("Redirecting to:", `/user-group/${createdCollection.id}`);
         setLocation(`/user-group/${createdCollection.id}`);
       }, 100);
     },

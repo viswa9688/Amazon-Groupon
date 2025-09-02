@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,7 +33,11 @@ import {
   DollarSign,
   Link as LinkIcon,
   Eye,
-  EyeOff
+  EyeOff,
+  UserCheck,
+  UserX,
+  Clock,
+  AlertTriangle
 } from "lucide-react";
 import type { UserGroupWithDetails, ProductWithDetails } from "@shared/schema";
 
@@ -56,6 +61,7 @@ export default function UserGroupPage() {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("products");
 
   const groupId = id ? parseInt(id) : null;
 
@@ -86,6 +92,18 @@ export default function UserGroupPage() {
     enabled: isAuthenticated && isAddProductDialogOpen,
   });
 
+  // Get pending participants (owner only)
+  const { data: pendingParticipants = [], isLoading: pendingLoading } = useQuery({
+    queryKey: ["/api/user-groups", groupId, "pending"],
+    enabled: isAuthenticated && !!groupId && isOwner,
+  });
+
+  // Get approved participants (owner only)
+  const { data: approvedParticipants = [], isLoading: approvedLoading } = useQuery({
+    queryKey: ["/api/user-groups", groupId, "approved"],
+    enabled: isAuthenticated && !!groupId && isOwner,
+  });
+
   // Edit group form
   const editForm = useForm<z.infer<typeof editGroupSchema>>({
     resolver: zodResolver(editGroupSchema),
@@ -105,6 +123,9 @@ export default function UserGroupPage() {
     },
   });
 
+  // Check if user owns this group
+  const isOwner = userGroup?.userId === user?.id;
+
   // Update form defaults when group data loads
   useEffect(() => {
     if (userGroup) {
@@ -115,9 +136,6 @@ export default function UserGroupPage() {
       });
     }
   }, [userGroup, editForm]);
-
-  // Check if user owns this group
-  const isOwner = userGroup?.userId === user?.id;
 
   // Edit group mutation
   const editGroupMutation = useMutation({
@@ -242,6 +260,106 @@ export default function UserGroupPage() {
       toast({
         title: "Error",
         description: "Failed to remove product.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Approve participant mutation
+  const approveParticipantMutation = useMutation({
+    mutationFn: async (participantId: string) => {
+      return await apiRequest("POST", `/api/user-groups/${groupId}/approve/${participantId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId, "pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId, "approved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
+      toast({
+        title: "Success",
+        description: "Participant approved!",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized", 
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to approve participant.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reject participant mutation
+  const rejectParticipantMutation = useMutation({
+    mutationFn: async (participantId: string) => {
+      return await apiRequest("POST", `/api/user-groups/${groupId}/reject/${participantId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId, "pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
+      toast({
+        title: "Success",
+        description: "Participant rejected.",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive", 
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to reject participant.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Remove participant mutation
+  const removeParticipantMutation = useMutation({
+    mutationFn: async (participantId: string) => {
+      return await apiRequest("DELETE", `/api/user-groups/${groupId}/remove/${participantId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId, "approved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
+      toast({
+        title: "Success",
+        description: "Participant removed from collection.",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to remove participant.",
         variant: "destructive",
       });
     },
@@ -458,8 +576,29 @@ export default function UserGroupPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Items Section */}
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+            {/* Tabs for Products and Participants */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm mb-6">
+                <TabsTrigger value="products" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Collection Items ({totalItems})
+                </TabsTrigger>
+                {isOwner && (
+                  <>
+                    <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
+                      <Clock className="w-4 h-4 mr-2" />
+                      Pending ({pendingParticipants.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="approved" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      Approved ({approvedParticipants.length})
+                    </TabsTrigger>
+                  </>
+                )}
+              </TabsList>
+
+              <TabsContent value="products">
+                <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle className="flex items-center space-x-2">
@@ -651,6 +790,173 @@ export default function UserGroupPage() {
                 )}
               </CardContent>
             </Card>
+              </TabsContent>
+
+          {/* Pending Participants Tab */}
+          {isOwner && (
+            <TabsContent value="pending">
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5 text-orange-600" />
+                    <span>Pending Participants ({pendingParticipants.length})</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {pendingLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : pendingParticipants.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">No pending participant requests</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingParticipants.map((participant: any) => (
+                        <div
+                          key={participant.userId}
+                          className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-orange-200 dark:bg-orange-800 rounded-full flex items-center justify-center">
+                              <Users className="w-5 h-5 text-orange-700 dark:text-orange-300" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {participant.user.firstName || participant.user.email || participant.userId}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Waiting for approval
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => approveParticipantMutation.mutate(participant.userId)}
+                              disabled={approveParticipantMutation.isPending}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              data-testid={`button-approve-${participant.userId}`}
+                            >
+                              <UserCheck className="w-4 h-4 mr-1" />
+                              {approveParticipantMutation.isPending ? "..." : "Approve"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => rejectParticipantMutation.mutate(participant.userId)}
+                              disabled={rejectParticipantMutation.isPending}
+                              className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
+                              data-testid={`button-reject-${participant.userId}`}
+                            >
+                              <UserX className="w-4 h-4 mr-1" />
+                              {rejectParticipantMutation.isPending ? "..." : "Reject"}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Approved Participants Tab */}
+          {isOwner && (
+            <TabsContent value="approved">
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <UserCheck className="w-5 h-5 text-green-600" />
+                      <span>Approved Participants ({approvedParticipants.length}/5)</span>
+                    </div>
+                    {approvedParticipants.length >= 5 && (
+                      <div className="flex items-center text-green-600">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        <span className="text-sm font-medium">Collection Full</span>
+                      </div>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {approvedLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : approvedParticipants.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">No approved participants yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {approvedParticipants.map((participant: any) => (
+                        <div
+                          key={participant.userId}
+                          className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center">
+                              {participant.userId === user?.id ? (
+                                <Crown className="w-5 h-5 text-green-700 dark:text-green-300" />
+                              ) : (
+                                <Users className="w-5 h-5 text-green-700 dark:text-green-300" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {participant.user.firstName || participant.user.email || participant.userId}
+                                {participant.userId === user?.id && (
+                                  <span className="text-sm text-green-600 ml-2 font-medium">(Owner)</span>
+                                )}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Approved member
+                              </p>
+                            </div>
+                          </div>
+                          {participant.userId !== user?.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => removeParticipantMutation.mutate(participant.userId)}
+                              disabled={removeParticipantMutation.isPending}
+                              className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
+                              data-testid={`button-remove-${participant.userId}`}
+                            >
+                              <UserX className="w-4 h-4 mr-1" />
+                              {removeParticipantMutation.isPending ? "..." : "Remove"}
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+        </Tabs>
           </div>
 
           {/* Statistics Sidebar */}
