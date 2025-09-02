@@ -1543,6 +1543,23 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
   }
+
+  async getParticipantStatus(userGroupId: number, userId: string): Promise<string | null> {
+    try {
+      const [participant] = await db
+        .select({ status: userGroupParticipants.status })
+        .from(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.userId, userId)
+        ));
+
+      return participant?.status || null;
+    } catch (error) {
+      console.error("Error getting participant status:", error);
+      return null;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

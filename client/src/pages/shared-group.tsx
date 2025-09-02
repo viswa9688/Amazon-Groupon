@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Package, Share2, Users, TrendingUp, DollarSign, Crown, ShoppingCart, UserPlus, UserMinus, LogIn } from "lucide-react";
+import { Package, Share2, Users, TrendingUp, DollarSign, Crown, ShoppingCart, UserPlus, UserMinus, LogIn, AlertCircle, Clock } from "lucide-react";
 import type { UserGroupWithDetails } from "@shared/schema";
 
 export default function SharedGroupPage() {
@@ -31,6 +31,8 @@ export default function SharedGroupPage() {
   });
 
   const isParticipating = (participationData as any)?.isParticipating || false;
+  const isPending = (participationData as any)?.isPending || false;
+  const participationStatus = (participationData as any)?.status;
 
   // Mutation for joining collection
   const joinMutation = useMutation({
@@ -39,8 +41,8 @@ export default function SharedGroupPage() {
     },
     onSuccess: () => {
       toast({
-        title: "Success!",
-        description: "You've joined this collection. You're now part of all group purchases!",
+        title: "Request Sent!",
+        description: "Your request to join this collection has been sent to the owner for approval.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", sharedGroup?.id, "participation"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shared", shareToken] });
@@ -192,6 +194,24 @@ export default function SharedGroupPage() {
                     <LogIn className="w-4 h-4 mr-2" />
                     Sign In to Join
                   </Button>
+                ) : isPending ? (
+                  <div className="space-y-3">
+                    <div className="bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                      <div className="flex items-center text-red-700 dark:text-red-300">
+                        <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="text-sm font-medium">Your joining request is pending approval from the collection owner</span>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline"
+                      className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
+                      disabled
+                      data-testid="button-request-pending"
+                    >
+                      <Clock className="w-4 h-4 mr-2" />
+                      Request Pending
+                    </Button>
+                  </div>
                 ) : isParticipating ? (
                   <Button 
                     variant="outline" 
@@ -211,7 +231,7 @@ export default function SharedGroupPage() {
                     data-testid="button-join-collection"
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
-                    {joinMutation.isPending ? 'Joining...' : 'Join Collection'}
+                    {joinMutation.isPending ? 'Sending Request...' : 'Request to Join'}
                   </Button>
                 )}
                 

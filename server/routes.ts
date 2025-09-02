@@ -886,7 +886,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const isParticipating = await storage.isUserInUserGroup(userGroupId, userId);
-      res.json({ isParticipating });
+      const participantStatus = await storage.getParticipantStatus(userGroupId, userId);
+      
+      res.json({ 
+        isParticipating,
+        status: participantStatus,
+        isPending: participantStatus === 'pending',
+        isApproved: participantStatus === 'approved'
+      });
     } catch (error) {
       console.error("Error checking user group participation:", error);
       res.status(500).json({ message: "Failed to check participation status" });
