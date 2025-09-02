@@ -92,6 +92,9 @@ export default function UserGroupPage() {
     enabled: isAuthenticated && isAddProductDialogOpen,
   });
 
+  // Check if user owns this group
+  const isOwner = userGroup?.userId === user?.id;
+
   // Get pending participants (owner only)
   const { data: pendingParticipants = [], isLoading: pendingLoading } = useQuery({
     queryKey: ["/api/user-groups", groupId, "pending"],
@@ -122,9 +125,6 @@ export default function UserGroupPage() {
       quantity: 1,
     },
   });
-
-  // Check if user owns this group
-  const isOwner = userGroup?.userId === user?.id;
 
   // Update form defaults when group data loads
   useEffect(() => {
