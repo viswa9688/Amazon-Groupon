@@ -293,7 +293,8 @@ export default function Cart() {
   // Create collection from cart items
   const createCollectionFromCart = useMutation({
     mutationFn: async (name: string) => {
-      return apiRequest("POST", "/api/user-groups/from-cart", { name });
+      const response = await apiRequest("POST", "/api/user-groups/from-cart", { name });
+      return await response.json();
     },
     onSuccess: async (data) => {
       const createdCollection = data as any;
