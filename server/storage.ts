@@ -34,7 +34,7 @@ import {
   type UserGroupWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql, gte, not } from "drizzle-orm";
+import { eq, desc, and, or, sql, gte, not, exists } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -1094,7 +1094,8 @@ export class DatabaseStorage implements IStorage {
 
   // User group operations
   async getUserGroups(userId: string): Promise<UserGroupWithDetails[]> {
-    const groups = await db.query.userGroups.findMany({
+    // Get all groups where user is owner OR approved participant
+    const ownedGroups = await db.query.userGroups.findMany({
       where: eq(userGroups.userId, userId),
       with: {
         user: true,
@@ -1105,7 +1106,6 @@ export class DatabaseStorage implements IStorage {
                 seller: true,
                 category: true,
                 discountTiers: true,
-
               },
             },
           },
@@ -1116,11 +1116,51 @@ export class DatabaseStorage implements IStorage {
           },
         },
       },
-      orderBy: desc(userGroups.updatedAt),
     });
 
+    // Get groups where user is an approved participant
+    const participantGroups = await db.query.userGroups.findMany({
+      where: exists(
+        db.select().from(userGroupParticipants).where(
+          and(
+            eq(userGroupParticipants.userGroupId, userGroups.id),
+            eq(userGroupParticipants.userId, userId),
+            eq(userGroupParticipants.status, 'approved')
+          )
+        )
+      ),
+      with: {
+        user: true,
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+              },
+            },
+          },
+        },
+        participants: {
+          with: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    // Combine and deduplicate groups
+    const allGroups = [...ownedGroups, ...participantGroups];
+    const uniqueGroups = allGroups.filter((group, index, self) => 
+      index === self.findIndex(g => g.id === group.id)
+    );
+
+    // Sort by updatedAt desc
+    uniqueGroups.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
     // Add participant count to each group (only approved participants)
-    return groups.map(group => ({
+    return uniqueGroups.map(group => ({
       ...group,
       participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
     }));
