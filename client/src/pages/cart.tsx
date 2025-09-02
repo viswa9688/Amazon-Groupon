@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles, Zap, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -127,6 +127,7 @@ export default function Cart() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location, setLocation] = useLocation();
   const [optimizing, setOptimizing] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [expandedStrategies, setExpandedStrategies] = useState<Set<number>>(new Set());
@@ -293,6 +294,7 @@ export default function Cart() {
       return apiRequest("POST", "/api/user-groups/from-cart", { name });
     },
     onSuccess: (data) => {
+      const createdCollection = data as any;
       toast({
         title: "Collection Created!",
         description: `"${collectionName}" collection has been created with your cart items`,
@@ -302,6 +304,8 @@ export default function Cart() {
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] });
+      // Navigate to the newly created collection
+      setLocation(`/user-group/${createdCollection.id}`);
     },
     onError: (error: Error) => {
       toast({
