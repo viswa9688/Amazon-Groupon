@@ -1088,7 +1088,7 @@ export class DatabaseStorage implements IStorage {
 
     return groups.map(group => ({
       ...group,
-      participantCount: group.participants?.length || 0,
+      participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
     }));
   }
 
@@ -1119,10 +1119,10 @@ export class DatabaseStorage implements IStorage {
       orderBy: desc(userGroups.updatedAt),
     });
 
-    // Add participant count to each group
+    // Add participant count to each group (only approved participants)
     return groups.map(group => ({
       ...group,
-      participantCount: group.participants?.length || 0,
+      participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
     }));
   }
 
@@ -1155,7 +1155,7 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...group,
-      participantCount: group.participants?.length || 0,
+      participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
     };
   }
 
