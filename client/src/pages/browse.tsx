@@ -370,9 +370,14 @@ export default function Browse() {
                           </p>
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm text-muted-foreground">
-                                by {collection.user.firstName} {collection.user.lastName}
-                              </p>
+                              <div className="text-sm text-muted-foreground">
+                                <p>by {collection.user.firstName} {collection.user.lastName}</p>
+                                {collection.user.phoneNumber && (
+                                  <p className="text-xs text-muted-foreground" data-testid={`text-owner-phone-${collection.id}`}>
+                                    📞 {collection.user.phoneNumber}
+                                  </p>
+                                )}
+                              </div>
                               <Button size="sm" data-testid={`button-view-collection-${collection.id}`}>
                                 View Collection
                               </Button>

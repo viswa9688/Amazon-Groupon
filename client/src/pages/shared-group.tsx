@@ -179,9 +179,16 @@ export default function SharedGroupPage() {
                     {sharedGroup.description}
                   </p>
                 )}
-                <p className="text-sm text-muted-foreground">
-                  Shared by someone in the OneAnt community • Created {sharedGroup.createdAt ? new Date(sharedGroup.createdAt).toLocaleDateString() : 'Unknown'}
-                </p>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>
+                    Shared by {sharedGroup.user?.firstName} {sharedGroup.user?.lastName} • Created {sharedGroup.createdAt ? new Date(sharedGroup.createdAt).toLocaleDateString() : 'Unknown'}
+                  </p>
+                  {sharedGroup.user?.phoneNumber && (
+                    <p className="text-xs" data-testid="text-shared-group-owner-phone">
+                      📞 {sharedGroup.user.phoneNumber}
+                    </p>
+                  )}
+                </div>
               </div>
               
               <div className="flex flex-col gap-3">
