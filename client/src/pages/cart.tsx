@@ -572,7 +572,7 @@ export default function Cart() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {similarGroups.slice(0, 3).map((group, index) => {
+                    {similarGroups.map((group, index) => {
                       const collectionProgress = Math.min(((group.userGroup.participantCount || 0) / 5) * 100, 100);
                       const discountsActive = (group.userGroup.participantCount || 0) >= 5;
                       
