@@ -591,7 +591,7 @@ export class DatabaseStorage implements IStorage {
         return {
           ...group,
           items: groupItems,
-          participantCount: group.participants?.length || 0,
+          participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
         } as UserGroupWithDetails;
       })
     );
