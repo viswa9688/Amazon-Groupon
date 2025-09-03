@@ -556,6 +556,7 @@ export class DatabaseStorage implements IStorage {
     if (userCart.length === 0) return [];
 
     const cartProductIds = userCart.map(item => item.productId);
+    console.log('Cart product IDs for user', userId, ':', cartProductIds);
     
     // Get all public user groups (excluding user's own groups)
     const publicUserGroups = await db.query.userGroups.findMany({
@@ -588,6 +589,10 @@ export class DatabaseStorage implements IStorage {
           },
         });
 
+        if (group.id === 9) {
+          console.log('Group 9 (Kitchen & Dining Set) items:', groupItems.map(i => ({ id: i.productId, name: i.product.name })));
+        }
+
         return {
           ...group,
           items: groupItems,
@@ -602,6 +607,11 @@ export class DatabaseStorage implements IStorage {
     for (const userGroup of userGroupsWithDetails) {
       const groupProductIds = userGroup.items.map(item => item.productId);
       const matchingProductIds = cartProductIds.filter(id => groupProductIds.includes(id));
+      
+      if (userGroup.id === 9) {
+        console.log('Group 9 product IDs:', groupProductIds);
+        console.log('Matching product IDs for Group 9:', matchingProductIds);
+      }
       
       if (matchingProductIds.length > 0) {
         // Calculate similarity as (matching_products / total_cart_products) * 100
