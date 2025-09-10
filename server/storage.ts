@@ -74,6 +74,11 @@ export interface IStorage {
   updateServiceProvider(id: number, serviceProvider: Partial<InsertServiceProvider>): Promise<ServiceProvider>;
   getServiceProviderByProductId(productId: number): Promise<ServiceProvider | undefined>;
   deleteServiceProviderByProductId(productId: number): Promise<void>;
+  
+  // Service Provider Staff operations
+  createServiceProviderStaff(staff: InsertServiceProviderStaff): Promise<ServiceProviderStaff>;
+  getServiceProviderStaff(serviceProviderId: number): Promise<ServiceProviderStaff[]>;
+  deleteServiceProviderStaff(serviceProviderId: number): Promise<void>;
 
   // Discount tier operations
   createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier>;
@@ -413,6 +418,23 @@ export class DatabaseStorage implements IStorage {
       await db.delete(serviceProviderStaff).where(eq(serviceProviderStaff.serviceProviderId, provider.id));
       await db.delete(serviceProviders).where(eq(serviceProviders.productId, productId));
     }
+  }
+  
+  // Service Provider Staff implementations
+  async createServiceProviderStaff(staff: InsertServiceProviderStaff): Promise<ServiceProviderStaff> {
+    const [newStaff] = await db.insert(serviceProviderStaff).values(staff).returning();
+    return newStaff;
+  }
+  
+  async getServiceProviderStaff(serviceProviderId: number): Promise<ServiceProviderStaff[]> {
+    return await db
+      .select()
+      .from(serviceProviderStaff)
+      .where(eq(serviceProviderStaff.serviceProviderId, serviceProviderId));
+  }
+  
+  async deleteServiceProviderStaff(serviceProviderId: number): Promise<void> {
+    await db.delete(serviceProviderStaff).where(eq(serviceProviderStaff.serviceProviderId, serviceProviderId));
   }
 
 

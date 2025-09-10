@@ -111,6 +111,19 @@ const serviceProviderSchema = z.object({
   insurancePolicyNumber: z.string().optional(),
   liabilityWaiverRequired: z.boolean().default(false),
   healthSafetyCert: z.string().optional(),
+  
+  // Staff
+  staff: z.array(z.object({
+    name: z.string(),
+    skills: z.string(),
+    availability: z.string(),
+    rating: z.string(),
+  })).optional(),
+  
+  // Reviews & Ratings
+  avgRating: z.string().optional(),
+  reviewCount: z.string().optional(),
+  highlightedTestimonials: z.any().optional(),
 });
 
 // Combined form schema
@@ -429,6 +442,21 @@ export default function SellerDashboard() {
       formData.insurancePolicyNumber = sp.insurancePolicyNumber || "";
       formData.liabilityWaiverRequired = sp.liabilityWaiverRequired || false;
       formData.healthSafetyCert = sp.healthSafetyCert || "";
+      
+      // Load staff data
+      if (sp.staff && sp.staff.length > 0) {
+        formData.staff = sp.staff.map((staffMember: any) => ({
+          name: staffMember.name || "",
+          skills: Array.isArray(staffMember.skills) ? staffMember.skills.join(", ") : staffMember.skills || "",
+          availability: staffMember.availability ? JSON.stringify(staffMember.availability) : "",
+          rating: staffMember.rating?.toString() || "",
+        }));
+      }
+      
+      // Load reviews data
+      formData.avgRating = sp.avgRating?.toString() || "0";
+      formData.reviewCount = sp.reviewCount?.toString() || "0";
+      formData.highlightedTestimonials = sp.highlightedTestimonials || null;
     }
       
     editForm.reset(formData);
@@ -1248,6 +1276,191 @@ export default function SellerDashboard() {
                                     </FormControl>
                                     <FormDescription>
                                       Link to health and safety certification (optional)
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Users className="w-5 h-5" />
+                                Staff Management (Optional)
+                              </h3>
+                              
+                              <FormField
+                                control={form.control}
+                                name="staff"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Staff Members</FormLabel>
+                                    <FormControl>
+                                      <div className="space-y-4">
+                                        {(!field.value || field.value.length === 0) ? (
+                                          <div className="text-sm text-muted-foreground p-4 border-2 border-dashed rounded-lg">
+                                            No staff members added yet
+                                          </div>
+                                        ) : (
+                                          field.value.map((staff: any, index: number) => (
+                                            <div key={index} className="p-4 border rounded-lg space-y-3">
+                                              <div className="flex justify-between">
+                                                <h4 className="font-medium">Staff Member {index + 1}</h4>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => {
+                                                    const newStaff = [...(field.value || [])];
+                                                    newStaff.splice(index, 1);
+                                                    field.onChange(newStaff);
+                                                  }}
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-3">
+                                                <Input
+                                                  placeholder="Staff name"
+                                                  value={staff.name || ''}
+                                                  onChange={(e) => {
+                                                    const newStaff = [...(field.value || [])];
+                                                    newStaff[index] = { ...newStaff[index], name: e.target.value };
+                                                    field.onChange(newStaff);
+                                                  }}
+                                                />
+                                                <Input
+                                                  placeholder="Skills (comma separated)"
+                                                  value={staff.skills || ''}
+                                                  onChange={(e) => {
+                                                    const newStaff = [...(field.value || [])];
+                                                    newStaff[index] = { ...newStaff[index], skills: e.target.value };
+                                                    field.onChange(newStaff);
+                                                  }}
+                                                />
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-3">
+                                                <Input
+                                                  placeholder="Availability (e.g., Mon-Fri 9-5)"
+                                                  value={staff.availability || ''}
+                                                  onChange={(e) => {
+                                                    const newStaff = [...(field.value || [])];
+                                                    newStaff[index] = { ...newStaff[index], availability: e.target.value };
+                                                    field.onChange(newStaff);
+                                                  }}
+                                                />
+                                                <Input
+                                                  type="number"
+                                                  step="0.1"
+                                                  min="0"
+                                                  max="5"
+                                                  placeholder="Rating (0-5)"
+                                                  value={staff.rating || ''}
+                                                  onChange={(e) => {
+                                                    const newStaff = [...(field.value || [])];
+                                                    newStaff[index] = { ...newStaff[index], rating: e.target.value };
+                                                    field.onChange(newStaff);
+                                                  }}
+                                                />
+                                              </div>
+                                            </div>
+                                          ))
+                                        )}
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          className="w-full"
+                                          onClick={() => {
+                                            const newStaff = [...(field.value || []), { name: '', skills: '', availability: '', rating: '' }];
+                                            field.onChange(newStaff);
+                                          }}
+                                        >
+                                          <Plus className="w-4 h-4 mr-2" />
+                                          Add Staff Member
+                                        </Button>
+                                      </div>
+                                    </FormControl>
+                                    <FormDescription>
+                                      Add staff members who will provide this service
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Star className="w-5 h-5" />
+                                Reviews & Ratings
+                              </h3>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="avgRating"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Average Rating</FormLabel>
+                                      <FormControl>
+                                        <Input 
+                                          type="number" 
+                                          step="0.1" 
+                                          min="0" 
+                                          max="5" 
+                                          placeholder="0.0" 
+                                          {...field} 
+                                          disabled 
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Auto-calculated from customer reviews
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="reviewCount"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Total Reviews</FormLabel>
+                                      <FormControl>
+                                        <Input 
+                                          type="number" 
+                                          placeholder="0" 
+                                          {...field} 
+                                          disabled 
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Number of customer reviews
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              
+                              <FormField
+                                control={form.control}
+                                name="highlightedTestimonials"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Highlighted Testimonials</FormLabel>
+                                    <FormControl>
+                                      <Textarea
+                                        placeholder="Featured customer testimonials will appear here"
+                                        className="min-h-[100px]"
+                                        {...field}
+                                        value={field.value ? JSON.stringify(field.value) : ''}
+                                        disabled
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Best testimonials from customers
                                     </FormDescription>
                                     <FormMessage />
                                   </FormItem>

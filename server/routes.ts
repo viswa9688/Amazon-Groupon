@@ -1183,7 +1183,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Validate service provider data
         const validatedServiceProviderData = insertServiceProviderSchema.parse(serviceProviderData);
-        await storage.createServiceProvider(validatedServiceProviderData);
+        const createdServiceProvider = await storage.createServiceProvider(validatedServiceProviderData);
+        
+        // Handle staff members if provided
+        if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
+          for (const staffMember of serviceProvider.staff) {
+            if (staffMember.name) {
+              await storage.createServiceProviderStaff({
+                serviceProviderId: createdServiceProvider.id!,
+                name: staffMember.name,
+                skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
+                availability: staffMember.availability || null,
+                rating: staffMember.rating ? staffMember.rating.toString() : null,
+              });
+            }
+          }
+        }
       }
       
       // Always create discount tiers for group purchases
@@ -1284,8 +1299,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const existingServiceProvider = await storage.getServiceProviderByProductId(productId);
         if (existingServiceProvider) {
           await storage.updateServiceProvider(existingServiceProvider.id, validatedServiceProviderData);
+          
+          // Update staff members
+          // First, remove existing staff
+          await storage.deleteServiceProviderStaff(existingServiceProvider.id);
+          
+          // Then add new staff if provided
+          if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
+            for (const staffMember of serviceProvider.staff) {
+              if (staffMember.name) {
+                await storage.createServiceProviderStaff({
+                  serviceProviderId: existingServiceProvider.id,
+                  name: staffMember.name,
+                  skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
+                  availability: staffMember.availability || null,
+                  rating: staffMember.rating ? staffMember.rating.toString() : null,
+                });
+              }
+            }
+          }
         } else {
-          await storage.createServiceProvider(validatedServiceProviderData);
+          const createdServiceProvider = await storage.createServiceProvider(validatedServiceProviderData);
+          
+          // Handle staff members if provided
+          if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
+            for (const staffMember of serviceProvider.staff) {
+              if (staffMember.name) {
+                await storage.createServiceProviderStaff({
+                  serviceProviderId: createdServiceProvider.id!,
+                  name: staffMember.name,
+                  skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
+                  availability: staffMember.availability || null,
+                  rating: staffMember.rating ? staffMember.rating.toString() : null,
+                });
+              }
+            }
+          }
         }
       } else if (productData.categoryId !== 2) {
         // If changing from service to non-service category, remove service provider data
