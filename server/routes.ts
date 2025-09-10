@@ -1135,7 +1135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/seller/products', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
-      const { discountPrice, ...productFields } = req.body;
+      const { discountPrice, serviceProvider, ...productFields } = req.body;
       const productData = {
         ...productFields,
         sellerId,
@@ -1145,6 +1145,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedProductData = insertProductSchema.parse(productData);
       const product = await storage.createProduct(validatedProductData);
+      
+      // Create service provider record if this is a service (category 2)
+      if (productData.categoryId === 2 && serviceProvider) {
+        await storage.createServiceProvider({
+          productId: product.id!,
+          ...serviceProvider,
+        });
+      }
       
       // Always create discount tiers for group purchases
       if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
@@ -1182,7 +1190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sellerId = req.user.claims.sub;
       const productId = parseInt(req.params.productId);
-      const { discountPrice, ...productFields } = req.body;
+      const { discountPrice, serviceProvider, ...productFields } = req.body;
       
       if (isNaN(productId)) {
         return res.status(400).json({ message: "Invalid product ID" });
@@ -1204,6 +1212,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedProductData = insertProductSchema.parse(productData);
       const product = await storage.updateProduct(productId, validatedProductData);
       
+      // Update or create service provider record if this is a service (category 2)
+      if (productData.categoryId === 2 && serviceProvider) {
+        const existingServiceProvider = await storage.getServiceProviderByProductId(productId);
+        if (existingServiceProvider) {
+          await storage.updateServiceProvider(existingServiceProvider.id, serviceProvider);
+        } else {
+          await storage.createServiceProvider({
+            productId: product.id!,
+            ...serviceProvider,
+          });
+        }
+      } else if (productData.categoryId !== 2) {
+        // If changing from service to non-service category, remove service provider data
+        await storage.deleteServiceProviderByProductId(productId);
+      }
       
       // Update discount tier if provided
       if (discountPrice && parseFloat(discountPrice) < parseFloat(productData.originalPrice)) {
