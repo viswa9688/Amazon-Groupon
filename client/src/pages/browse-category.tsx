@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import Header from "@/components/Header";
-import SimpleProductCard from "@/components/SimpleProductCard";
+import ServiceProductCard from "@/components/ServiceProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -261,7 +261,7 @@ export default function BrowseCategory() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredAndSortedProducts.map((product) => (
-                <SimpleProductCard 
+                <ServiceProductCard 
                   key={product.id} 
                   product={product}
                   testId={`product-card-${product.id}`}
