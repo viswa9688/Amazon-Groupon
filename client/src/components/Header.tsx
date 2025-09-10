@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Store, User, Menu, LogOut, Users, UserCircle, MapPin, ChevronDown } from "lucide-react";
+import { ShoppingCart, Store, User, Menu, LogOut, Users, UserCircle, MapPin, ChevronDown, Apple, Briefcase } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -335,6 +335,48 @@ export default function Header() {
           </div>
         )}
       </div>
+      
+      {/* Category Tabs - Only show on Browse and Category pages */}
+      {(window.location.pathname === '/browse' || 
+        window.location.pathname === '/browse/groceries' || 
+        window.location.pathname === '/browse/services') && (
+        <div className="border-t border-border bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center space-x-0">
+              <a 
+                href="/browse/groceries" 
+                className={`flex items-center space-x-2 px-6 py-3 font-medium transition-all relative ${
+                  window.location.pathname === '/browse/groceries' 
+                    ? 'text-primary bg-white dark:bg-gray-800 shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50'
+                }`}
+                data-testid="tab-groceries"
+              >
+                <Apple className="w-4 h-4" />
+                <span>Groceries</span>
+                {window.location.pathname === '/browse/groceries' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+                )}
+              </a>
+              <a 
+                href="/browse/services" 
+                className={`flex items-center space-x-2 px-6 py-3 font-medium transition-all relative ${
+                  window.location.pathname === '/browse/services' 
+                    ? 'text-primary bg-white dark:bg-gray-800 shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50'
+                }`}
+                data-testid="tab-services"
+              >
+                <Briefcase className="w-4 h-4" />
+                <span>Services</span>
+                {window.location.pathname === '/browse/services' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+                )}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
       
       <PhoneAuthModal 
         open={authModalOpen}

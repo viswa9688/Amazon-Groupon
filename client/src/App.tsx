@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Browse from "@/pages/browse";
+import BrowseCategory from "@/pages/browse-category";
 import SellerDashboard from "@/pages/seller-dashboard";
 import ProductDetails from "@/pages/product-details";
 import Checkout from "@/pages/checkout";
@@ -39,6 +40,7 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/browse" component={Browse} />
+          <Route path="/browse/:category" component={BrowseCategory} />
           <Route path="/shared/:shareToken" component={SharedGroup} />
           <Route path="/admin-super" component={AdminSuper} />
           <Route component={NotFound} />
@@ -47,6 +49,7 @@ function Router() {
         <>
           <Route path="/" component={Home} />
           <Route path="/browse" component={Browse} />
+          <Route path="/browse/:category" component={BrowseCategory} />
           <Route path="/cart" component={Cart} />
           <Route path="/seller" component={SellerDashboard} />
           <Route path="/seller/analytics" component={SellerAnalytics} />
