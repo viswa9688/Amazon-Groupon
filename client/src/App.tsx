@@ -38,7 +38,7 @@ function Router() {
     <Switch>
       {!isAuthenticated ? (
         <>
-          <Route path="/" component={Landing} />
+          <Route path="/" component={Browse} />
           <Route path="/browse" component={Browse} />
           <Route path="/browse/:category" component={BrowseCategory} />
           <Route path="/shared/:shareToken" component={SharedGroup} />
@@ -47,7 +47,7 @@ function Router() {
         </>
       ) : (
         <>
-          <Route path="/" component={Home} />
+          <Route path="/" component={Browse} />
           <Route path="/browse" component={Browse} />
           <Route path="/browse/:category" component={BrowseCategory} />
           <Route path="/cart" component={Cart} />
