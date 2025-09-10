@@ -79,12 +79,22 @@ export default function ServiceProductCard({ product, testId }: ServiceProductCa
         description: `${product.name} has been added to your cart`,
       });
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to add item to cart. Please try again.",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      // Check if it's a category conflict error
+      if (error?.categoryConflict) {
+        toast({
+          title: "Cannot Mix Categories",
+          description: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error?.error || "Failed to add item to cart. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 

@@ -500,6 +500,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/cart', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const { productId } = req.body;
+      
+      // Get product details to check category
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // Get existing cart items to check for category mixing
+      const existingCart = await storage.getUserCart(userId);
+      if (existingCart.length > 0) {
+        // Check if any existing cart item has a different category
+        const hasGroceries = existingCart.some(item => item.product.categoryId === 1);
+        const hasServices = existingCart.some(item => item.product.categoryId === 2);
+        
+        // Check if trying to mix categories
+        if ((hasGroceries && product.categoryId === 2) || (hasServices && product.categoryId === 1)) {
+          return res.status(400).json({ 
+            message: "Cannot mix categories",
+            error: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
+            categoryConflict: true
+          });
+        }
+      }
+      
       const cartData = insertCartItemSchema.parse({
         ...req.body,
         userId,

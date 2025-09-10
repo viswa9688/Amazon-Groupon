@@ -174,7 +174,7 @@ export default function ProductDetails() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -186,11 +186,21 @@ export default function ProductDetails() {
         }, 500);
         return;
       }
-      toast({
-        title: "Error",
-        description: "Failed to add product to cart. Please try again.",
-        variant: "destructive",
-      });
+      // Check if it's a category conflict error
+      if (error?.categoryConflict) {
+        toast({
+          title: "Cannot Mix Categories",
+          description: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error?.error || "Failed to add product to cart. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
