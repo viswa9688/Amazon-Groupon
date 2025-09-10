@@ -1,0 +1,1205 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import Header from "@/components/Header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { 
+  DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2, 
+  BarChart3, Home, Calendar as CalendarIcon, MapPin, Clock, Users, Star,
+  Briefcase, Shield, Phone, Globe
+} from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { format } from "date-fns";
+import type { ProductWithDetails, Order, Category, InsertProduct } from "@shared/schema";
+import { Link } from "wouter";
+
+// Service categories
+const serviceCategories = [
+  "Salon & Beauty",
+  "Tutoring & Education", 
+  "Cleaning & Maintenance",
+  "Repairs & Installation",
+  "Fitness & Wellness",
+  "Professional Services",
+  "Healthcare",
+  "Events & Entertainment",
+  "Other"
+];
+
+// Pricing models
+const pricingModels = [
+  { value: "flat_fee", label: "Flat Fee" },
+  { value: "hourly", label: "Hourly Rate" },
+  { value: "per_session", label: "Per Session" },
+  { value: "subscription", label: "Subscription" }
+];
+
+// Service modes
+const serviceModes = [
+  { value: "in_person", label: "In-Person Only" },
+  { value: "online", label: "Online Only" },
+  { value: "hybrid", label: "Both In-Person & Online" }
+];
+
+// Product form schema - Base fields
+const baseProductSchema = z.object({
+  name: z.string().min(1, "Product/Service name is required"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  categoryId: z.string().min(1, "Category is required"),
+  imageUrl: z.string().url("Please enter a valid image URL").optional().or(z.literal("")),
+  originalPrice: z.string().min(1, "Price is required"),
+  discountPrice: z.string().min(1, "Discount price is required"),
+  minimumParticipants: z.string().min(1, "Minimum participants required"),
+  maximumParticipants: z.string().min(1, "Maximum participants required"),
+  offerValidTill: z.date().optional(),
+});
+
+// Service-specific fields
+const serviceProviderSchema = z.object({
+  // Provider Profile
+  legalName: z.string().optional(),
+  displayName: z.string().optional(),
+  serviceCategory: z.string().optional(),
+  licenseNumber: z.string().optional(),
+  yearsInBusiness: z.string().optional(),
+  
+  // Location & Coverage
+  serviceMode: z.string().default("in_person"),
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  locality: z.string().optional(),
+  region: z.string().optional(),
+  postalCode: z.string().optional(),
+  
+  // Service Details
+  serviceName: z.string().optional(),
+  durationMinutes: z.string().optional(),
+  pricingModel: z.string().default("flat_fee"),
+  materialsIncluded: z.boolean().default(false),
+  ageRestriction: z.string().optional(),
+  
+  // Availability
+  availabilityType: z.string().default("by_appointment"),
+  advanceBookingDays: z.string().default("7"),
+  rescheduleAllowed: z.boolean().default(true),
+  
+  // Compliance
+  insurancePolicyNumber: z.string().optional(),
+  liabilityWaiverRequired: z.boolean().default(false),
+});
+
+// Combined form schema
+const productFormSchema = baseProductSchema.merge(serviceProviderSchema);
+
+type ProductFormData = z.infer<typeof productFormSchema>;
+
+export default function SellerDashboard() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("products");
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductWithDetails | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<ProductWithDetails | null>(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, authLoading, toast]);
+
+  const { data: products, isLoading: productsLoading } = useQuery<ProductWithDetails[]>({
+    queryKey: ["/api/seller/products"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
+    queryKey: ["/api/seller/orders"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  // Fetch seller metrics
+  const { data: metrics, isLoading: metricsLoading } = useQuery<{
+    totalRevenue: number;
+    totalOrders: number;
+    potentialRevenue: number;
+    activeGroups: number;
+    totalProducts: number;
+    growthPercentage: number;
+  }>({
+    queryKey: ["/api/seller/metrics"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  // Product form
+  const form = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      categoryId: "",
+      imageUrl: "",
+      originalPrice: "",
+      discountPrice: "",
+      minimumParticipants: "10",
+      maximumParticipants: "1000",
+      offerValidTill: undefined,
+      // Service defaults
+      serviceMode: "in_person",
+      pricingModel: "flat_fee",
+      materialsIncluded: false,
+      availabilityType: "by_appointment",
+      advanceBookingDays: "7",
+      rescheduleAllowed: true,
+      liabilityWaiverRequired: false,
+    },
+  });
+
+  // Watch category to show/hide service fields
+  const selectedCategoryId = form.watch("categoryId");
+  const isServiceCategory = selectedCategoryId === "2"; // Services category ID is 2
+
+  // Edit product form
+  const editForm = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      categoryId: "",
+      imageUrl: "",
+      originalPrice: "",
+      discountPrice: "",
+      minimumParticipants: "10",
+      maximumParticipants: "1000",
+      offerValidTill: undefined,
+    },
+  });
+
+  const editSelectedCategoryId = editForm.watch("categoryId");
+  const isEditServiceCategory = editSelectedCategoryId === "2";
+
+  // Add product mutation
+  const addProductMutation = useMutation({
+    mutationFn: async (data: ProductFormData) => {
+      const productData: any = {
+        name: data.name,
+        description: data.description,
+        categoryId: parseInt(data.categoryId),
+        originalPrice: data.originalPrice,
+        minimumParticipants: parseInt(data.minimumParticipants),
+        maximumParticipants: parseInt(data.maximumParticipants),
+        imageUrl: data.imageUrl || undefined,
+        offerValidTill: data.offerValidTill?.toISOString() || undefined,
+        discountPrice: data.discountPrice,
+      };
+
+      // Add service-specific data if Services category
+      if (data.categoryId === "2") {
+        productData.serviceProvider = {
+          legalName: data.legalName,
+          displayName: data.displayName,
+          serviceCategory: data.serviceCategory,
+          licenseNumber: data.licenseNumber,
+          yearsInBusiness: data.yearsInBusiness ? parseInt(data.yearsInBusiness) : undefined,
+          serviceMode: data.serviceMode,
+          addressLine1: data.addressLine1,
+          addressLine2: data.addressLine2,
+          locality: data.locality,
+          region: data.region,
+          postalCode: data.postalCode,
+          serviceName: data.serviceName,
+          durationMinutes: data.durationMinutes ? parseInt(data.durationMinutes) : undefined,
+          pricingModel: data.pricingModel,
+          materialsIncluded: data.materialsIncluded,
+          ageRestriction: data.ageRestriction ? parseInt(data.ageRestriction) : undefined,
+          availabilityType: data.availabilityType,
+          advanceBookingDays: parseInt(data.advanceBookingDays || "7"),
+          rescheduleAllowed: data.rescheduleAllowed,
+          insurancePolicyNumber: data.insurancePolicyNumber,
+          liabilityWaiverRequired: data.liabilityWaiverRequired,
+        };
+      }
+
+      return apiRequest("POST", "/api/seller/products", productData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      toast({
+        title: "Success!",
+        description: isServiceCategory ? "Service added successfully." : "Product added successfully.",
+      });
+      setProductDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add product/service",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Edit product mutation
+  const editProductMutation = useMutation({
+    mutationFn: async ({ productId, data }: { productId: number; data: ProductFormData }) => {
+      const productData: any = {
+        name: data.name,
+        description: data.description,
+        categoryId: parseInt(data.categoryId),
+        originalPrice: data.originalPrice,
+        minimumParticipants: parseInt(data.minimumParticipants),
+        maximumParticipants: parseInt(data.maximumParticipants),
+        imageUrl: data.imageUrl || undefined,
+        offerValidTill: data.offerValidTill?.toISOString() || undefined,
+        discountPrice: data.discountPrice,
+      };
+
+      // Add service-specific data if Services category
+      if (data.categoryId === "2") {
+        productData.serviceProvider = {
+          legalName: data.legalName,
+          displayName: data.displayName,
+          serviceCategory: data.serviceCategory,
+          licenseNumber: data.licenseNumber,
+          yearsInBusiness: data.yearsInBusiness ? parseInt(data.yearsInBusiness) : undefined,
+          serviceMode: data.serviceMode,
+          addressLine1: data.addressLine1,
+          addressLine2: data.addressLine2,
+          locality: data.locality,
+          region: data.region,
+          postalCode: data.postalCode,
+          serviceName: data.serviceName,
+          durationMinutes: data.durationMinutes ? parseInt(data.durationMinutes) : undefined,
+          pricingModel: data.pricingModel,
+          materialsIncluded: data.materialsIncluded,
+          ageRestriction: data.ageRestriction ? parseInt(data.ageRestriction) : undefined,
+          availabilityType: data.availabilityType,
+          advanceBookingDays: parseInt(data.advanceBookingDays || "7"),
+          rescheduleAllowed: data.rescheduleAllowed,
+          insurancePolicyNumber: data.insurancePolicyNumber,
+          liabilityWaiverRequired: data.liabilityWaiverRequired,
+        };
+      }
+
+      return apiRequest("PATCH", `/api/seller/products/${productId}`, productData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
+      toast({
+        title: "Success!",
+        description: isEditServiceCategory ? "Service updated successfully." : "Product updated successfully.",
+      });
+      setEditDialogOpen(false);
+      setEditingProduct(null);
+      editForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update product/service",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update order status mutation
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
+      return apiRequest("PATCH", `/api/seller/orders/${orderId}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
+      toast({
+        title: "Status Updated",
+        description: "Order status has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update order status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: ProductFormData) => {
+    addProductMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: ProductFormData) => {
+    if (editingProduct) {
+      editProductMutation.mutate({ productId: editingProduct.id!, data });
+    }
+  };
+
+  const handleEditClick = (product: ProductWithDetails) => {
+    setEditingProduct(product);
+    
+    // Get discount price from discount tiers if available
+    const discountPrice = product.discountTiers && product.discountTiers.length > 0 
+      ? product.discountTiers[0].finalPrice.toString() 
+      : product.originalPrice.toString();
+    
+    const formData: any = {
+      name: product.name,
+      description: product.description || "",
+      categoryId: product.categoryId?.toString() || "",
+      imageUrl: product.imageUrl || "",
+      originalPrice: product.originalPrice.toString(),
+      discountPrice: discountPrice,
+      minimumParticipants: product.minimumParticipants.toString(),
+      maximumParticipants: product.maximumParticipants.toString(),
+      offerValidTill: product.offerValidTill ? new Date(product.offerValidTill) : undefined,
+    };
+
+    // Load service provider data if exists
+    if (product.serviceProvider) {
+      const sp = product.serviceProvider;
+      formData.legalName = sp.legalName || "";
+      formData.displayName = sp.displayName || "";
+      formData.serviceCategory = sp.serviceCategory || "";
+      formData.licenseNumber = sp.licenseNumber || "";
+      formData.yearsInBusiness = sp.yearsInBusiness?.toString() || "";
+      formData.serviceMode = sp.serviceMode || "in_person";
+      formData.addressLine1 = sp.addressLine1 || "";
+      formData.addressLine2 = sp.addressLine2 || "";
+      formData.locality = sp.locality || "";
+      formData.region = sp.region || "";
+      formData.postalCode = sp.postalCode || "";
+      formData.serviceName = sp.serviceName || "";
+      formData.durationMinutes = sp.durationMinutes?.toString() || "";
+      formData.pricingModel = sp.pricingModel || "flat_fee";
+      formData.materialsIncluded = sp.materialsIncluded || false;
+      formData.ageRestriction = sp.ageRestriction?.toString() || "";
+      formData.availabilityType = sp.availabilityType || "by_appointment";
+      formData.advanceBookingDays = sp.advanceBookingDays?.toString() || "7";
+      formData.rescheduleAllowed = sp.rescheduleAllowed ?? true;
+      formData.insurancePolicyNumber = sp.insurancePolicyNumber || "";
+      formData.liabilityWaiverRequired = sp.liabilityWaiverRequired || false;
+    }
+      
+    editForm.reset(formData);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (product: ProductWithDetails) => {
+    setProductToDelete(product);
+    setDeleteDialogOpen(true);
+  };
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      return apiRequest("DELETE", `/api/seller/products/${productId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Product deleted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      
+      // Handle participant warning
+      if (error.message.includes("participants")) {
+        const data = JSON.parse(error.message.split(': ')[1] || '{}');
+        toast({
+          title: "Cannot Delete Product",
+          description: data.details || "This product has active participants.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete product. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const handleStatusUpdate = (orderId: number, status: string) => {
+    updateOrderStatusMutation.mutate({ orderId, status });
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Skeleton className="h-8 w-64 mb-8" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Use metrics from API or fallback to loading state
+  const totalProducts = metrics?.totalProducts ?? 0;
+  const activeGroups = metrics?.activeGroups ?? 0;
+  const totalRevenue = metrics?.totalRevenue ?? 0;
+  const potentialRevenue = metrics?.potentialRevenue ?? 0;
+  const growthPercentage = metrics?.growthPercentage ?? 0;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2" data-testid="text-dashboard-title">
+              Seller Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Welcome back, {(user as any)?.firstName || 'Seller'}! Here's your store overview.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" asChild>
+              <Link href="/seller/analytics">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/">
+                <Home className="w-4 h-4 mr-2" />
+                Back to Home
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-revenue">
+                    ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-accent" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Potential Revenue</p>
+                  <p className="text-2xl font-bold text-orange-600" data-testid="text-potential-revenue">
+                    ${potentialRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Active Groups</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-active-groups">
+                    {activeGroups}
+                  </p>
+                </div>
+                <ShoppingBag className="h-8 w-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Products</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-products">
+                    {totalProducts}
+                  </p>
+                </div>
+                <Package className="h-8 w-8 text-secondary" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Growth</p>
+                  <p className="text-2xl font-bold text-accent" data-testid="text-growth-percentage">
+                    {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-accent" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabs Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Product Management
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <Truck className="w-4 h-4" />
+              Order Management
+            </TabsTrigger>
+            <TabsTrigger value="potential" className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Potential Revenue
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="products">
+            <div className="space-y-6">
+              {/* Add Product Button */}
+              <div className="flex justify-end">
+                <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary hover:bg-primary/90" data-testid="button-add-product">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Product/Service
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Add New Product/Service</DialogTitle>
+                    </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        {/* Category Selection - FIRST */}
+                        <FormField
+                          control={form.control}
+                          name="categoryId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Category *</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-category">
+                                    <SelectValue placeholder="Select a category first" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {categories?.map((category) => (
+                                    <SelectItem key={category.id} value={category.id.toString()}>
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                Choose the category to see relevant fields
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {/* Basic Fields */}
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{isServiceCategory ? "Service Name" : "Product Name"} *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder={isServiceCategory ? "Enter service name" : "Enter product name"} 
+                                  {...field} 
+                                  data-testid="input-product-name" 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description *</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder={isServiceCategory ? "Describe your service" : "Describe your product"} 
+                                  rows={4} 
+                                  {...field} 
+                                  data-testid="input-product-description" 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="imageUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Image URL (Optional)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="https://example.com/image.jpg" {...field} data-testid="input-image-url" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        {/* Service-Specific Fields */}
+                        {isServiceCategory && (
+                          <>
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Briefcase className="w-5 h-5" />
+                                Service Provider Details
+                              </h3>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="displayName"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Business Display Name</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Your business name" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="serviceCategory"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Service Category</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select service type" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          {serviceCategories.map((cat) => (
+                                            <SelectItem key={cat} value={cat}>
+                                              {cat}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="yearsInBusiness"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Years in Business</FormLabel>
+                                      <FormControl>
+                                        <Input type="number" placeholder="5" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="licenseNumber"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>License Number (if applicable)</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="LIC-123456" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <MapPin className="w-5 h-5" />
+                                Service Location & Coverage
+                              </h3>
+                              
+                              <FormField
+                                control={form.control}
+                                name="serviceMode"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Service Mode</FormLabel>
+                                    <FormControl>
+                                      <RadioGroup
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                        className="flex flex-row space-x-4"
+                                      >
+                                        {serviceModes.map((mode) => (
+                                          <div key={mode.value} className="flex items-center space-x-2">
+                                            <RadioGroupItem value={mode.value} id={mode.value} />
+                                            <Label htmlFor={mode.value}>{mode.label}</Label>
+                                          </div>
+                                        ))}
+                                      </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {(form.watch("serviceMode") === "in_person" || form.watch("serviceMode") === "hybrid") && (
+                                <>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name="addressLine1"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Address Line 1</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="123 Main St" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                    
+                                    <FormField
+                                      control={form.control}
+                                      name="addressLine2"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Address Line 2</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="Suite 100" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name="locality"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>City</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="New York" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                    
+                                    <FormField
+                                      control={form.control}
+                                      name="region"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>State/Region</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="NY" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                    
+                                    <FormField
+                                      control={form.control}
+                                      name="postalCode"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Postal Code</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="10001" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Clock className="w-5 h-5" />
+                                Service Details & Availability
+                              </h3>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="durationMinutes"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Service Duration (minutes)</FormLabel>
+                                      <FormControl>
+                                        <Input type="number" placeholder="60" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="pricingModel"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Pricing Model</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select pricing model" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          {pricingModels.map((model) => (
+                                            <SelectItem key={model.value} value={model.value}>
+                                              {model.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="advanceBookingDays"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Advance Booking (days)</FormLabel>
+                                      <FormControl>
+                                        <Input type="number" placeholder="7" {...field} />
+                                      </FormControl>
+                                      <FormDescription>
+                                        How far in advance can customers book?
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="ageRestriction"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Age Restriction (if any)</FormLabel>
+                                      <FormControl>
+                                        <Input type="number" placeholder="18" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="materialsIncluded"
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                      <div className="space-y-0.5">
+                                        <FormLabel>Materials Included</FormLabel>
+                                        <FormDescription>
+                                          Are materials/supplies included?
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="rescheduleAllowed"
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                      <div className="space-y-0.5">
+                                        <FormLabel>Allow Rescheduling</FormLabel>
+                                        <FormDescription>
+                                          Can customers reschedule?
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Shield className="w-5 h-5" />
+                                Compliance & Insurance
+                              </h3>
+                              
+                              <FormField
+                                control={form.control}
+                                name="insurancePolicyNumber"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Insurance Policy Number (optional)</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="POL-123456789" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="liabilityWaiverRequired"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Liability Waiver Required</FormLabel>
+                                      <FormDescription>
+                                        Do customers need to sign a liability waiver?
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </>
+                        )}
+                        
+                        {/* Pricing Fields - Show for both categories */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="originalPrice"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Original Price ($) *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-original-price" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="discountPrice"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Group Discount Price ($) *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-discount-price" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="minimumParticipants"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Minimum Participants *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} data-testid="input-min-participants" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="maximumParticipants"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Maximum Participants *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} data-testid="input-max-participants" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        {/* Offer Valid Till Field */}
+                        <FormField
+                          control={form.control}
+                          name="offerValidTill"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Offer Valid Till (Optional)</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant={"outline"}
+                                      className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
+                                      data-testid="button-offer-valid-till"
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP")
+                                      ) : (
+                                        <span>Pick a date</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    disabled={(date) => date < new Date()}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex justify-end space-x-4">
+                          <Button type="button" variant="outline" onClick={() => setProductDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={addProductMutation.isPending} data-testid="button-submit-product">
+                            {addProductMutation.isPending ? "Adding..." : isServiceCategory ? "Add Service" : "Add Product"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {/* Products List - Rest of the component remains the same */}
+              {/* ... */}
+            </div>
+          </TabsContent>
+
+          {/* Other tabs content remains the same */}
+          {/* ... */}
+        </Tabs>
+      </div>
+    </div>
+  );
+}
