@@ -9,6 +9,8 @@ import {
   userGroups,
   userGroupItems,
   userGroupParticipants,
+  serviceProviders,
+  serviceProviderStaff,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
@@ -32,6 +34,10 @@ import {
   type InsertUserGroupParticipant,
   type ProductWithDetails,
   type UserGroupWithDetails,
+  type ServiceProvider,
+  type InsertServiceProvider,
+  type ServiceProviderStaff,
+  type InsertServiceProviderStaff,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray } from "drizzle-orm";
@@ -59,6 +65,15 @@ export interface IStorage {
   getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product>;
+  deleteProduct(id: number): Promise<void>;
+  getProductParticipantCount(productId: number): Promise<number>;
+  removeDiscountTiersForProduct(productId: number): Promise<void>;
+  
+  // Service Provider operations
+  createServiceProvider(serviceProvider: InsertServiceProvider): Promise<ServiceProvider>;
+  updateServiceProvider(id: number, serviceProvider: Partial<InsertServiceProvider>): Promise<ServiceProvider>;
+  getServiceProviderByProductId(productId: number): Promise<ServiceProvider | undefined>;
+  deleteServiceProviderByProductId(productId: number): Promise<void>;
 
   // Discount tier operations
   createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier>;
@@ -256,6 +271,11 @@ export class DatabaseStorage implements IStorage {
         seller: true,
         category: true,
         discountTiers: true,
+        serviceProvider: {
+          with: {
+            staff: true,
+          },
+        },
       },
       where: eq(products.isActive, true),
       orderBy: desc(products.createdAt),
@@ -269,7 +289,11 @@ export class DatabaseStorage implements IStorage {
         seller: true,
         category: true,
         discountTiers: true,
-
+        serviceProvider: {
+          with: {
+            staff: true,
+          },
+        },
       },
     });
   }
@@ -286,7 +310,11 @@ export class DatabaseStorage implements IStorage {
         seller: true,
         category: true,
         discountTiers: true,
-
+        serviceProvider: {
+          with: {
+            staff: true,
+          },
+        },
       },
       orderBy: desc(products.createdAt),
     });
@@ -306,13 +334,13 @@ export class DatabaseStorage implements IStorage {
     return updatedProduct;
   }
 
-  async deleteProduct(productId: number): Promise<boolean> {
-    // Delete related records first
+  async deleteProduct(productId: number): Promise<void> {
+    // Delete service provider first if exists
+    await this.deleteServiceProviderByProductId(productId);
+    // Delete related records
     await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
-    
     // Delete the product
-    const result = await db.delete(products).where(eq(products.id, productId)).returning();
-    return result.length > 0;
+    await db.delete(products).where(eq(products.id, productId));
   }
 
   async getProductParticipantCount(productId: number): Promise<number> {
@@ -353,6 +381,38 @@ export class DatabaseStorage implements IStorage {
       .from(discountTiers)
       .where(eq(discountTiers.productId, productId))
       .orderBy(discountTiers.participantCount);
+  }
+  
+  // Service Provider implementations
+  async createServiceProvider(serviceProvider: InsertServiceProvider): Promise<ServiceProvider> {
+    const [newServiceProvider] = await db.insert(serviceProviders).values(serviceProvider).returning();
+    return newServiceProvider;
+  }
+  
+  async updateServiceProvider(id: number, serviceProvider: Partial<InsertServiceProvider>): Promise<ServiceProvider> {
+    const [updatedServiceProvider] = await db
+      .update(serviceProviders)
+      .set({ ...serviceProvider, updatedAt: new Date() })
+      .where(eq(serviceProviders.id, id))
+      .returning();
+    return updatedServiceProvider;
+  }
+  
+  async getServiceProviderByProductId(productId: number): Promise<ServiceProvider | undefined> {
+    const [provider] = await db
+      .select()
+      .from(serviceProviders)
+      .where(eq(serviceProviders.productId, productId));
+    return provider;
+  }
+  
+  async deleteServiceProviderByProductId(productId: number): Promise<void> {
+    // First delete any staff records
+    const provider = await this.getServiceProviderByProductId(productId);
+    if (provider) {
+      await db.delete(serviceProviderStaff).where(eq(serviceProviderStaff.serviceProviderId, provider.id));
+      await db.delete(serviceProviders).where(eq(serviceProviders.productId, productId));
+    }
   }
 
 
