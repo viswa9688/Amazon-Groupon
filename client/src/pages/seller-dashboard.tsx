@@ -81,6 +81,7 @@ const serviceProviderSchema = z.object({
   serviceCategory: z.string().optional(),
   licenseNumber: z.string().optional(),
   yearsInBusiness: z.string().optional(),
+  insuranceValidTill: z.date().optional(),
   
   // Location & Coverage
   serviceMode: z.string().default("in_person"),
@@ -89,6 +90,7 @@ const serviceProviderSchema = z.object({
   locality: z.string().optional(),
   region: z.string().optional(),
   postalCode: z.string().optional(),
+  serviceAreaPolygon: z.any().optional(), // GeoJSON
   
   // Service Details
   serviceName: z.string().optional(),
@@ -96,15 +98,19 @@ const serviceProviderSchema = z.object({
   pricingModel: z.string().default("flat_fee"),
   materialsIncluded: z.boolean().default(false),
   ageRestriction: z.string().optional(),
+  taxClass: z.string().optional(),
   
   // Availability
   availabilityType: z.string().default("by_appointment"),
+  operatingHours: z.any().optional(), // JSON for operating hours
   advanceBookingDays: z.string().default("7"),
+  cancellationPolicyUrl: z.string().optional(),
   rescheduleAllowed: z.boolean().default(true),
   
   // Compliance
   insurancePolicyNumber: z.string().optional(),
   liabilityWaiverRequired: z.boolean().default(false),
+  healthSafetyCert: z.string().optional(),
 });
 
 // Combined form schema
@@ -401,22 +407,28 @@ export default function SellerDashboard() {
       formData.serviceCategory = sp.serviceCategory || "";
       formData.licenseNumber = sp.licenseNumber || "";
       formData.yearsInBusiness = sp.yearsInBusiness?.toString() || "";
+      formData.insuranceValidTill = sp.insuranceValidTill ? new Date(sp.insuranceValidTill) : undefined;
       formData.serviceMode = sp.serviceMode || "in_person";
       formData.addressLine1 = sp.addressLine1 || "";
       formData.addressLine2 = sp.addressLine2 || "";
       formData.locality = sp.locality || "";
       formData.region = sp.region || "";
       formData.postalCode = sp.postalCode || "";
+      formData.serviceAreaPolygon = sp.serviceAreaPolygon || null;
       formData.serviceName = sp.serviceName || "";
       formData.durationMinutes = sp.durationMinutes?.toString() || "";
       formData.pricingModel = sp.pricingModel || "flat_fee";
       formData.materialsIncluded = sp.materialsIncluded || false;
       formData.ageRestriction = sp.ageRestriction?.toString() || "";
+      formData.taxClass = sp.taxClass || "";
       formData.availabilityType = sp.availabilityType || "by_appointment";
+      formData.operatingHours = sp.operatingHours || null;
       formData.advanceBookingDays = sp.advanceBookingDays?.toString() || "7";
+      formData.cancellationPolicyUrl = sp.cancellationPolicyUrl || "";
       formData.rescheduleAllowed = sp.rescheduleAllowed ?? true;
       formData.insurancePolicyNumber = sp.insurancePolicyNumber || "";
       formData.liabilityWaiverRequired = sp.liabilityWaiverRequired || false;
+      formData.healthSafetyCert = sp.healthSafetyCert || "";
     }
       
     editForm.reset(formData);
@@ -795,6 +807,24 @@ export default function SellerDashboard() {
                                     </FormItem>
                                   )}
                                 />
+
+                                <FormField
+                                  control={form.control}
+                                  name="insuranceValidTill"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Insurance Valid Till</FormLabel>
+                                      <FormControl>
+                                        <Input 
+                                          type="date" 
+                                          {...field}
+                                          value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
                               </div>
                             </div>
 
@@ -904,6 +934,35 @@ export default function SellerDashboard() {
                                       )}
                                     />
                                   </div>
+
+                                  <FormField
+                                    control={form.control}
+                                    name="serviceAreaPolygon"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Service Area Coverage (GeoJSON)</FormLabel>
+                                        <FormControl>
+                                          <Textarea 
+                                            placeholder='Optional: Enter GeoJSON for service area coverage, e.g., {"type": "Polygon", "coordinates": [...]}'
+                                            className="min-h-[100px]"
+                                            {...field}
+                                            value={field.value ? JSON.stringify(field.value) : ''}
+                                            onChange={(e) => {
+                                              try {
+                                                field.onChange(e.target.value ? JSON.parse(e.target.value) : null);
+                                              } catch {
+                                                field.onChange(e.target.value);
+                                              }
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormDescription>
+                                          Define the geographical area where you provide services
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
                                 </>
                               )}
                             </div>
@@ -982,6 +1041,54 @@ export default function SellerDashboard() {
                                       <FormControl>
                                         <Input type="number" placeholder="18" {...field} />
                                       </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="taxClass"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Tax Class</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select tax class" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="services_basic">Services Basic</SelectItem>
+                                          <SelectItem value="personal_training">Personal Training</SelectItem>
+                                          <SelectItem value="beauty_services">Beauty Services</SelectItem>
+                                          <SelectItem value="exempt">Tax Exempt</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="availabilityType"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Availability Type</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select availability type" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="fixed_hours">Fixed Hours</SelectItem>
+                                          <SelectItem value="by_appointment">By Appointment</SelectItem>
+                                        </SelectContent>
+                                      </Select>
                                       <FormMessage />
                                     </FormItem>
                                   )}
@@ -1070,6 +1177,79 @@ export default function SellerDashboard() {
                                         onCheckedChange={field.onChange}
                                       />
                                     </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="operatingHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Operating Hours</FormLabel>
+                                      <FormControl>
+                                        <Textarea 
+                                          placeholder="E.g., Mon-Fri: 9:00 AM - 6:00 PM, Sat: 10:00 AM - 4:00 PM"
+                                          className="min-h-[80px]"
+                                          {...field}
+                                          value={field.value ? JSON.stringify(field.value) : ''}
+                                          onChange={(e) => {
+                                            try {
+                                              field.onChange(e.target.value ? JSON.parse(e.target.value) : null);
+                                            } catch {
+                                              field.onChange(e.target.value);
+                                            }
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Enter your business hours
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="cancellationPolicyUrl"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Cancellation Policy URL</FormLabel>
+                                      <FormControl>
+                                        <Input 
+                                          type="url" 
+                                          placeholder="https://example.com/cancellation-policy" 
+                                          {...field} 
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Link to your cancellation policy
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <FormField
+                                control={form.control}
+                                name="healthSafetyCert"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Health & Safety Certificate URL</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="url" 
+                                        placeholder="https://example.com/certificate.pdf" 
+                                        {...field} 
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Link to health and safety certification (optional)
+                                    </FormDescription>
+                                    <FormMessage />
                                   </FormItem>
                                 )}
                               />
