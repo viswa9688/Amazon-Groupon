@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, TrendingUp } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import CategoryConflictDialog from "./CategoryConflictDialog";
 
 interface SimpleProductCardProps {
   product: {
@@ -35,6 +37,8 @@ interface SimpleProductCardProps {
 export default function SimpleProductCard({ product, testId }: SimpleProductCardProps) {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [categoryConflictOpen, setCategoryConflictOpen] = useState(false);
+  const [conflictingCategory, setConflictingCategory] = useState<string>("");
   
   // Calculate discount if available
   const discountedPrice = product.discountTiers?.[0]?.finalPrice;
@@ -42,6 +46,27 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
   const discountPercentage = hasDiscount 
     ? Math.round((1 - parseFloat(discountedPrice) / parseFloat(product.originalPrice)) * 100)
     : 0;
+
+  // Get current cart to check category
+  const { data: cartItems } = useQuery<any[]>({
+    queryKey: ["/api/cart"],
+    enabled: isAuthenticated,
+  });
+
+  // Clear cart mutation
+  const clearCartMutation = useMutation({
+    mutationFn: async () => {
+      if (!cartItems) return;
+      for (const item of cartItems) {
+        await apiRequest("DELETE", `/api/cart/${item.id}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      // After clearing, add the new item
+      addToCartMutation.mutate();
+    },
+  });
 
   // Add to cart mutation
   const addToCartMutation = useMutation({
@@ -61,12 +86,9 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
     onError: (error: any) => {
       // Check if it's a category conflict error
       if (error?.categoryConflict) {
-        toast({
-          title: "Cannot Mix Categories",
-          description: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
-          variant: "destructive",
-          duration: 5000,
-        });
+        const currentCartCategory = error.currentCategory || "unknown";
+        setConflictingCategory(currentCartCategory);
+        setCategoryConflictOpen(true);
       } else {
         toast({
           title: "Error",
@@ -86,6 +108,7 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
   };
 
   return (
+    <>
     <Card 
       className="overflow-hidden hover:shadow-xl transition-all duration-300 group cursor-pointer" 
       data-testid={testId}
@@ -164,5 +187,14 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
         </Button>
       </CardContent>
     </Card>
+    
+    <CategoryConflictDialog
+      open={categoryConflictOpen}
+      onOpenChange={setCategoryConflictOpen}
+      currentCategory={conflictingCategory}
+      attemptedCategory={product.category.name}
+      onClearCart={() => clearCartMutation.mutate()}
+    />
+    </>
   );
 }

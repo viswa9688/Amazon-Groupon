@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { useState } from "react";
+import CategoryConflictDialog from "@/components/CategoryConflictDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -45,6 +46,8 @@ export default function ProductDetails() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [categoryConflictOpen, setCategoryConflictOpen] = useState(false);
+  const [conflictingCategory, setConflictingCategory] = useState<string>("");
   const [, navigate] = useLocation();
 
   // Try to fetch as individual product first
@@ -158,6 +161,27 @@ export default function ProductDetails() {
     },
   });
 
+  // Get current cart to check category
+  const { data: cartItems } = useQuery<any[]>({
+    queryKey: ["/api/cart"],
+    enabled: isAuthenticated,
+  });
+
+  // Clear cart mutation
+  const clearCartMutation = useMutation({
+    mutationFn: async () => {
+      if (!cartItems) return;
+      for (const item of cartItems) {
+        await apiRequest("DELETE", `/api/cart/${item.id}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      // After clearing, add the new item
+      addToCartMutation.mutate();
+    },
+  });
+
   const addToCartMutation = useMutation({
     mutationFn: async () => {
       const productId = individualProduct?.id || groupPurchase?.product.id;
@@ -188,12 +212,9 @@ export default function ProductDetails() {
       }
       // Check if it's a category conflict error
       if (error?.categoryConflict) {
-        toast({
-          title: "Cannot Mix Categories",
-          description: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
-          variant: "destructive",
-          duration: 5000,
-        });
+        const currentCartCategory = error.currentCategory || "unknown";
+        setConflictingCategory(currentCartCategory);
+        setCategoryConflictOpen(true);
       } else {
         toast({
           title: "Error",
@@ -723,6 +744,14 @@ export default function ProductDetails() {
       <PhoneAuthModal 
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+      />
+      
+      <CategoryConflictDialog
+        open={categoryConflictOpen}
+        onOpenChange={setCategoryConflictOpen}
+        currentCategory={conflictingCategory}
+        attemptedCategory={product?.category?.name || ""}
+        onClearCart={() => clearCartMutation.mutate()}
       />
     </div>
   );
