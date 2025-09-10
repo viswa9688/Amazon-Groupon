@@ -517,10 +517,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Check if trying to mix categories
         if ((hasGroceries && product.categoryId === 2) || (hasServices && product.categoryId === 1)) {
+          const currentCategory = hasGroceries ? "Groceries" : "Services";
           return res.status(400).json({ 
             message: "Cannot mix categories",
             error: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
-            categoryConflict: true
+            categoryConflict: true,
+            currentCategory: currentCategory
           });
         }
       }
