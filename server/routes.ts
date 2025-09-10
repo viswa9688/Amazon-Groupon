@@ -6,6 +6,7 @@ import { seedDatabase } from "./seed";
 import Stripe from "stripe";
 import {
   insertProductSchema,
+  insertServiceProviderSchema,
   insertCategorySchema,
   insertDiscountTierSchema,
   insertOrderSchema,
@@ -1148,10 +1149,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create service provider record if this is a service (category 2)
       if (productData.categoryId === 2 && serviceProvider) {
-        await storage.createServiceProvider({
+        // Parse date fields and JSON fields
+        const serviceProviderData = {
           productId: product.id!,
-          ...serviceProvider,
-        });
+          legalName: serviceProvider.legalName,
+          displayName: serviceProvider.displayName,
+          serviceCategory: serviceProvider.serviceCategory,
+          licenseNumber: serviceProvider.licenseNumber,
+          yearsInBusiness: serviceProvider.yearsInBusiness ? parseInt(serviceProvider.yearsInBusiness) : null,
+          insuranceValidTill: serviceProvider.insuranceValidTill ? new Date(serviceProvider.insuranceValidTill) : null,
+          serviceMode: serviceProvider.serviceMode,
+          addressLine1: serviceProvider.addressLine1,
+          addressLine2: serviceProvider.addressLine2,
+          locality: serviceProvider.locality,
+          region: serviceProvider.region,
+          postalCode: serviceProvider.postalCode,
+          serviceAreaPolygon: serviceProvider.serviceAreaPolygon || null,
+          serviceName: serviceProvider.serviceName,
+          durationMinutes: serviceProvider.durationMinutes ? parseInt(serviceProvider.durationMinutes) : null,
+          pricingModel: serviceProvider.pricingModel,
+          materialsIncluded: serviceProvider.materialsIncluded || false,
+          ageRestriction: serviceProvider.ageRestriction ? parseInt(serviceProvider.ageRestriction) : null,
+          taxClass: serviceProvider.taxClass,
+          availabilityType: serviceProvider.availabilityType,
+          operatingHours: serviceProvider.operatingHours || null,
+          advanceBookingDays: serviceProvider.advanceBookingDays ? parseInt(serviceProvider.advanceBookingDays) : 7,
+          cancellationPolicyUrl: serviceProvider.cancellationPolicyUrl,
+          rescheduleAllowed: serviceProvider.rescheduleAllowed ?? true,
+          insurancePolicyNumber: serviceProvider.insurancePolicyNumber,
+          liabilityWaiverRequired: serviceProvider.liabilityWaiverRequired || false,
+          healthSafetyCert: serviceProvider.healthSafetyCert,
+        };
+        
+        // Validate service provider data
+        const validatedServiceProviderData = insertServiceProviderSchema.parse(serviceProviderData);
+        await storage.createServiceProvider(validatedServiceProviderData);
       }
       
       // Always create discount tiers for group purchases
@@ -1214,14 +1246,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update or create service provider record if this is a service (category 2)
       if (productData.categoryId === 2 && serviceProvider) {
+        // Parse date fields and JSON fields
+        const serviceProviderData = {
+          productId: product.id!,
+          legalName: serviceProvider.legalName,
+          displayName: serviceProvider.displayName,
+          serviceCategory: serviceProvider.serviceCategory,
+          licenseNumber: serviceProvider.licenseNumber,
+          yearsInBusiness: serviceProvider.yearsInBusiness ? parseInt(serviceProvider.yearsInBusiness) : null,
+          insuranceValidTill: serviceProvider.insuranceValidTill ? new Date(serviceProvider.insuranceValidTill) : null,
+          serviceMode: serviceProvider.serviceMode,
+          addressLine1: serviceProvider.addressLine1,
+          addressLine2: serviceProvider.addressLine2,
+          locality: serviceProvider.locality,
+          region: serviceProvider.region,
+          postalCode: serviceProvider.postalCode,
+          serviceAreaPolygon: serviceProvider.serviceAreaPolygon || null,
+          serviceName: serviceProvider.serviceName,
+          durationMinutes: serviceProvider.durationMinutes ? parseInt(serviceProvider.durationMinutes) : null,
+          pricingModel: serviceProvider.pricingModel,
+          materialsIncluded: serviceProvider.materialsIncluded || false,
+          ageRestriction: serviceProvider.ageRestriction ? parseInt(serviceProvider.ageRestriction) : null,
+          taxClass: serviceProvider.taxClass,
+          availabilityType: serviceProvider.availabilityType,
+          operatingHours: serviceProvider.operatingHours || null,
+          advanceBookingDays: serviceProvider.advanceBookingDays ? parseInt(serviceProvider.advanceBookingDays) : 7,
+          cancellationPolicyUrl: serviceProvider.cancellationPolicyUrl,
+          rescheduleAllowed: serviceProvider.rescheduleAllowed ?? true,
+          insurancePolicyNumber: serviceProvider.insurancePolicyNumber,
+          liabilityWaiverRequired: serviceProvider.liabilityWaiverRequired || false,
+          healthSafetyCert: serviceProvider.healthSafetyCert,
+        };
+        
+        // Validate service provider data
+        const validatedServiceProviderData = insertServiceProviderSchema.parse(serviceProviderData);
+        
         const existingServiceProvider = await storage.getServiceProviderByProductId(productId);
         if (existingServiceProvider) {
-          await storage.updateServiceProvider(existingServiceProvider.id, serviceProvider);
+          await storage.updateServiceProvider(existingServiceProvider.id, validatedServiceProviderData);
         } else {
-          await storage.createServiceProvider({
-            productId: product.id!,
-            ...serviceProvider,
-          });
+          await storage.createServiceProvider(validatedServiceProviderData);
         }
       } else if (productData.categoryId !== 2) {
         // If changing from service to non-service category, remove service provider data
