@@ -182,7 +182,7 @@ export default function UserGroupPage() {
       addProductForm.reset();
       toast({
         title: "Success",
-        description: "Product added to collection!",
+        description: "Product added to popular group!",
       });
     },
     onError: (error) => {
@@ -242,7 +242,7 @@ export default function UserGroupPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
       toast({
         title: "Success",
-        description: "Product removed from collection!",
+        description: "Product removed from popular group!",
       });
     },
     onError: (error) => {
@@ -342,7 +342,7 @@ export default function UserGroupPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
       toast({
         title: "Success",
-        description: "Participant removed from collection.",
+        description: "Participant removed from popular group.",
       });
     },
     onError: (error) => {
@@ -411,9 +411,9 @@ export default function UserGroupPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-20">
             <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-foreground mb-4">Collection Not Found</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Popular Group Not Found</h2>
             <p className="text-muted-foreground mb-6">
-              The collection you're looking for doesn't exist or you don't have access to it.
+              The popular group you're looking for doesn't exist or you don't have access to it.
             </p>
             <Button onClick={() => setLocation("/my-groups")} data-testid="button-back-to-groups">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -440,7 +440,7 @@ export default function UserGroupPage() {
   // Use collection-level participant count
   const collectionParticipants = userGroup.participantCount || 0;
   
-  // Collection-level progress - 5 people needed for discount activation
+  // Popular group-level progress - 5 people needed for discount activation
   const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
 
   // Filter products not already in the group
@@ -507,7 +507,7 @@ export default function UserGroupPage() {
                   data-testid="button-share-group"
                 >
                   <Share2 className="w-4 h-4 mr-2" />
-                  Share Collection
+                  Share Popular Group
                 </Button>
                 {isOwner && (
                   <>
@@ -524,7 +524,7 @@ export default function UserGroupPage() {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                          <DialogTitle>Edit Collection</DialogTitle>
+                          <DialogTitle>Edit Popular Group</DialogTitle>
                           <DialogDescription>
                             Update your collection's name, description, and visibility.
                           </DialogDescription>
@@ -536,7 +536,7 @@ export default function UserGroupPage() {
                               name="name"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Collection Name</FormLabel>
+                                  <FormLabel>Popular Group Name</FormLabel>
                                   <FormControl>
                                     <Input {...field} data-testid="input-edit-group-name" />
                                   </FormControl>
@@ -559,7 +559,7 @@ export default function UserGroupPage() {
                             />
                             <DialogFooter>
                               <Button type="submit" disabled={editGroupMutation.isPending} data-testid="button-submit-edit-group">
-                                {editGroupMutation.isPending ? "Updating..." : "Update Collection"}
+                                {editGroupMutation.isPending ? "Updating..." : "Update Popular Group"}
                               </Button>
                             </DialogFooter>
                           </form>
@@ -581,7 +581,7 @@ export default function UserGroupPage() {
               <TabsList className="grid w-full grid-cols-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm mb-6">
                 <TabsTrigger value="products" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
                   <ShoppingCart className="w-4 h-4 mr-2" />
-                  Collection Items ({totalItems})
+                  Popular Group Items ({totalItems})
                 </TabsTrigger>
                 {isOwner && (
                   <>
@@ -603,7 +603,7 @@ export default function UserGroupPage() {
                 <div className="flex justify-between items-center">
                   <CardTitle className="flex items-center space-x-2">
                     <ShoppingCart className="w-5 h-5 text-purple-600" />
-                    <span>Collection Items ({totalItems})</span>
+                    <span>Popular Group Items ({totalItems})</span>
                   </CardTitle>
                   {isOwner && (
                     <Dialog open={isAddProductDialogOpen} onOpenChange={setIsAddProductDialogOpen}>
@@ -619,7 +619,7 @@ export default function UserGroupPage() {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                          <DialogTitle>Add Product to Collection</DialogTitle>
+                          <DialogTitle>Add Product to Popular Group</DialogTitle>
                           <DialogDescription>
                             Select a product to add to your collection.
                           </DialogDescription>
@@ -672,7 +672,7 @@ export default function UserGroupPage() {
                             />
                             <DialogFooter>
                               <Button type="submit" disabled={addProductMutation.isPending || !addProductForm.watch('productId')} data-testid="button-submit-add-product">
-                                {addProductMutation.isPending ? "Adding..." : "Add to Collection"}
+                                {addProductMutation.isPending ? "Adding..." : "Add to Popular Group"}
                               </Button>
                             </DialogFooter>
                           </form>
@@ -885,7 +885,7 @@ export default function UserGroupPage() {
                     {approvedParticipants.length >= 5 && (
                       <div className="flex items-center text-green-600">
                         <AlertTriangle className="w-4 h-4 mr-1" />
-                        <span className="text-sm font-medium">Collection Full</span>
+                        <span className="text-sm font-medium">Popular Group Full</span>
                       </div>
                     )}
                   </CardTitle>
@@ -961,12 +961,12 @@ export default function UserGroupPage() {
 
           {/* Statistics Sidebar */}
           <div className="space-y-6">
-            {/* Collection Stats */}
+            {/* Popular Group Stats */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <TrendingUp className="w-5 h-5 text-purple-600" />
-                  <span>Collection Stats</span>
+                  <span>Popular Group Stats</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1001,7 +1001,7 @@ export default function UserGroupPage() {
                     <p className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-value">
                       ${totalValue.toFixed(2)}
                     </p>
-                    <p className="text-sm text-muted-foreground">Collection Value</p>
+                    <p className="text-sm text-muted-foreground">Popular Group Value</p>
                   </div>
                   <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-potential-savings">

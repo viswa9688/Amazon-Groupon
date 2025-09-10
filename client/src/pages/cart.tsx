@@ -243,7 +243,7 @@ export default function Cart() {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
-        description: "Add some products to your cart first to see similar collections.",
+        description: "Add some products to your cart first to see similar popular groups.",
         variant: "destructive",
       });
       return;
@@ -272,7 +272,7 @@ export default function Cart() {
     onSuccess: () => {
       toast({
         title: "Strategy Applied!",
-        description: "Successfully joined all recommended collections",
+        description: "Successfully joined all recommended popular groups",
       });
       // Refresh all data
       Promise.all([
@@ -284,13 +284,13 @@ export default function Cart() {
     onError: (error: Error) => {
       toast({
         title: "Failed to Apply Strategy",
-        description: error.message || "Some collections couldn't be joined",
+        description: error.message || "Some popular groups couldn't be joined",
         variant: "destructive",
       });
     },
   });
 
-  // Create collection from cart items
+  // Create popular group from cart items
   const createCollectionFromCart = useMutation({
     mutationFn: async (name: string) => {
       const response = await apiRequest("POST", "/api/user-groups/from-cart", { name });
@@ -302,15 +302,15 @@ export default function Cart() {
       if (!createdCollection || !createdCollection.id) {
         toast({
           title: "Error",
-          description: "Collection was created but couldn't redirect properly",
+          description: "Popular group was created but couldn't redirect properly",
           variant: "destructive",
         });
         return;
       }
       
       toast({
-        title: "Collection Created!",
-        description: `"${collectionName}" collection has been created with your cart items`,
+        title: "Popular Group Created!",
+        description: `"${collectionName}" popular group has been created with your cart items`,
       });
       setShowCreateCollection(false);
       setCollectionName("");
@@ -328,8 +328,8 @@ export default function Cart() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to Create Collection",
-        description: error.message || "Could not create collection",
+        title: "Failed to Create Popular Group",
+        description: error.message || "Could not create popular group",
         variant: "destructive",
       });
     },
@@ -394,7 +394,7 @@ export default function Cart() {
               data-testid="button-create-own-collection"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Make This Your Own Collection
+              Make This Your Own Popular Group
             </Button>
             <Button
               variant="outline"
@@ -540,11 +540,11 @@ export default function Cart() {
                   </div>
                   {showSuggestions && similarGroups.length > 0 && (
                     <div className="text-sm text-green-600 text-center">
-                      Save ${calculatePotentialSavings().toFixed(2)} by joining collections!
+                      Save ${calculatePotentialSavings().toFixed(2)} by joining popular groups!
                     </div>
                   )}
                   
-                  {/* Show Similar Collections Button */}
+                  {/* Show Similar Popular Groups Button */}
                   <div className="pt-2">
                     <Button 
                       variant="outline" 
@@ -554,20 +554,20 @@ export default function Cart() {
                       data-testid="button-show-suggestions"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      {optimizing ? "Finding Collections..." : "Show Similar Collections"}
+                      {optimizing ? "Finding Popular Groups..." : "Show Similar Popular Groups"}
                     </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Collection Matching Suggestions */}
+            {/* Popular Group Matching Suggestions */}
             {showSuggestions && !groupsLoading && similarGroups.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Sparkles className="h-5 w-5 text-yellow-500" />
-                    <span>Similar Collections</span>
+                    <span>Similar Popular Groups</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -587,7 +587,7 @@ export default function Cart() {
                           {group.isAlreadyMember && (
                             <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
                               <p className="text-sm font-medium text-red-600 dark:text-red-400 text-center">
-                                You are already part of this collection
+                                You are already part of this popular group
                               </p>
                             </div>
                           )}
@@ -618,7 +618,7 @@ export default function Cart() {
                           </div>
                           
                           <div className="space-y-3">
-                            {/* Collection Progress */}
+                            {/* Popular Group Progress */}
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-gray-600 dark:text-gray-400">Progress</span>
@@ -672,7 +672,7 @@ export default function Cart() {
                                   Total Savings: ${group.potentialSavings.toFixed(2)}
                                 </p>
                                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                                  {group.userGroup.items.length} items in collection
+                                  {group.userGroup.items.length} items in popular group
                                 </p>
                               </div>
                               <Link href={`/user-group/${group.userGroup.id}`}>
@@ -682,7 +682,7 @@ export default function Cart() {
                                   className={group.isAlreadyMember ? "bg-green-600 hover:bg-green-700 text-white" : ""}
                                   data-testid={`button-view-collection-${group.userGroup.id}`}
                                 >
-                                  {group.isAlreadyMember ? "View Your Collection" : "View Collection"}
+                                  {group.isAlreadyMember ? "View Your Popular Group" : "View Popular Group"}
                                 </Button>
                               </Link>
                             </div>
@@ -701,7 +701,7 @@ export default function Cart() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Zap className="h-5 w-5 text-blue-500" />
-                    <span>Smart Collection Strategies</span>
+                    <span>Smart Popular Group Strategies</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -755,10 +755,10 @@ export default function Cart() {
                             })}
                             {suggestion.userGroups.length > 2 && !expandedStrategies.has(index) && (
                               <button 
-                                onClick={() => setExpandedStrategies(prev => new Set([...prev, index]))}
+                                onClick={() => setExpandedStrategies(prev => new Set([...Array.from(prev), index]))}
                                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline text-center py-1"
                               >
-                                +{suggestion.userGroups.length - 2} more collections
+                                +{suggestion.userGroups.length - 2} more popular groups
                               </button>
                             )}
                             {suggestion.userGroups.length > 2 && expandedStrategies.has(index) && (
@@ -803,22 +803,22 @@ export default function Cart() {
                   <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                     <Sparkles className="w-6 h-6 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No Matching Collections Found</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Matching Popular Groups Found</h3>
                   <p className="text-muted-foreground text-sm mb-2">
-                    No existing collections match the products in your cart. Create your own collection to get others to join!
+                    No existing popular groups match the products in your cart. Create your own popular group to get others to join!
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    Other users will be able to discover and join your collection for group discounts.
+                    Other users will be able to discover and join your popular group for group discounts.
                   </p>
                   <div className="mt-4 space-x-2">
                     <Link href="/browse">
                       <Button variant="outline" size="sm" data-testid="button-browse-collections">
-                        Browse Collections
+                        Browse Popular Groups
                       </Button>
                     </Link>
                     <Link href="/my-groups">
                       <Button variant="outline" size="sm" data-testid="button-view-my-groups">
-                        My Collections
+                        My Popular Groups
                       </Button>
                     </Link>
                   </div>
@@ -842,15 +842,15 @@ export default function Cart() {
         </div>
       </div>
 
-      {/* Create Collection Dialog */}
+      {/* Create Popular Group Dialog */}
       <Dialog open={showCreateCollection} onOpenChange={setShowCreateCollection}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Your Collection</DialogTitle>
+            <DialogTitle>Create Your Popular Group</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="collection-name">Collection Name</Label>
+              <Label htmlFor="collection-name">Popular Group Name</Label>
               <Input
                 id="collection-name"
                 placeholder="e.g., My Wellness Bundle"
@@ -860,8 +860,8 @@ export default function Cart() {
               />
             </div>
             <div className="text-sm text-muted-foreground">
-              This will create a public collection with all {cartItems.length} items from your cart. 
-              Other users can discover and join your collection to get group discounts together.
+              This will create a public popular group with all {cartItems.length} items from your cart. 
+              Other users can discover and join your popular group to get group discounts together.
             </div>
           </div>
           <DialogFooter className="flex space-x-2">
@@ -877,7 +877,7 @@ export default function Cart() {
               disabled={!collectionName.trim() || createCollectionFromCart.isPending}
               data-testid="button-confirm-create-collection"
             >
-              {createCollectionFromCart.isPending ? "Creating..." : "Create Collection"}
+              {createCollectionFromCart.isPending ? "Creating..." : "Create Popular Group"}
             </Button>
           </DialogFooter>
         </DialogContent>

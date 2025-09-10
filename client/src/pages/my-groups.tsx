@@ -195,7 +195,7 @@ export default function MyGroups() {
                   </h1>
                 </div>
                 <p className="text-lg text-muted-foreground max-w-2xl">
-                  Manage your group purchases and create custom collections to share with others
+                  Manage your group purchases and create custom popular groups to share with others
                 </p>
               </div>
               
@@ -227,7 +227,7 @@ export default function MyGroups() {
               </TabsTrigger>
               <TabsTrigger value="created" className="flex items-center space-x-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
                 <Package className="w-4 h-4" />
-                <span>My Collections</span>
+                <span>My Popular Groups</span>
               </TabsTrigger>
             </TabsList>
 
@@ -235,17 +235,17 @@ export default function MyGroups() {
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg" data-testid="button-create-group">
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Collection
+                  Create Popular Group
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center space-x-2">
                     <Package className="w-5 h-5 text-purple-600" />
-                    <span>Create New Collection</span>
+                    <span>Create New Popular Group</span>
                   </DialogTitle>
                   <DialogDescription>
-                    Create a custom group of products to share with others and track potential savings.
+                    Create a custom popular group of products to share with others and track potential savings.
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -255,7 +255,7 @@ export default function MyGroups() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Collection Name</FormLabel>
+                          <FormLabel>Popular Group Name</FormLabel>
                           <FormControl>
                             <Input placeholder="e.g. Tech Essentials, Home Setup..." {...field} data-testid="input-group-name" />
                           </FormControl>
@@ -270,7 +270,7 @@ export default function MyGroups() {
                         <FormItem>
                           <FormLabel>Description (Optional)</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Describe your collection..." {...field} data-testid="input-group-description" />
+                            <Textarea placeholder="Describe your popular group..." {...field} data-testid="input-group-description" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -278,7 +278,7 @@ export default function MyGroups() {
                     />
                     <DialogFooter>
                       <Button type="submit" disabled={createGroupMutation.isPending} data-testid="button-submit-create-group">
-                        {createGroupMutation.isPending ? "Creating..." : "Create Collection"}
+                        {createGroupMutation.isPending ? "Creating..." : "Create Popular Group"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -429,9 +429,9 @@ export default function MyGroups() {
                     <Package className="w-12 h-12 text-white" />
                   </div>
                 </div>
-                <h2 className="text-3xl font-bold text-foreground mb-4">No Collections Yet</h2>
+                <h2 className="text-3xl font-bold text-foreground mb-4">No Popular Groups Yet</h2>
                 <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
-                  Create custom collections of products to share with friends and track potential group discounts.
+                  Create custom popular groups of products to share with friends and track potential group discounts.
                 </p>
                 <Button 
                   size="lg" 
@@ -440,7 +440,7 @@ export default function MyGroups() {
                   data-testid="button-create-first-group"
                 >
                   <Plus className="w-5 h-5 mr-2" />
-                  Create Your First Collection
+                  Create Your First Popular Group
                 </Button>
               </div>
             ) : (
@@ -460,7 +460,7 @@ export default function MyGroups() {
                   // Use collection-level participant count
                   const collectionParticipants = userGroup.participantCount || 0;
                   
-                  // Collection-level progress - 5 people needed for discount activation
+                  // Popular group-level progress - 5 people needed for discount activation
                   const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
 
                   return (
@@ -502,7 +502,7 @@ export default function MyGroups() {
                       </CardHeader>
                       
                       <CardContent className="space-y-4">
-                        {/* Collection Stats */}
+                        {/* Popular Group Stats */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                             <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid={`text-group-items-count-${userGroup.id}`}>
@@ -530,7 +530,7 @@ export default function MyGroups() {
                           </div>
                         </div>
 
-                        {/* Collection Status */}
+                        {/* Popular Group Status */}
                         <div className="space-y-3">
                           <div className="flex items-center justify-between text-sm text-muted-foreground">
                             <span>{collectionParticipants} / 5 members</span>
@@ -581,7 +581,7 @@ export default function MyGroups() {
                             data-testid={`button-manage-group-${userGroup.id}`}
                           >
                             <Edit className="w-4 h-4 mr-2" />
-                            Manage Collection
+                            Manage Popular Group
                           </Button>
                         </div>
                       </CardContent>

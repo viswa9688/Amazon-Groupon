@@ -24,7 +24,7 @@ export default function SharedGroupPage() {
     enabled: !!shareToken,
   });
 
-  // Check if user is participating in this collection
+  // Check if user is participating in this popular group
   const { data: participationData } = useQuery({
     queryKey: ["/api/user-groups", sharedGroup?.id, "participation"],
     enabled: isAuthenticated && !!sharedGroup?.id,
@@ -34,7 +34,7 @@ export default function SharedGroupPage() {
   const isPending = (participationData as any)?.isPending || false;
   const participationStatus = (participationData as any)?.status;
 
-  // Mutation for joining collection
+  // Mutation for joining popular group
   const joinMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", `/api/user-groups/${sharedGroup?.id}/join`);
@@ -42,7 +42,7 @@ export default function SharedGroupPage() {
     onSuccess: () => {
       toast({
         title: "Request Sent!",
-        description: "Your request to join this collection has been sent to the owner for approval.",
+        description: "Your request to join this popular group has been sent to the owner for approval.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", sharedGroup?.id, "participation"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shared", shareToken] });
@@ -50,21 +50,21 @@ export default function SharedGroupPage() {
     onError: (error: any) => {
       toast({
         title: "Failed to join",
-        description: error.message || "Unable to join this collection",
+        description: error.message || "Unable to join this popular group",
         variant: "destructive",
       });
     },
   });
 
-  // Mutation for leaving collection
+  // Mutation for leaving popular group
   const leaveMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("DELETE", `/api/user-groups/${sharedGroup?.id}/leave`);
     },
     onSuccess: () => {
       toast({
-        title: "Left collection",
-        description: "You've left this collection and all its group purchases",
+        title: "Left popular group",
+        description: "You've left this popular group and all its group purchases",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", sharedGroup?.id, "participation"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shared", shareToken] });
@@ -72,7 +72,7 @@ export default function SharedGroupPage() {
     onError: (error: any) => {
       toast({
         title: "Failed to leave",
-        description: error.message || "Unable to leave this collection",
+        description: error.message || "Unable to leave this popular group",
         variant: "destructive",
       });
     },
@@ -106,9 +106,9 @@ export default function SharedGroupPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-20">
             <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-foreground mb-4">Collection Not Found</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Popular Group Not Found</h2>
             <p className="text-muted-foreground mb-6">
-              This collection doesn't exist, is private, or the link has expired.
+              This popular group doesn't exist, is private, or the link has expired.
             </p>
             <Button onClick={() => window.location.href = '/browse'} data-testid="button-browse-products">
               <ShoppingCart className="w-4 h-4 mr-2" />
@@ -132,10 +132,10 @@ export default function SharedGroupPage() {
     return sum + savings;
   }, 0) || 0;
 
-  // Use collection-level participant count
+  // Use popular group-level participant count
   const collectionParticipants = sharedGroup.participantCount || 0;
   
-  // Collection-level progress - 5 people needed for discount activation
+  // Popular group-level progress - 5 people needed for discount activation
   const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
 
   const handleShare = async () => {
@@ -169,7 +169,7 @@ export default function SharedGroupPage() {
                     <div className="flex items-center space-x-3 mt-1">
                       <Badge variant="default" className="flex items-center space-x-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                         <Users className="w-3 h-3" />
-                        <span>Shared Collection</span>
+                        <span>Shared Popular Group</span>
                       </Badge>
                     </div>
                   </div>
@@ -206,7 +206,7 @@ export default function SharedGroupPage() {
                     <div className="bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
                       <div className="flex items-center text-red-700 dark:text-red-300">
                         <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                        <span className="text-sm font-medium">Your joining request is pending approval from the collection owner</span>
+                        <span className="text-sm font-medium">Your joining request is pending approval from the popular group owner</span>
                       </div>
                     </div>
                     <Button 
@@ -228,7 +228,7 @@ export default function SharedGroupPage() {
                     data-testid="button-leave-collection"
                   >
                     <UserMinus className="w-4 h-4 mr-2" />
-                    {leaveMutation.isPending ? 'Leaving...' : 'Leave Collection'}
+                    {leaveMutation.isPending ? 'Leaving...' : 'Leave Popular Group'}
                   </Button>
                 ) : (
                   <Button 
@@ -249,7 +249,7 @@ export default function SharedGroupPage() {
                   data-testid="button-share-collection"
                 >
                   <Share2 className="w-4 h-4 mr-2" />
-                  Share This Collection
+                  Share This Popular Group
                 </Button>
               </div>
             </div>
@@ -264,16 +264,16 @@ export default function SharedGroupPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <ShoppingCart className="w-5 h-5 text-blue-600" />
-                  <span>Collection Items ({totalItems})</span>
+                  <span>Popular Group Items ({totalItems})</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {totalItems === 0 ? (
                   <div className="text-center py-12">
                     <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-foreground mb-2">Empty Collection</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Empty Popular Group</h3>
                     <p className="text-muted-foreground">
-                      This collection doesn't contain any items yet.
+                      This popular group doesn't contain any items yet.
                     </p>
                   </div>
                 ) : (
@@ -343,12 +343,12 @@ export default function SharedGroupPage() {
 
           {/* Statistics Sidebar */}
           <div className="space-y-6">
-            {/* Collection Stats */}
+            {/* Popular Group Stats */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <span>Collection Overview</span>
+                  <span>Popular Group Overview</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -363,13 +363,13 @@ export default function SharedGroupPage() {
                     <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="text-shared-collection-participants">
                       {collectionParticipants}
                     </p>
-                    <p className="text-sm text-muted-foreground">Collection Members</p>
+                    <p className="text-sm text-muted-foreground">Popular Group Members</p>
                   </div>
                   <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                     <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-shared-total-value">
                       ${totalValue.toFixed(2)}
                     </p>
-                    <p className="text-sm text-muted-foreground">Collection Value</p>
+                    <p className="text-sm text-muted-foreground">Popular Group Value</p>
                   </div>
                   <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-shared-potential-savings">
@@ -387,12 +387,12 @@ export default function SharedGroupPage() {
               </CardContent>
             </Card>
 
-            {/* Collection Progress */}
+            {/* Popular Group Progress */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Users className="w-5 h-5 text-blue-600" />
-                  <span>Collection Status</span>
+                  <span>Popular Group Status</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

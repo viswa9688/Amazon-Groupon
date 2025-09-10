@@ -174,7 +174,7 @@ export default function Browse() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
               <span data-testid="text-results-count">
-                {filteredAndSortedProducts.length} products, {filteredAndSortedCollections.length} collection{filteredAndSortedCollections.length === 1 ? '' : 's'} found
+                {filteredAndSortedProducts.length} products, {filteredAndSortedCollections.length} popular group{filteredAndSortedCollections.length === 1 ? '' : 's'} found
               </span>
               {searchTerm && (
                 <span>for "{searchTerm}"</span>
@@ -304,12 +304,12 @@ export default function Browse() {
           )}
         </div>
 
-        {/* Other Collections Section */}
+        {/* Other Popular Groups Section */}
         <div className="mb-12">
           <div className="flex items-center space-x-2 mb-6">
             <Users className="h-6 w-6 text-purple-600" />
-            <h2 className="text-2xl font-bold text-foreground">Other Collections</h2>
-            <Badge variant="secondary">{filteredAndSortedCollections.length} public collections</Badge>
+            <h2 className="text-2xl font-bold text-foreground">Other Popular Groups</h2>
+            <Badge variant="secondary">{filteredAndSortedCollections.length} public popular groups</Badge>
           </div>
           
           {isLoading ? (
@@ -328,11 +328,11 @@ export default function Browse() {
               <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                 <Users className="w-6 h-6 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No collections found</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No popular groups found</h3>
               <p className="text-muted-foreground text-sm">
                 {searchTerm || selectedCategory !== "all" 
                   ? "Try adjusting your filters or search terms." 
-                  : "No public collections are available. Check back later for new collections!"
+                  : "No public popular groups are available. Check back later for new popular groups!"
                 }
               </p>
             </div>
@@ -379,7 +379,7 @@ export default function Browse() {
                                 )}
                               </div>
                               <Button size="sm" data-testid={`button-view-collection-${collection.id}`}>
-                                View Collection
+                                View Popular Group
                               </Button>
                             </div>
                           </div>
