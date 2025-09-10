@@ -126,99 +126,41 @@ export default function Browse() {
           </p>
         </div>
 
-        {/* Category Selection Cards */}
+        {/* Category Selection - Clean Image-Only Design */}
         {showCategories && (
           <div className="mb-12">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Groceries Card */}
-              <Card 
-                className="group cursor-pointer hover:shadow-2xl transition-all duration-300 border-2 hover:border-green-500 overflow-hidden relative bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950"
+            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              {/* Groceries Image */}
+              <div 
+                className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
                 onClick={() => window.location.href = '/browse/groceries'}
                 data-testid="card-category-groceries"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-3xl"></div>
-                <CardContent className="p-8">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-green-500 text-white rounded-2xl w-fit">
-                        <Apple className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <h2 className="text-3xl font-bold text-foreground mb-2">Groceries</h2>
-                        <p className="text-muted-foreground text-lg mb-4">
-                          Fresh produce, daily essentials, and organic foods with bulk discounts
-                        </p>
-                        <div className="flex items-center space-x-4 text-sm">
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                            Save up to 20%
-                          </Badge>
-                          <span className="text-muted-foreground">
-                            {products?.filter(p => p.category?.id === 1).length || 0} products
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-6 w-6 text-muted-foreground group-hover:text-green-600 transition-colors mt-4" />
-                  </div>
-                  <div className="mt-6 grid grid-cols-3 gap-2">
-                    {products?.filter(p => p.category?.id === 1).slice(0, 3).map((product) => (
-                      <div key={product.id} className="aspect-square rounded-lg overflow-hidden">
-                        <img 
-                          src={product.imageUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200"} 
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                <div className="relative aspect-[4/3]">
+                  <img 
+                    src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80" 
+                    alt="Groceries"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+              </div>
 
-              {/* Services Card */}
-              <Card 
-                className="group cursor-pointer hover:shadow-2xl transition-all duration-300 border-2 hover:border-blue-500 overflow-hidden relative bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950"
+              {/* Services Image */}
+              <div 
+                className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
                 onClick={() => window.location.href = '/browse/services'}
                 data-testid="card-category-services"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"></div>
-                <CardContent className="p-8">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-blue-500 text-white rounded-2xl w-fit">
-                        <Briefcase className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <h2 className="text-3xl font-bold text-foreground mb-2">Services</h2>
-                        <p className="text-muted-foreground text-lg mb-4">
-                          Electronics, fashion, home goods, and professional services
-                        </p>
-                        <div className="flex items-center space-x-4 text-sm">
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                            Group discounts
-                          </Badge>
-                          <span className="text-muted-foreground">
-                            {products?.filter(p => p.category?.id === 2).length || 0} products
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-6 w-6 text-muted-foreground group-hover:text-blue-600 transition-colors mt-4" />
-                  </div>
-                  <div className="mt-6 grid grid-cols-3 gap-2">
-                    {products?.filter(p => p.category?.id === 2).slice(0, 3).map((product) => (
-                      <div key={product.id} className="aspect-square rounded-lg overflow-hidden">
-                        <img 
-                          src={product.imageUrl || "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=200"} 
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                <div className="relative aspect-[4/3]">
+                  <img 
+                    src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80" 
+                    alt="Services"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+              </div>
             </div>
 
             {/* Quick Stats */}
