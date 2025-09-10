@@ -42,8 +42,8 @@ export default function CategoryConflictDialog({
           </AlertDialogTitle>
           
           <AlertDialogDescription className="text-center space-y-4">
-            <p className="text-base">
-              Your cart currently contains items from <Badge variant="secondary" className="mx-1 font-semibold">{currentCategory}</Badge> category.
+            <p className="text-base font-medium">
+              We can't club services and groceries together. Please add them separately to cart.
             </p>
             
             <div className="flex items-center justify-center gap-3 my-4">
@@ -74,12 +74,8 @@ export default function CategoryConflictDialog({
               </div>
             </div>
             
-            <p className="text-sm text-muted-foreground">
-              Due to different fulfillment processes, <strong>Groceries</strong> and <strong>Services</strong> cannot be combined in the same order.
-            </p>
-            
-            <p className="text-sm text-muted-foreground">
-              To add {attemptedCategory === "Groceries" ? "grocery" : "service"} items, you need to:
+            <p className="text-sm text-muted-foreground mt-2">
+              Your cart currently contains <Badge variant="secondary" className="mx-1">{currentCategory}</Badge> items.
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -107,7 +103,7 @@ export default function CategoryConflictDialog({
           </Button>
           
           <p className="text-xs text-center text-muted-foreground mt-2">
-            Complete your current {currentCategory.toLowerCase()} order first, then start a new one for {attemptedCategory.toLowerCase()}.
+            Complete your current order first, or clear your cart to add different items.
           </p>
         </AlertDialogFooter>
       </AlertDialogContent>

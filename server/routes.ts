@@ -520,7 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const currentCategory = hasGroceries ? "Groceries" : "Services";
           return res.status(400).json({ 
             message: "Cannot mix categories",
-            error: "You cannot combine Groceries and Services in the same cart. Please clear your cart or choose products from the same category.",
+            error: "We can't club services and groceries together. Please add them separately to cart.",
             categoryConflict: true,
             currentCategory: currentCategory
           });

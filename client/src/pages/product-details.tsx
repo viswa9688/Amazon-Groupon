@@ -215,6 +215,12 @@ export default function ProductDetails() {
         const currentCartCategory = error.currentCategory || "unknown";
         setConflictingCategory(currentCartCategory);
         setCategoryConflictOpen(true);
+        // Also show toast with the specific message
+        toast({
+          title: "Cannot Mix Categories",
+          description: "We can't club services and groceries together. Please add them separately to cart.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",
