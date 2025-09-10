@@ -188,23 +188,14 @@ export default function Browse() {
             </div>
 
             {/* Quick Stats */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900 dark:to-pink-900 border-0">
-                <CardContent className="p-6 text-center">
-                  <Users className="h-8 w-8 text-purple-600 dark:text-purple-400 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {collections?.reduce((acc, c) => acc + (c.participantCount || 0), 0) || 0}+
-                  </p>
-                  <p className="text-sm text-muted-foreground">Active Group Members</p>
-                </CardContent>
-              </Card>
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
               <Card className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 border-0">
                 <CardContent className="p-6 text-center">
                   <ShoppingCart className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {products?.length || 0}
                   </p>
-                  <p className="text-sm text-muted-foreground">Products Available</p>
+                  <p className="text-sm text-muted-foreground">Products and Services</p>
                 </CardContent>
               </Card>
               <Card className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 border-0">
@@ -220,21 +211,6 @@ export default function Browse() {
           </div>
         )}
 
-        {/* Show All Products Link */}
-        {showCategories && (
-          <div className="text-center mb-8">
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => setShowCategories(false)}
-              className="group"
-              data-testid="button-show-all-products"
-            >
-              View All Products
-              <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </div>
-        )}
 
         {/* Search and Filters - Only show when not showing categories */}
         {!showCategories && (
