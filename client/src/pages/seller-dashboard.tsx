@@ -226,7 +226,7 @@ export default function SellerDashboard() {
   // Automatically set category based on shop type
   useEffect(() => {
     if (selectedShop) {
-      const categoryId = selectedShop.storeType === "grocery" ? "1" : "2";
+      const categoryId = selectedShop.shopType === "grocery" ? "1" : "2";
       form.setValue("categoryId", categoryId);
     } else {
       // Reset category when no shop is selected
@@ -238,7 +238,7 @@ export default function SellerDashboard() {
   const selectedCategoryId = form.watch("categoryId");
   
   // Check for service category - grocery shops should show product fields, service shops should show service fields
-  const isServiceCategory = selectedCategoryId === "2" && selectedShop?.storeType === "service";
+  const isServiceCategory = selectedCategoryId === "2" && selectedShop?.shopType === "service";
 
   // Edit product form
   const editForm = useForm<ProductFormData>({
@@ -411,6 +411,31 @@ export default function SellerDashboard() {
   const onSubmit = (data: ProductFormData) => {
     addProductMutation.mutate(data);
   };
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!productDialogOpen) {
+      form.reset({
+        shopId: "",
+        name: "",
+        description: "",
+        categoryId: "",
+        imageUrl: "",
+        originalPrice: "",
+        discountPrice: "",
+        minimumParticipants: "10",
+        maximumParticipants: "1000",
+        offerValidTill: undefined,
+        serviceMode: "in_person",
+        pricingModel: "flat_fee",
+        materialsIncluded: false,
+        availabilityType: "by_appointment",
+        advanceBookingDays: "7",
+        rescheduleAllowed: true,
+        liabilityWaiverRequired: false,
+      });
+    }
+  }, [productDialogOpen, form]);
 
   const onEditSubmit = (data: ProductFormData) => {
     if (editingProduct) {
