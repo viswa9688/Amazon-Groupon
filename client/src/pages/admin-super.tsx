@@ -34,6 +34,7 @@ interface User {
   storeId?: string;
   legalName?: string;
   displayName?: string;
+  shopType?: string;
   status?: string;
   timezone?: string;
   currency?: string;
@@ -82,6 +83,7 @@ export default function AdminSuper() {
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [newShopForm, setNewShopForm] = useState<Partial<User>>({
     isSeller: true,
+    shopType: "groceries",
     status: "active",
     currency: "CAD",
     languages: "en",
@@ -152,6 +154,7 @@ export default function AdminSuper() {
       storeId: user.storeId,
       legalName: user.legalName,
       displayName: user.displayName,
+      shopType: user.shopType,
       status: user.status,
       timezone: user.timezone,
       currency: user.currency,
@@ -280,6 +283,7 @@ export default function AdminSuper() {
       <TableHeader>
         <TableRow>
           <TableHead>Shop Info</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Contact</TableHead>
           <TableHead>Location</TableHead>
           <TableHead>Status</TableHead>
@@ -300,6 +304,11 @@ export default function AdminSuper() {
                   {!user.storeId && <span>User ID: {user.id.slice(0, 8)}...</span>}
                 </div>
               </div>
+            </TableCell>
+            <TableCell>
+              <Badge variant={user.shopType === "groceries" ? "default" : "secondary"}>
+                {user.shopType === "groceries" ? "Groceries" : user.shopType === "services" ? "Services" : "Not Set"}
+              </Badge>
             </TableCell>
             <TableCell>
               <div>
@@ -521,7 +530,7 @@ export default function AdminSuper() {
 
       {/* Add New Shop Dialog */}
       <Dialog open={addShopDialogOpen} onOpenChange={setAddShopDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Add New Shop</DialogTitle>
             <DialogDescription>
@@ -529,7 +538,7 @@ export default function AdminSuper() {
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[70vh] px-1">
+          <div className="max-h-[60vh] overflow-y-auto px-1">
             <div className="space-y-6">
               {/* Basic Information */}
               <div className="space-y-4">
@@ -548,18 +557,17 @@ export default function AdminSuper() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
+                    <Label htmlFor="shopType">Shop Type</Label>
                     <Select
-                      value={newShopForm.status}
-                      onValueChange={(value) => setNewShopForm(prev => ({ ...prev, status: value }))}
+                      value={newShopForm.shopType}
+                      onValueChange={(value) => setNewShopForm(prev => ({ ...prev, shopType: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="groceries">Groceries</SelectItem>
+                        <SelectItem value="services">Services</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -580,6 +588,22 @@ export default function AdminSuper() {
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, displayName: e.target.value }))}
                       placeholder="e.g., Vancouver Fresh Mart"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={newShopForm.status}
+                      onValueChange={(value) => setNewShopForm(prev => ({ ...prev, status: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -803,7 +827,7 @@ export default function AdminSuper() {
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddShopDialogOpen(false)}>
@@ -842,6 +866,21 @@ export default function AdminSuper() {
                       value={editForm.storeId || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, storeId: e.target.value }))}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editShopType">Shop Type</Label>
+                    <Select
+                      value={editForm.shopType || "groceries"}
+                      onValueChange={(value) => setEditForm(prev => ({ ...prev, shopType: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="groceries">Groceries</SelectItem>
+                        <SelectItem value="services">Services</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="editStatus">Status</Label>

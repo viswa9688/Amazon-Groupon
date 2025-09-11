@@ -40,14 +40,15 @@ export const users = pgTable("users", {
   storeId: varchar("store_id", { length: 50 }).unique(),
   legalName: varchar("legal_name", { length: 255 }),
   displayName: varchar("display_name", { length: 255 }),
+  shopType: varchar("shop_type", { length: 20 }).default("groceries"), // groceries or services
   status: varchar("status", { length: 20 }).default("active"),
   timezone: varchar("timezone", { length: 50 }),
   currency: varchar("currency", { length: 10 }),
   languages: text("languages"), // Comma-separated list
   
   // Address
-  addressLine1: varchar("address_line1", { length: 255 }),
-  addressLine2: varchar("address_line2", { length: 255 }),
+  addressLine1: varchar("address_line_1", { length: 255 }),
+  addressLine2: varchar("address_line_2", { length: 255 }),
   locality: varchar("locality", { length: 100 }),
   region: varchar("region", { length: 100 }),
   postalCode: varchar("postal_code", { length: 20 }),
