@@ -230,6 +230,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all shops (for seller to select when creating products)
+  app.get('/api/seller/shops', isAuthenticated, async (req: any, res) => {
+    try {
+      const shops = await storage.getSellerShops();
+      res.json(shops);
+    } catch (error) {
+      console.error("Error fetching shops:", error);
+      res.status(500).json({ message: "Failed to fetch shops" });
+    }
+  });
+
   app.post('/api/products', isAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
@@ -1187,8 +1198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/seller/products', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
-      const { discountPrice, serviceProvider, ...productFields } = req.body;
+      const sellerId = req.body.shopId || req.user.claims.sub; // Use shopId if provided, otherwise use user's ID
+      const { discountPrice, serviceProvider, shopId, ...productFields } = req.body;
       const productData = {
         ...productFields,
         sellerId,

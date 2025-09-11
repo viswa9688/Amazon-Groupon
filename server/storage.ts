@@ -40,7 +40,7 @@ import {
   type InsertServiceProviderStaff,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql, gte, not, exists, inArray } from "drizzle-orm";
+import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -306,6 +306,17 @@ export class DatabaseStorage implements IStorage {
   async getProductById(id: number): Promise<Product | undefined> {
     const [product] = await db.select().from(products).where(eq(products.id, id));
     return product;
+  }
+
+  async getSellerShops(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.isSeller, true),
+        isNotNull(users.storeId)
+      ))
+      .orderBy(users.displayName);
   }
 
   async getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]> {
