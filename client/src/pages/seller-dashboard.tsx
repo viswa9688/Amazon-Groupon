@@ -1675,8 +1675,77 @@ export default function SellerDashboard() {
                 </Dialog>
               </div>
 
-              {/* Products List - Rest of the component remains the same */}
-              {/* ... */}
+              {/* Products List */}
+              {productsLoading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : products && products.length > 0 ? (
+                <div className="grid gap-4">
+                  {products.map((product: ProductWithDetails) => (
+                    <Card key={product.id} className="p-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-semibold text-foreground" data-testid={`text-product-name-${product.id}`}>
+                              {product.name}
+                            </h3>
+                            <Badge variant={product.categoryId === 1 ? "default" : "secondary"}>
+                              {product.categoryId === 1 ? "Groceries" : "Services"}
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground mb-3">{product.description}</p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="w-4 h-4" />
+                              <span className="line-through text-muted-foreground">${product.originalPrice}</span>
+                              <span className="font-semibold text-green-600">
+                                ${product.discountTiers?.[0]?.finalPrice || product.originalPrice}
+                              </span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-4 h-4" />
+                              {product.minimumParticipants}-{product.maximumParticipants} participants
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEditClick(product)}
+                            data-testid={`button-edit-${product.id}`}
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => handleDeleteClick(product)}
+                            data-testid={`button-delete-${product.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No products yet</h3>
+                  <p className="text-muted-foreground mb-4">Start by adding your first product or service</p>
+                  <Button onClick={() => setProductDialogOpen(true)} data-testid="button-add-first-product">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Product
+                  </Button>
+                </div>
+              )}
             </div>
           </TabsContent>
 
