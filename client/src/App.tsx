@@ -42,6 +42,8 @@ function Router() {
           <Route path="/browse" component={Browse} />
           <Route path="/browse/:category" component={BrowseCategory} />
           <Route path="/shared/:shareToken" component={SharedGroup} />
+          <Route path="/seller" component={SellerDashboard} />
+          <Route path="/seller/analytics" component={SellerAnalytics} />
           <Route path="/admin-super" component={AdminSuper} />
           <Route component={NotFound} />
         </>

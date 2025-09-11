@@ -228,12 +228,17 @@ export default function SellerDashboard() {
     if (selectedShop) {
       const categoryId = selectedShop.storeType === "grocery" ? "1" : "2";
       form.setValue("categoryId", categoryId);
+    } else {
+      // Reset category when no shop is selected
+      form.setValue("categoryId", "");
     }
   }, [selectedShop, form]);
 
   // Watch category to show/hide service fields
   const selectedCategoryId = form.watch("categoryId");
-  const isServiceCategory = selectedCategoryId === "2"; // Services category ID is 2
+  
+  // Check for service category - grocery shops should show product fields, service shops should show service fields
+  const isServiceCategory = selectedCategoryId === "2" && selectedShop?.storeType === "service";
 
   // Edit product form
   const editForm = useForm<ProductFormData>({
@@ -730,29 +735,40 @@ export default function SellerDashboard() {
                         <FormField
                           control={form.control}
                           name="categoryId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Category *</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value} disabled>
-                                <FormControl>
-                                  <SelectTrigger data-testid="select-category">
-                                    <SelectValue placeholder={selectedShop ? "Auto-determined by shop" : "Select a shop first"} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {categories?.map((category) => (
-                                    <SelectItem key={category.id} value={category.id.toString()}>
-                                      {category.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormDescription>
-                                Category is automatically determined by the selected shop
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const selectedCategory = categories?.find(cat => cat.id.toString() === field.value);
+                            return (
+                              <FormItem>
+                                <FormLabel>Category *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} disabled>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-category">
+                                      <SelectValue placeholder={
+                                        selectedCategory 
+                                          ? selectedCategory.name 
+                                          : selectedShop 
+                                            ? "Auto-determined by shop" 
+                                            : "Select a shop first"
+                                      } />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {categories?.map((category) => (
+                                      <SelectItem key={category.id} value={category.id.toString()}>
+                                        {category.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  {selectedCategory 
+                                    ? `Category: ${selectedCategory.name} (auto-selected based on shop type)` 
+                                    : "Category is automatically determined by the selected shop"}
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
                         />
 
                         {/* Basic Fields */}
