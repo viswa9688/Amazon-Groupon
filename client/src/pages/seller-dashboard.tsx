@@ -62,6 +62,7 @@ const serviceModes = [
 
 // Product form schema - Base fields
 const baseProductSchema = z.object({
+  shopId: z.string().min(1, "Shop is required"),
   name: z.string().min(1, "Product/Service name is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   categoryId: z.string().min(1, "Category is required"),
@@ -167,6 +168,12 @@ export default function SellerDashboard() {
     enabled: isAuthenticated,
   });
 
+  // Get available shops
+  const { data: shops = [], isLoading: shopsLoading } = useQuery<any[]>({
+    queryKey: ["/api/seller/shops"],
+    enabled: isAuthenticated,
+  });
+
   const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
     enabled: isAuthenticated,
@@ -191,6 +198,7 @@ export default function SellerDashboard() {
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
+      shopId: "",
       name: "",
       description: "",
       categoryId: "",
@@ -210,6 +218,18 @@ export default function SellerDashboard() {
       liabilityWaiverRequired: false,
     },
   });
+
+  // Watch shop selection to automatically set category
+  const selectedShopId = form.watch("shopId");
+  const selectedShop = shops.find((shop: any) => shop.id === selectedShopId);
+  
+  // Automatically set category based on shop type
+  useEffect(() => {
+    if (selectedShop) {
+      const categoryId = selectedShop.storeType === "grocery" ? "1" : "2";
+      form.setValue("categoryId", categoryId);
+    }
+  }, [selectedShop, form]);
 
   // Watch category to show/hide service fields
   const selectedCategoryId = form.watch("categoryId");
@@ -238,6 +258,7 @@ export default function SellerDashboard() {
   const addProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
       const productData: any = {
+        shopId: data.shopId,
         name: data.name,
         description: data.description,
         categoryId: parseInt(data.categoryId),
@@ -676,17 +697,46 @@ export default function SellerDashboard() {
                     </DialogHeader>
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        {/* Category Selection - FIRST */}
+                        {/* Shop Selection - FIRST */}
+                        <FormField
+                          control={form.control}
+                          name="shopId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Shop *</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-shop">
+                                    <SelectValue placeholder="Select a shop first" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {shops?.map((shop: any) => (
+                                    <SelectItem key={shop.id} value={shop.id}>
+                                      {shop.displayName} ({shop.storeType})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                Choose the shop to automatically set the category
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {/* Category Selection - Auto-determined by shop */}
                         <FormField
                           control={form.control}
                           name="categoryId"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Category *</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} defaultValue={field.value} disabled>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-category">
-                                    <SelectValue placeholder="Select a category first" />
+                                    <SelectValue placeholder={selectedShop ? "Auto-determined by shop" : "Select a shop first"} />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -698,7 +748,7 @@ export default function SellerDashboard() {
                                 </SelectContent>
                               </Select>
                               <FormDescription>
-                                Choose the category to see relevant fields
+                                Category is automatically determined by the selected shop
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
