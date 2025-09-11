@@ -35,6 +35,35 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   isSeller: boolean("is_seller").default(false),
+  
+  // Shop/Store Details
+  storeId: varchar("store_id", { length: 50 }).unique(),
+  legalName: varchar("legal_name", { length: 255 }),
+  displayName: varchar("display_name", { length: 255 }),
+  status: varchar("status", { length: 20 }).default("active"),
+  timezone: varchar("timezone", { length: 50 }),
+  currency: varchar("currency", { length: 10 }),
+  languages: text("languages"), // Comma-separated list
+  
+  // Address
+  addressLine1: varchar("address_line1", { length: 255 }),
+  addressLine2: varchar("address_line2", { length: 255 }),
+  locality: varchar("locality", { length: 100 }),
+  region: varchar("region", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 20 }),
+  country: varchar("country", { length: 100 }),
+  serviceAreaPolygon: jsonb("service_area_polygon"),
+  
+  // Operating Hours
+  operatingHours: varchar("operating_hours", { length: 255 }),
+  pickupHours: varchar("pickup_hours", { length: 255 }),
+  deliveryHours: varchar("delivery_hours", { length: 255 }),
+  
+  // Policies
+  ageCheckEnabled: boolean("age_check_enabled").default(false),
+  substitutionPolicy: varchar("substitution_policy", { length: 50 }),
+  refundPolicyUrl: varchar("refund_policy_url", { length: 500 }),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -281,6 +310,12 @@ export const userGroupParticipantsRelations = relations(userGroupParticipants, (
 }));
 
 // Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
@@ -347,6 +382,7 @@ export const insertUserGroupParticipantSchema = createInsertSchema(userGroupPart
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type CreateUserWithPhone = {
   phoneNumber: string;
   firstName: string;

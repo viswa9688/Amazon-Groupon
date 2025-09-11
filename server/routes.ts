@@ -111,6 +111,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create new shop
+  app.post('/api/admin/create-shop', isAdminAuthenticated, async (req, res) => {
+    try {
+      const shopData = req.body;
+      
+      // Create user with shop details
+      const newUser = await storage.createUserWithPhone({
+        firstName: shopData.firstName || '',
+        lastName: shopData.lastName || '',
+        phoneNumber: shopData.phoneNumber || '',
+      });
+      
+      // Update with all shop details
+      const updatedUser = await storage.updateUserAdmin(newUser.id, {
+        ...shopData,
+        isSeller: true,
+      });
+      
+      res.status(201).json(updatedUser);
+    } catch (error) {
+      console.error("Error creating shop:", error);
+      res.status(500).json({ message: "Failed to create shop" });
+    }
+  });
+
   // Admin impersonation routes
   app.post('/api/admin/impersonate/:userId', isAdminAuthenticated, async (req: any, res) => {
     try {
