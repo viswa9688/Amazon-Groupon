@@ -226,7 +226,7 @@ export default function SellerDashboard() {
   // Automatically set category based on shop type
   useEffect(() => {
     if (selectedShop) {
-      const categoryId = selectedShop.shopType === "grocery" ? "1" : "2";
+      const categoryId = selectedShop.shopType === "groceries" ? "1" : "2";
       form.setValue("categoryId", categoryId);
     } else {
       // Reset category when no shop is selected
@@ -238,7 +238,7 @@ export default function SellerDashboard() {
   const selectedCategoryId = form.watch("categoryId");
   
   // Check for service category - grocery shops should show product fields, service shops should show service fields
-  const isServiceCategory = selectedCategoryId === "2" && selectedShop?.shopType === "service";
+  const isServiceCategory = selectedCategoryId === "2" && selectedShop?.shopType === "services";
 
   // Edit product form
   const editForm = useForm<ProductFormData>({
