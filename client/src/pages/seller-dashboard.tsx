@@ -1749,9 +1749,185 @@ export default function SellerDashboard() {
             </div>
           </TabsContent>
 
-          {/* Other tabs content remains the same */}
-          {/* ... */}
+          {/* Orders Tab Content */}
+          <TabsContent value="orders">
+            <div className="space-y-6">
+              {ordersLoading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : orders && orders.length > 0 ? (
+                <div className="space-y-4">
+                  {orders.map((order: Order) => (
+                    <Card key={order.id} className="p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="font-semibold">Order #{order.id}</h4>
+                          <p className="text-sm text-muted-foreground">Status: {order.status}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleStatusUpdate(order.id!, "processing")}
+                          >
+                            Processing
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => handleStatusUpdate(order.id!, "shipped")}
+                          >
+                            Ship
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">No orders yet</h3>
+                  <p className="text-muted-foreground">Orders will appear here when customers make purchases.</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Potential Revenue Tab Content */}
+          <TabsContent value="potential">
+            <div className="text-center py-12">
+              <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold">Potential Revenue Tracking</h3>
+              <p className="text-muted-foreground">Advanced revenue analytics coming soon.</p>
+            </div>
+          </TabsContent>
         </Tabs>
+
+        {/* Edit Product Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Product/Service</DialogTitle>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name *</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="originalPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price *</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description *</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="minimumParticipants"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Min Participants *</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="maximumParticipants"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Participants *</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={editProductMutation.isPending}>
+                    {editProductMutation.isPending ? "Updating..." : "Update Product"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Product</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p>Are you sure you want to delete "<strong>{productToDelete?.name}</strong>"?</p>
+              <p className="text-sm text-muted-foreground mt-2">This action cannot be undone.</p>
+            </div>
+            <div className="flex justify-end space-x-4">
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  if (productToDelete) {
+                    deleteProductMutation.mutate(productToDelete.id!);
+                  }
+                }}
+                disabled={deleteProductMutation.isPending}
+              >
+                {deleteProductMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
