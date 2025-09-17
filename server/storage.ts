@@ -680,6 +680,8 @@ export class DatabaseStorage implements IStorage {
       groupQuantity: number;
       individualSavings: number;
     }>;
+    isAlreadyMember: boolean;
+    isFull: boolean;
   }>> {
     // Get user's cart
     const userCart = await this.getUserCart(userId);
@@ -831,7 +833,14 @@ export class DatabaseStorage implements IStorage {
     
     if (availableGroups.length === 0) return [];
     
-    const suggestions = [];
+    const suggestions: Array<{
+      userGroups: UserGroupWithDetails[];
+      totalSavings: number;
+      coverage: number;
+      uncoveredProducts: ProductWithDetails[];
+      recommendationType: 'single_best' | 'multi_group' | 'complete_coverage';
+      description: string;
+    }> = [];
     
     // Strategy 1: Best Single User Group (highest match + savings)
     const bestSingleGroup = availableGroups[0];
