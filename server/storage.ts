@@ -264,6 +264,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
+    // First, get all products for this seller
+    const sellerProducts = await this.getProductsBySeller(id);
+    
+    // Delete all products first (this will also delete related discount tiers and service providers)
+    for (const product of sellerProducts) {
+      await this.deleteProduct(product.id);
+    }
+    
+    // Then delete the user
     await db.delete(users).where(eq(users.id, id));
   }
 

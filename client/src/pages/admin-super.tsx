@@ -81,6 +81,8 @@ export default function AdminSuper() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [deleteWarningUser, setDeleteWarningUser] = useState<User | null>(null);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<User | null>(null);
   const [newShopForm, setNewShopForm] = useState<Partial<User>>({
     isSeller: true,
     shopType: "groceries",
@@ -195,12 +197,27 @@ export default function AdminSuper() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+  const handleDeleteUser = (user: User) => {
+    setDeleteWarningUser(user);
+  };
+
+  const handleConfirmFirstWarning = () => {
+    if (deleteWarningUser) {
+      setDeleteConfirmUser(deleteWarningUser);
+      setDeleteWarningUser(null);
+    }
+  };
+
+  const handleFinalDeleteConfirm = async () => {
+    if (!deleteConfirmUser) return;
     
     try {
-      await apiRequest("DELETE", `/api/admin/users/${userId}`, loginData);
-      toast({ title: "Success", description: "User deleted successfully" });
+      await apiRequest("DELETE", `/api/admin/users/${deleteConfirmUser.id}`, loginData);
+      toast({ 
+        title: "Success", 
+        description: `User ${deleteConfirmUser.firstName} ${deleteConfirmUser.lastName} and all their products have been deleted successfully` 
+      });
+      setDeleteConfirmUser(null);
       await fetchUsers();
     } catch (error) {
       toast({
@@ -369,7 +386,7 @@ export default function AdminSuper() {
                 <Button 
                   variant="destructive" 
                   size="sm"
-                  onClick={() => handleDeleteUser(user.id)}
+                  onClick={() => handleDeleteUser(user)}
                   data-testid={`delete-user-${user.id}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1346,6 +1363,93 @@ export default function AdminSuper() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewingUser(null)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* First Delete Warning Dialog */}
+      <Dialog open={!!deleteWarningUser} onOpenChange={() => setDeleteWarningUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete User Warning
+            </DialogTitle>
+            <DialogDescription className="space-y-3 py-4">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <p className="font-semibold text-destructive">
+                  ⚠️ All the products will be deleted for this user
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  User: <span className="font-medium">{deleteWarningUser?.firstName} {deleteWarningUser?.lastName}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Products: <span className="font-medium">{deleteWarningUser?.productCount || 0} products</span>
+                </p>
+              </div>
+              <p className="text-sm">
+                This action will permanently delete all products associated with this seller before removing their account.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteWarningUser(null)}
+              data-testid="cancel-delete-warning"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmFirstWarning}
+              data-testid="continue-delete-warning"
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Final Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmUser} onOpenChange={() => setDeleteConfirmUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Final Confirmation
+            </DialogTitle>
+            <DialogDescription className="space-y-3 py-4">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <p className="font-semibold text-destructive text-center">
+                  Are you sure?
+                </p>
+                <p className="text-sm text-center mt-2">
+                  This action cannot be undone.
+                </p>
+              </div>
+              <div className="text-sm space-y-1">
+                <p><span className="font-medium">User:</span> {deleteConfirmUser?.firstName} {deleteConfirmUser?.lastName}</p>
+                <p><span className="font-medium">Products to delete:</span> {deleteConfirmUser?.productCount || 0}</p>
+                <p><span className="font-medium">Store ID:</span> {deleteConfirmUser?.storeId || "N/A"}</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteConfirmUser(null)}
+              data-testid="cancel-final-delete"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleFinalDeleteConfirm}
+              data-testid="confirm-final-delete"
+            >
+              Yes, Delete Everything
             </Button>
           </DialogFooter>
         </DialogContent>
