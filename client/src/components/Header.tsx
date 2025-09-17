@@ -65,23 +65,6 @@ export default function Header() {
             </a>
             {isAuthenticated && (
               <>
-                <a href="/cart" className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1 relative">
-                  <div className="relative">
-                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
-                      <ShoppingCart className="h-4 w-4" />
-                    </div>
-                    {cartItemCount > 0 && (
-                      <Badge 
-                        variant="destructive" 
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
-                        data-testid="cart-count-badge"
-                      >
-                        {cartItemCount}
-                      </Badge>
-                    )}
-                  </div>
-                  <span>Cart</span>
-                </a>
                 <a href="/orders" className="text-foreground hover:text-primary font-medium transition-colors">
                   Orders
                 </a>
