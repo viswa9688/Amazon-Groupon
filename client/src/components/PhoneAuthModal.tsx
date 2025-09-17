@@ -13,9 +13,10 @@ interface PhoneAuthModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   redirectTo?: string;
+  sellerIntent?: boolean;
 }
 
-export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo }: PhoneAuthModalProps) {
+export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, sellerIntent }: PhoneAuthModalProps) {
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
@@ -43,12 +44,17 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo }:
 
   const verifyOtpMutation = useMutation({
     mutationFn: async (data: { phoneNumber: string; otp: string }) => {
-      return apiRequest("POST", "/api/auth/verify-otp", data);
+      return apiRequest("POST", "/api/auth/verify-otp", { 
+        ...data, 
+        sellerIntent: sellerIntent || false 
+      });
     },
     onSuccess: () => {
       toast({
         title: "Success!",
-        description: "You've been logged in successfully.",
+        description: sellerIntent 
+          ? "Welcome to OneAnt! You're now registered as a seller."
+          : "You've been logged in successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       onClose();

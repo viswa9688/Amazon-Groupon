@@ -63,7 +63,7 @@ export async function setupPhoneAuth(app: Express) {
   // Verify OTP endpoint (mock)
   app.post('/api/auth/verify-otp', async (req, res) => {
     try {
-      const { phoneNumber, otp } = req.body;
+      const { phoneNumber, otp, sellerIntent } = req.body;
       
       if (!phoneNumber || !otp) {
         return res.status(400).json({ message: "Phone number and OTP are required" });
@@ -85,7 +85,11 @@ export async function setupPhoneAuth(app: Express) {
             phoneNumber,
             firstName: "User",
             lastName: "",
+            isSeller: sellerIntent || false,
           });
+        } else if (sellerIntent && !user.isSeller) {
+          // Update existing user to be a seller if they clicked "Sell on OneAnt"
+          user = await storage.updateUserProfile(user.id, { isSeller: true });
         }
 
         // Set user session
@@ -94,6 +98,7 @@ export async function setupPhoneAuth(app: Express) {
           phoneNumber: user.phoneNumber,
           firstName: user.firstName,
           lastName: user.lastName,
+          isSeller: user.isSeller,
         };
 
         // Clear pending auth
@@ -106,6 +111,7 @@ export async function setupPhoneAuth(app: Express) {
             phoneNumber: user.phoneNumber,
             firstName: user.firstName,
             lastName: user.lastName,
+            isSeller: user.isSeller,
           }
         });
       } else {

@@ -405,6 +405,7 @@ export type CreateUserWithPhone = {
   phoneNumber: string;
   firstName: string;
   lastName: string;
+  isSeller?: boolean;
 };
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;

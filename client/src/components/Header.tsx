@@ -24,6 +24,7 @@ export default function Header() {
   const { user, isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [sellerIntent, setSellerIntent] = useState(false);
   const { toast } = useToast();
 
   // Fetch cart items to get count
@@ -141,7 +142,10 @@ export default function Header() {
                 <>
                   <Button
                     variant="ghost"
-                    onClick={() => setAuthModalOpen(true)}
+                    onClick={() => {
+                      setSellerIntent(false);
+                      setAuthModalOpen(true);
+                    }}
                     data-testid="button-login"
                   >
                     <User className="w-4 h-4 mr-2" />
@@ -149,7 +153,10 @@ export default function Header() {
                   </Button>
                   <Button
                     className="bg-primary hover:bg-primary/90"
-                    onClick={() => setAuthModalOpen(true)}
+                    onClick={() => {
+                      setSellerIntent(true);
+                      setAuthModalOpen(true);
+                    }}
                     data-testid="button-sell-on-oneant"
                   >
                     <Store className="w-4 h-4 mr-2" />
@@ -349,14 +356,20 @@ export default function Header() {
                   <Button
                     variant="ghost"
                     className="w-full justify-start"
-                    onClick={() => setAuthModalOpen(true)}
+                    onClick={() => {
+                      setSellerIntent(false);
+                      setAuthModalOpen(true);
+                    }}
                   >
                     <User className="w-4 h-4 mr-2" />
                     Login
                   </Button>
                   <Button
                     className="w-full justify-start bg-primary hover:bg-primary/90"
-                    onClick={() => setAuthModalOpen(true)}
+                    onClick={() => {
+                      setSellerIntent(true);
+                      setAuthModalOpen(true);
+                    }}
                   >
                     <Store className="w-4 h-4 mr-2" />
                     Sell on OneAnt
@@ -450,6 +463,7 @@ export default function Header() {
       <PhoneAuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+        sellerIntent={sellerIntent}
       />
     </header>
   );
