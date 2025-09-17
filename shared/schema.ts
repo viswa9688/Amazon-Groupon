@@ -26,6 +26,16 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Admin credentials table
+export const adminCredentials = pgTable("admin_credentials", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 100 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Users table for Phone Auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -380,6 +390,13 @@ export const insertUserGroupParticipantSchema = createInsertSchema(userGroupPart
   joinedAt: true,
 });
 
+// Admin credentials schema
+export const insertAdminCredentialsSchema = createInsertSchema(adminCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -411,6 +428,8 @@ export type UserGroupItem = typeof userGroupItems.$inferSelect;
 export type InsertUserGroupItem = z.infer<typeof insertUserGroupItemSchema>;
 export type UserGroupParticipant = typeof userGroupParticipants.$inferSelect;
 export type InsertUserGroupParticipant = z.infer<typeof insertUserGroupParticipantSchema>;
+export type AdminCredentials = typeof adminCredentials.$inferSelect;
+export type InsertAdminCredentials = z.infer<typeof insertAdminCredentialsSchema>;
 
 // Product with relations type
 export type ProductWithDetails = Product & {

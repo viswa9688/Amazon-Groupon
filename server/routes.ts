@@ -23,14 +23,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-07-30.basil",
 });
 
-// Admin authentication middleware for specific user
-const isAdminAuthenticated = (req: any, res: any, next: any) => {
+// Admin authentication middleware using database
+const isAdminAuthenticated = async (req: any, res: any, next: any) => {
   const { userId, password } = req.body;
   
-  // Allow viswa968 with any password
-  if (userId === 'viswa968') {
-    req.admin = { userId };
-    return next();
+  try {
+    const isValid = await storage.validateAdminCredentials(userId, password);
+    if (isValid) {
+      req.admin = { userId };
+      return next();
+    }
+  } catch (error) {
+    console.error("Admin authentication error:", error);
   }
   
   return res.status(403).json({ message: "Admin access denied" });
@@ -54,13 +58,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes are now handled in phoneAuth.ts
   
   // Admin authentication route
-  app.post('/api/admin/login', (req, res) => {
+  app.post('/api/admin/login', async (req, res) => {
     const { userId, password } = req.body;
     
-    if (userId === 'viswa968') {
-      res.json({ success: true, message: "Admin logged in" });
-    } else {
-      res.status(403).json({ message: "Admin access denied" });
+    try {
+      const isValid = await storage.validateAdminCredentials(userId, password);
+      if (isValid) {
+        res.json({ success: true, message: "Admin logged in" });
+      } else {
+        res.status(403).json({ message: "Admin access denied" });
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
   

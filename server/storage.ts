@@ -11,6 +11,7 @@ import {
   userGroupParticipants,
   serviceProviders,
   serviceProviderStaff,
+  adminCredentials,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
@@ -38,6 +39,7 @@ import {
   type InsertServiceProvider,
   type ServiceProviderStaff,
   type InsertServiceProviderStaff,
+  type AdminCredentials,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
@@ -54,6 +56,10 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUserAdmin(id: string, updates: Partial<User>): Promise<User>;
   deleteUser(id: string): Promise<void>;
+  
+  // Admin credentials operations
+  getAdminCredentials(userId: string): Promise<AdminCredentials | undefined>;
+  validateAdminCredentials(userId: string, password: string): Promise<boolean>;
 
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -258,6 +264,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  // Admin credentials operations
+  async getAdminCredentials(userId: string): Promise<AdminCredentials | undefined> {
+    const result = await db.query.adminCredentials.findFirst({
+      where: eq(adminCredentials.userId, userId),
+    });
+    return result;
+  }
+
+  async validateAdminCredentials(userId: string, password: string): Promise<boolean> {
+    const credentials = await this.getAdminCredentials(userId);
+    if (!credentials || !credentials.isActive) {
+      return false;
+    }
+    
+    const bcrypt = require('bcrypt');
+    return bcrypt.compareSync(password, credentials.passwordHash);
   }
 
   // Category operations
