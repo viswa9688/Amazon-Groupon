@@ -31,7 +31,7 @@ export async function setupPhoneAuth(app: Express) {
   // Send OTP endpoint (mock)
   app.post('/api/auth/send-otp', async (req, res) => {
     try {
-      const { phoneNumber } = req.body;
+      const { phoneNumber, sellerIntent } = req.body;
       
       if (!phoneNumber) {
         return res.status(400).json({ message: "Phone number is required" });
@@ -45,6 +45,7 @@ export async function setupPhoneAuth(app: Express) {
         phoneNumber,
         otp: mockOtp,
         createdAt: new Date(),
+        sellerIntent: sellerIntent || false, // Persist seller intent in session
       };
 
       console.log(`Mock OTP for ${phoneNumber}: ${mockOtp}`);
@@ -77,6 +78,9 @@ export async function setupPhoneAuth(app: Express) {
 
       // Mock OTP verification - accept any OTP for demo
       if (otp.length >= 4) {
+        // Boolean coercion: check request body or session-stored seller intent
+        const wantsSeller = sellerIntent === true || sellerIntent === 'true' || pendingAuth?.sellerIntent === true;
+        
         // Create or get user
         let user = await storage.getUserByPhone(phoneNumber);
         
@@ -85,9 +89,9 @@ export async function setupPhoneAuth(app: Express) {
             phoneNumber,
             firstName: "User",
             lastName: "",
-            isSeller: sellerIntent || false,
+            isSeller: wantsSeller,
           });
-        } else if (sellerIntent && !user.isSeller) {
+        } else if (wantsSeller && !user.isSeller) {
           // Update existing user to be a seller if they clicked "Sell on OneAnt"
           user = await storage.updateUserProfile(user.id, { isSeller: true });
         }

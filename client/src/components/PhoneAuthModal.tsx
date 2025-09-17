@@ -24,7 +24,10 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
 
   const sendOtpMutation = useMutation({
     mutationFn: async (phone: string) => {
-      return apiRequest("POST", "/api/auth/send-otp", { phoneNumber: phone });
+      return apiRequest("POST", "/api/auth/send-otp", { 
+        phoneNumber: phone,
+        sellerIntent: sellerIntent || false
+      });
     },
     onSuccess: () => {
       setStep("otp");
