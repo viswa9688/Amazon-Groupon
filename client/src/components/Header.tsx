@@ -198,15 +198,17 @@ export default function Header() {
                       </div>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.location.href = "/seller"}
-                    data-testid="button-seller-dashboard"
-                  >
-                    <Store className="w-4 h-4 mr-2" />
-                    Dashboard
-                  </Button>
+                  {user?.isSeller && (
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.href = "/seller"}
+                      data-testid="button-seller-dashboard"
+                    >
+                      <Store className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Button>
+                  )}
                   <Button 
                     variant="ghost"
                     size="sm"
