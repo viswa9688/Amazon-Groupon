@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import SellerGuard from "@/components/SellerGuard";
+import AuthGuard from "@/components/AuthGuard";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -49,19 +50,31 @@ function Router() {
       </Route>
       <Route path="/admin-super" component={AdminSuper} />
       
-      {isAuthenticated && (
-        <>
-          <Route path="/cart" component={Cart} />
-          <Route path="/my-groups" component={MyGroups} />
-          <Route path="/user-group/:id" component={UserGroup} />
-          <Route path="/address" component={Address} />
-          <Route path="/personal-info" component={PersonalInfo} />
-          <Route path="/product/:id" component={ProductDetails} />
-          <Route path="/checkout/:productId/:type" component={Checkout} />
-          <Route path="/orders" component={Orders} />
-          <Route path="/order/:orderId" component={OrderDetails} />
-        </>
-      )}
+      <Route path="/cart">
+        {() => <AuthGuard><Cart /></AuthGuard>}
+      </Route>
+      <Route path="/my-groups">
+        {() => <AuthGuard><MyGroups /></AuthGuard>}
+      </Route>
+      <Route path="/user-group/:id">
+        {(params) => <AuthGuard><UserGroup {...params} /></AuthGuard>}
+      </Route>
+      <Route path="/address">
+        {() => <AuthGuard><Address /></AuthGuard>}
+      </Route>
+      <Route path="/personal-info">
+        {() => <AuthGuard><PersonalInfo /></AuthGuard>}
+      </Route>
+      <Route path="/product/:id" component={ProductDetails} />
+      <Route path="/checkout/:productId/:type">
+        {(params) => <AuthGuard><Checkout {...params} /></AuthGuard>}
+      </Route>
+      <Route path="/orders">
+        {() => <AuthGuard><Orders /></AuthGuard>}
+      </Route>
+      <Route path="/order/:orderId">
+        {(params) => <AuthGuard><OrderDetails {...params} /></AuthGuard>}
+      </Route>
       
       <Route component={NotFound} />
     </Switch>
