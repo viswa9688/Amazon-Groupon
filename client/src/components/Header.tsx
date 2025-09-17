@@ -137,9 +137,11 @@ export default function Header() {
                         className="w-8 h-8 rounded-full"
                       />
                       <span className="text-sm font-medium text-foreground">
-                        {(user as any)?.firstName || 'User'}
+                        {(user as any)?.firstName && (user as any)?.lastName 
+                          ? `${(user as any).firstName} ${(user as any).lastName}`
+                          : (user as any)?.firstName || 'User'}
                       </span>
-                      {((user as any)?.firstName === 'User' || !(user as any)?.firstName) && (
+                      {(!(user as any)?.firstName || !(user as any)?.lastName) && (
                         <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Complete your profile"></div>
                       )}
                       <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-hover:rotate-180" />
@@ -156,7 +158,9 @@ export default function Header() {
                           />
                           <div>
                             <div className="text-sm font-medium text-foreground">
-                              {(user as any)?.firstName || 'User'} {(user as any)?.lastName || ''}
+                              {(user as any)?.firstName && (user as any)?.lastName 
+                                ? `${(user as any).firstName} ${(user as any).lastName}`
+                                : (user as any)?.firstName || 'User'}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {(user as any)?.phoneNumber || (user as any)?.email}
