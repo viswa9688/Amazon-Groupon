@@ -264,16 +264,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
-    // First, get all products for this seller
-    const sellerProducts = await this.getProductsBySeller(id);
-    
-    // Delete all products first (this will also delete related discount tiers and service providers)
-    for (const product of sellerProducts) {
-      await this.deleteProduct(product.id);
+    try {
+      // Use a transaction to ensure atomic deletion
+      await db.transaction(async (tx) => {
+        // First, get all products for this seller
+        const sellerProducts = await tx.select().from(products).where(eq(products.sellerId, id));
+        
+        // Delete all products and their related data in correct order
+        for (const product of sellerProducts) {
+          // First, handle service provider and staff deletion (handles serviceProviderStaff → serviceProviders FK)
+          const provider = await tx.select().from(serviceProviders).where(eq(serviceProviders.productId, product.id));
+          if (provider.length > 0) {
+            // Delete service provider staff first
+            await tx.delete(serviceProviderStaff).where(eq(serviceProviderStaff.serviceProviderId, provider[0].id));
+            // Then delete the service provider
+            await tx.delete(serviceProviders).where(eq(serviceProviders.productId, product.id));
+          }
+          
+          // Delete related discount tiers
+          await tx.delete(discountTiers).where(eq(discountTiers.productId, product.id));
+          
+          // Delete the product itself
+          await tx.delete(products).where(eq(products.id, product.id));
+        }
+        
+        // Delete admin credentials if they exist (handles adminCredentials → users FK)
+        await tx.delete(adminCredentials).where(eq(adminCredentials.userId, id));
+        
+        // Finally delete the user
+        await tx.delete(users).where(eq(users.id, id));
+      });
+      
+    } catch (error) {
+      console.error(`Error deleting user:`, error);
+      throw error;
     }
-    
-    // Then delete the user
-    await db.delete(users).where(eq(users.id, id));
   }
 
   // Admin credentials operations
