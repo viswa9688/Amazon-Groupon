@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import SellerGuard from "@/components/SellerGuard";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -36,38 +37,33 @@ function Router() {
 
   return (
     <Switch>
-      {!isAuthenticated ? (
+      <Route path="/" component={Browse} />
+      <Route path="/browse" component={Browse} />
+      <Route path="/browse/:category" component={BrowseCategory} />
+      <Route path="/shared/:shareToken" component={SharedGroup} />
+      <Route path="/seller">
+        {() => <SellerGuard><SellerDashboard /></SellerGuard>}
+      </Route>
+      <Route path="/seller/analytics">
+        {() => <SellerGuard><SellerAnalytics /></SellerGuard>}
+      </Route>
+      <Route path="/admin-super" component={AdminSuper} />
+      
+      {isAuthenticated && (
         <>
-          <Route path="/" component={Browse} />
-          <Route path="/browse" component={Browse} />
-          <Route path="/browse/:category" component={BrowseCategory} />
-          <Route path="/shared/:shareToken" component={SharedGroup} />
-          <Route path="/seller" component={SellerDashboard} />
-          <Route path="/seller/analytics" component={SellerAnalytics} />
-          <Route path="/admin-super" component={AdminSuper} />
-          <Route component={NotFound} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Browse} />
-          <Route path="/browse" component={Browse} />
-          <Route path="/browse/:category" component={BrowseCategory} />
           <Route path="/cart" component={Cart} />
-          <Route path="/seller" component={SellerDashboard} />
-          <Route path="/seller/analytics" component={SellerAnalytics} />
           <Route path="/my-groups" component={MyGroups} />
           <Route path="/user-group/:id" component={UserGroup} />
-          <Route path="/shared/:shareToken" component={SharedGroup} />
           <Route path="/address" component={Address} />
           <Route path="/personal-info" component={PersonalInfo} />
           <Route path="/product/:id" component={ProductDetails} />
           <Route path="/checkout/:productId/:type" component={Checkout} />
           <Route path="/orders" component={Orders} />
           <Route path="/order/:orderId" component={OrderDetails} />
-          <Route path="/admin-super" component={AdminSuper} />
-          <Route component={NotFound} />
         </>
       )}
+      
+      <Route component={NotFound} />
     </Switch>
   );
 }

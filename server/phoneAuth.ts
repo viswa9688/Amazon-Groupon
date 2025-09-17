@@ -200,8 +200,23 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   (req as any).user = { 
     claims: { sub: user.id },
     id: user.id,
+    isSeller: user.isSeller,
     ...sessionUser 
   };
+  
+  next();
+};
+
+// Seller authorization middleware
+export const isSellerAuthenticated: RequestHandler = async (req, res, next) => {
+  // First check if user is authenticated
+  await isAuthenticated(req, res, () => {});
+  
+  // Check if the user has seller permissions
+  const user = (req as any).user;
+  if (!user || !user.isSeller) {
+    return res.status(403).json({ message: "Seller access required" });
+  }
   
   next();
 };

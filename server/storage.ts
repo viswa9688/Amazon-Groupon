@@ -320,6 +320,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(users.displayName);
   }
 
+  async getSellerShopsBySeller(sellerId: string): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.id, sellerId),
+        eq(users.isSeller, true),
+        isNotNull(users.storeId)
+      ))
+      .orderBy(users.displayName);
+  }
+
   async getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]> {
     return await db.query.products.findMany({
       where: eq(products.sellerId, sellerId),

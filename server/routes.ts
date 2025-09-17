@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupPhoneAuth, isAuthenticated } from "./phoneAuth";
+import { setupPhoneAuth, isAuthenticated, isSellerAuthenticated } from "./phoneAuth";
 import { seedDatabase } from "./seed";
 import Stripe from "stripe";
 import {
@@ -219,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/seller/products', isAuthenticated, async (req: any, res) => {
+  app.get('/api/seller/products', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const products = await storage.getProductsBySeller(sellerId);
@@ -230,10 +230,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all shops (for seller to select when creating products)
-  app.get('/api/seller/shops', isAuthenticated, async (req: any, res) => {
+  // Get current seller's shops only
+  app.get('/api/seller/shops', isSellerAuthenticated, async (req: any, res) => {
     try {
-      const shops = await storage.getSellerShops();
+      const sellerId = req.user.claims.sub;
+      const shops = await storage.getSellerShopsBySeller(sellerId);
       res.json(shops);
     } catch (error) {
       console.error("Error fetching shops:", error);
@@ -1296,7 +1297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/seller/products/:productId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/seller/products/:productId', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const productId = parseInt(req.params.productId);
@@ -1425,7 +1426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/seller/orders', isAuthenticated, async (req: any, res) => {
+  app.get('/api/seller/orders', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const orders = await storage.getSellerOrders(sellerId);
@@ -1436,7 +1437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/seller/metrics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/seller/metrics', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const metrics = await storage.getSellerMetrics(sellerId);
@@ -1448,7 +1449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Advanced seller analytics endpoint
-  app.get('/api/seller/analytics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/seller/analytics', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const { startDate, endDate } = req.query;
@@ -1465,7 +1466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/seller/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/seller/orders/:orderId/status', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const orderId = parseInt(req.params.orderId);
@@ -1628,7 +1629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ received: true });
   });
 
-  app.delete('/api/seller/products/:productId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/seller/products/:productId', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const productId = parseInt(req.params.productId);
