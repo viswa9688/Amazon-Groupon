@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/Header";
+import PhoneAuthModal from "@/components/PhoneAuthModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,12 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Package, Share2, Users, TrendingUp, DollarSign, Crown, ShoppingCart, UserPlus, UserMinus, LogIn, AlertCircle, Clock } from "lucide-react";
 import type { UserGroupWithDetails } from "@shared/schema";
+import { useState } from "react";
 
 export default function SharedGroupPage() {
   const { shareToken } = useParams();
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Get shared group details
   const { data: sharedGroup, isLoading, error } = useQuery<UserGroupWithDetails>({
@@ -194,7 +197,7 @@ export default function SharedGroupPage() {
               <div className="flex flex-col gap-3">
                 {!isAuthenticated ? (
                   <Button 
-                    onClick={() => window.location.href = '/api/login'}
+                    onClick={() => setIsAuthModalOpen(true)}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                     data-testid="button-login-to-join"
                   >
@@ -443,6 +446,24 @@ export default function SharedGroupPage() {
           </div>
         </div>
       </div>
+      
+      {/* Authentication Modal */}
+      <PhoneAuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => {
+          toast({
+            title: "Welcome!",
+            description: "You can now join this group.",
+          });
+          // Refresh the authentication status and participation data
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/user-groups", sharedGroup?.id, "participation"] });
+          // Close the modal
+          setIsAuthModalOpen(false);
+        }}
+        sellerIntent={false}
+      />
     </div>
   );
 }
