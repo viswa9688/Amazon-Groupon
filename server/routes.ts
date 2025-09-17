@@ -242,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/products', isAuthenticated, async (req: any, res) => {
+  app.post('/api/products', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
       const productData = insertProductSchema.parse({
@@ -1197,7 +1197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/seller/products', isAuthenticated, async (req: any, res) => {
+  app.post('/api/seller/products', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.body.shopId || req.user.claims.sub; // Use shopId if provided, otherwise use user's ID
       const { discountPrice, serviceProvider, shopId, ...productFields } = req.body;
