@@ -11,9 +11,11 @@ import { Phone, ArrowRight, ArrowLeft } from "lucide-react";
 interface PhoneAuthModalProps {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
+  redirectTo?: string;
 }
 
-export default function PhoneAuthModal({ open, onClose }: PhoneAuthModalProps) {
+export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo }: PhoneAuthModalProps) {
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
@@ -50,8 +52,18 @@ export default function PhoneAuthModal({ open, onClose }: PhoneAuthModalProps) {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       onClose();
-      // Redirect to browse page
-      window.location.href = "/browse";
+      
+      // Execute custom success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      } else if (redirectTo) {
+        // Sanitize redirect URL for security - only allow internal paths
+        const sanitizedRedirect = redirectTo.startsWith('/') && !redirectTo.startsWith('//') 
+          ? redirectTo 
+          : '/browse';
+        window.location.href = sanitizedRedirect;
+      }
+      // Default behavior: stay on current page (no redirect)
     },
     onError: () => {
       toast({

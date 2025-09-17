@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import CategoryConflictDialog from "./CategoryConflictDialog";
+import PhoneAuthModal from "@/components/PhoneAuthModal";
 
 interface SimpleProductCardProps {
   product: {
@@ -39,6 +40,7 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
   const { toast } = useToast();
   const [categoryConflictOpen, setCategoryConflictOpen] = useState(false);
   const [conflictingCategory, setConflictingCategory] = useState<string>("");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   
   // Calculate discount if available
   const discountedPrice = product.discountTiers?.[0]?.finalPrice;
@@ -107,10 +109,7 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {
-      // Preserve current page for post-login redirect
-      const currentPath = window.location.pathname + window.location.search;
-      const redirectUrl = `/api/login?redirect=${encodeURIComponent(currentPath)}`;
-      window.location.href = redirectUrl;
+      setAuthModalOpen(true);
       return;
     }
     addToCartMutation.mutate();
@@ -203,6 +202,15 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
       currentCategory={conflictingCategory}
       attemptedCategory={product.category.name}
       onClearCart={() => clearCartMutation.mutate()}
+    />
+    
+    <PhoneAuthModal 
+      open={authModalOpen}
+      onClose={() => setAuthModalOpen(false)}
+      onSuccess={() => {
+        // After successful authentication, complete the add-to-cart action
+        addToCartMutation.mutate();
+      }}
     />
     </>
   );
