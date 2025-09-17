@@ -107,7 +107,10 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {
-      window.location.href = "/api/login";
+      // Preserve current page for post-login redirect
+      const currentPath = window.location.pathname + window.location.search;
+      const redirectUrl = `/api/login?redirect=${encodeURIComponent(currentPath)}`;
+      window.location.href = redirectUrl;
       return;
     }
     addToCartMutation.mutate();

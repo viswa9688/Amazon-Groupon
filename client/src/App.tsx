@@ -57,7 +57,7 @@ function Router() {
         {() => <AuthGuard><MyGroups /></AuthGuard>}
       </Route>
       <Route path="/user-group/:id">
-        {(params) => <AuthGuard><UserGroup {...params} /></AuthGuard>}
+        {() => <AuthGuard><UserGroup /></AuthGuard>}
       </Route>
       <Route path="/address">
         {() => <AuthGuard><Address /></AuthGuard>}
@@ -67,13 +67,13 @@ function Router() {
       </Route>
       <Route path="/product/:id" component={ProductDetails} />
       <Route path="/checkout/:productId/:type">
-        {(params) => <AuthGuard><Checkout {...params} /></AuthGuard>}
+        {() => <AuthGuard><Checkout /></AuthGuard>}
       </Route>
       <Route path="/orders">
         {() => <AuthGuard><Orders /></AuthGuard>}
       </Route>
       <Route path="/order/:orderId">
-        {(params) => <AuthGuard><OrderDetails {...params} /></AuthGuard>}
+        {() => <AuthGuard><OrderDetails /></AuthGuard>}
       </Route>
       
       <Route component={NotFound} />
