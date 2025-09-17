@@ -43,6 +43,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
+import bcrypt from "bcrypt";
 
 export interface IStorage {
   // User operations
@@ -280,7 +281,6 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
     
-    const bcrypt = require('bcrypt');
     return bcrypt.compareSync(password, credentials.passwordHash);
   }
 
