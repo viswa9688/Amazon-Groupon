@@ -1455,12 +1455,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUserGroup(groupId: number): Promise<boolean> {
-    // First delete all items in the group
-    await db.delete(userGroupItems).where(eq(userGroupItems.userGroupId, groupId));
-    
-    // Then delete the group
-    const result = await db.delete(userGroups).where(eq(userGroups.id, groupId)).returning();
-    return result.length > 0;
+    try {
+      // Use a transaction to ensure atomic deletion
+      const result = await db.transaction(async (tx) => {
+        // First delete all group participants (members)
+        await tx.delete(userGroupParticipants).where(eq(userGroupParticipants.userGroupId, groupId));
+        
+        // Then delete all items in the group
+        await tx.delete(userGroupItems).where(eq(userGroupItems.userGroupId, groupId));
+        
+        // Finally delete the group itself
+        return await tx.delete(userGroups).where(eq(userGroups.id, groupId)).returning();
+      });
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error(`Error deleting group ${groupId}:`, error);
+      throw error;
+    }
   }
 
   async addItemToUserGroup(groupId: number, productId: number, quantity: number): Promise<UserGroupItem> {
