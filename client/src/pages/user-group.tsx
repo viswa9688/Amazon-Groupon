@@ -62,6 +62,8 @@ export default function UserGroupPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("products");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteConfirmDialogOpen, setIsDeleteConfirmDialogOpen] = useState(false);
 
   const groupId = id ? parseInt(id) : null;
 
@@ -264,6 +266,50 @@ export default function UserGroupPage() {
       });
     },
   });
+
+  // Delete group mutation
+  const deleteGroupMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/user-groups/${groupId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Group deleted successfully!",
+      });
+      // Invalidate user groups cache
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] });
+      setLocation("/my-groups");
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete group. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteGroup = () => {
+    setIsDeleteDialogOpen(false);
+    setIsDeleteConfirmDialogOpen(true);
+  };
+
+  const confirmDeleteGroup = () => {
+    deleteGroupMutation.mutate();
+    setIsDeleteConfirmDialogOpen(false);
+  };
 
   // Approve participant mutation
   const approveParticipantMutation = useMutation({
@@ -566,6 +612,16 @@ export default function UserGroupPage() {
                         </Form>
                       </DialogContent>
                     </Dialog>
+                    
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      className="border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+                      data-testid="button-delete-group"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Group
+                    </Button>
                   </>
                 )}
               </div>
@@ -1047,6 +1103,75 @@ export default function UserGroupPage() {
           </div>
         </div>
       </div>
+      
+      {/* First Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Delete Group</span>
+            </DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>Are you sure you want to delete this group?</p>
+              <p className="text-red-600 font-medium">
+                All {(approvedParticipants?.length || 0)} member(s) will be removed from this group.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+              data-testid="button-cancel-delete"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteGroup}
+              data-testid="button-confirm-delete-warning"
+            >
+              Yes, Delete Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Second Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmDialogOpen} onOpenChange={setIsDeleteConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Are you absolutely sure?</span>
+            </DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>This action cannot be undone. This will permanently delete the group and remove all members.</p>
+              <p className="text-red-600 font-bold">
+                Group: "{userGroup?.name}"
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteConfirmDialogOpen(false)}
+              data-testid="button-cancel-final-delete"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteGroup}
+              disabled={deleteGroupMutation.isPending}
+              data-testid="button-confirm-final-delete"
+            >
+              {deleteGroupMutation.isPending ? "Deleting..." : "Delete Forever"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
