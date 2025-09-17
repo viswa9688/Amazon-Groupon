@@ -449,7 +449,7 @@ export default function SharedGroupPage() {
       
       {/* Authentication Modal */}
       <PhoneAuthModal 
-        isOpen={isAuthModalOpen}
+        open={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => {
           toast({
