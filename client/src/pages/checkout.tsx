@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation, useRoute } from "wouter";
+import AddressManager from "@/components/AddressManager";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
@@ -14,7 +15,19 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: number; type: string }) => {
+const CheckoutForm = ({ 
+  amount, 
+  productId, 
+  type, 
+  userGroupId, 
+  selectedAddressId 
+}: { 
+  amount: number; 
+  productId?: number; 
+  type: string; 
+  userGroupId?: number; 
+  selectedAddressId?: number; 
+}) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -52,7 +65,7 @@ const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: 
           finalPrice: amount.toString(),
           status: "completed",
           type,
-          shippingAddress: "International Shipping Address"
+          addressId: selectedAddressId,
         });
       } catch (orderError) {
         console.log("Order creation handled by webhook"); // This is fine, webhook will create it
@@ -80,7 +93,7 @@ const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: 
         className="w-full"
         data-testid="button-pay"
       >
-        {isProcessing ? "Processing..." : `Pay $${amount}`}
+        {isProcessing ? "Processing..." : `Pay $${amount.toFixed(2)}`}
       </Button>
     </form>
   );
@@ -89,38 +102,56 @@ const CheckoutForm = ({ amount, productId, type }: { amount: number; productId: 
 export default function Checkout() {
   const [clientSecret, setClientSecret] = useState("");
   const [match, params] = useRoute("/checkout/:productId/:type");
+  const [location] = useLocation();
   const [amount, setAmount] = useState(0);
   const [productName, setProductName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [isGroupPayment, setIsGroupPayment] = useState(false);
+  const [userGroupId, setUserGroupId] = useState<number | null>(null);
   const initRef = useRef(false);
 
-  useEffect(() => {
-    if (!match || !params || initRef.current) return;
+  // Parse URL and query parameters
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const queryType = urlParams.get('type');
+  const queryUserGroupId = urlParams.get('userGroupId');
 
-    const { productId, type } = params;
+  useEffect(() => {
+    if (initRef.current) return;
     initRef.current = true; // Prevent multiple initializations
 
-    // Fetch product details and create payment intent
     const initializePayment = async () => {
       try {
         setIsLoading(true);
         
-        // Get product details
-        const productResponse = await apiRequest("GET", `/api/products/${productId}`);
-        const product = await productResponse.json();
-        setProductName(product.name);
+        // Check if this is a group payment via query params
+        if (queryType === 'group' && queryUserGroupId) {
+          setIsGroupPayment(true);
+          setUserGroupId(parseInt(queryUserGroupId));
+          setProductName("Group Purchase");
+        } 
+        // Handle individual payment via URL params
+        else if (match && params) {
+          const { productId, type } = params;
+          setIsGroupPayment(false);
+          
+          // Get product details
+          const productResponse = await apiRequest("GET", `/api/products/${productId}`);
+          const product = await productResponse.json();
+          setProductName(product.name);
 
-        let paymentAmount = parseFloat(product.originalPrice);
+          let paymentAmount = parseFloat(product.originalPrice);
 
-        // Create PaymentIntent
-        const response = await apiRequest("POST", "/api/create-payment-intent", {
-          amount: paymentAmount,
-          productId: parseInt(productId),
-          type,
-        });
-        const data = await response.json();
-        setClientSecret(data.clientSecret);
-        setAmount(paymentAmount);
+          // Create individual payment intent
+          const response = await apiRequest("POST", "/api/create-payment-intent", {
+            amount: paymentAmount,
+            productId: parseInt(productId),
+            type,
+          });
+          const data = await response.json();
+          setClientSecret(data.clientSecret);
+          setAmount(paymentAmount);
+        }
       } catch (error) {
         console.error("Error initializing payment:", error);
       } finally {
@@ -131,7 +162,31 @@ export default function Checkout() {
     initializePayment();
   }, []); // Empty dependency array to run only once
 
-  if (isLoading || !clientSecret) {
+  // Create group payment intent when address is selected
+  useEffect(() => {
+    if (!isGroupPayment || !userGroupId || !selectedAddressId) return;
+
+    const createGroupPaymentIntent = async () => {
+      try {
+        setIsLoading(true);
+        const response = await apiRequest("POST", "/api/group-payment-intent", {
+          userGroupId,
+          addressId: selectedAddressId,
+        });
+        const data = await response.json();
+        setClientSecret(data.clientSecret);
+        setAmount(data.amount);
+      } catch (error) {
+        console.error("Error creating group payment intent:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    createGroupPaymentIntent();
+  }, [isGroupPayment, userGroupId, selectedAddressId]);
+
+  if (isLoading || (!clientSecret && !isGroupPayment)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
@@ -141,22 +196,48 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Address Management for Group Payments */}
+        {isGroupPayment && (
+          <AddressManager
+            selectedAddressId={selectedAddressId}
+            onAddressSelect={setSelectedAddressId}
+            showSelection={true}
+          />
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Complete Your Purchase</CardTitle>
             <CardDescription>
-              {productName} - ${amount}
+              {productName} - ${amount.toFixed(2)}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm 
-                amount={amount} 
-                productId={parseInt(params?.productId || "0")} 
-                type={params?.type || "individual"} 
-              />
-            </Elements>
+            {/* Show address selection requirement for group payments */}
+            {isGroupPayment && !selectedAddressId ? (
+              <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 text-center">
+                <p className="text-orange-700 dark:text-orange-300 font-medium">
+                  Please select a delivery address above to continue with your group purchase.
+                </p>
+              </div>
+            ) : clientSecret ? (
+              <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
+                <CheckoutForm 
+                  amount={amount} 
+                  productId={params ? parseInt(params.productId) : undefined}
+                  type={isGroupPayment ? "group" : (params?.type || "individual")}
+                  userGroupId={userGroupId || undefined}
+                  selectedAddressId={selectedAddressId || undefined}
+                />
+              </Elements>
+            ) : (
+              <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-center">
+                <p className="text-blue-700 dark:text-blue-300">
+                  Setting up payment for your group purchase...
+                </p>
+              </div>
+            )}
             
             {/* Test card information */}
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
