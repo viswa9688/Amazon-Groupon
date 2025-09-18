@@ -131,6 +131,7 @@ export interface IStorage {
   getUserGroupParticipantCount(userGroupId: number): Promise<number>;
   addUserGroupParticipant(userGroupId: number, userId: string): Promise<UserGroupParticipant>;
   removeUserGroupParticipant(userGroupId: number, userId: string): Promise<boolean>;
+  isUserGroupLocked(userGroupId: number): Promise<boolean>;
   
   // Group matching and optimization operations
   findSimilarGroups(userId: string): Promise<Array<{
@@ -1650,6 +1651,29 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error removing user group participant:", error);
       return false;
+    }
+  }
+
+  async isUserGroupLocked(userGroupId: number): Promise<boolean> {
+    try {
+      // Get the group to check its maxMembers
+      const [group] = await db
+        .select({ maxMembers: userGroups.maxMembers })
+        .from(userGroups)
+        .where(eq(userGroups.id, userGroupId));
+
+      if (!group) {
+        return false; // Group doesn't exist, not locked
+      }
+
+      // Get current participant count (approved members only)
+      const participantCount = await this.getUserGroupParticipantCount(userGroupId);
+
+      // Group is locked if participant count reaches or exceeds maxMembers
+      return participantCount >= group.maxMembers;
+    } catch (error) {
+      console.error("Error checking if user group is locked:", error);
+      return false; // Assume not locked on error
     }
   }
 
