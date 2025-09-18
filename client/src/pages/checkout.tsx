@@ -112,6 +112,7 @@ export default function Checkout() {
   const [productData, setProductData] = useState<any>(null);
   const [groupData, setGroupData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPayment, setIsLoadingPayment] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
   const [isGroupPayment, setIsGroupPayment] = useState(false);
@@ -119,14 +120,31 @@ export default function Checkout() {
   const [memberDetails, setMemberDetails] = useState<any>(null);
   const [totalMembers, setTotalMembers] = useState(1);
   const [originalAmount, setOriginalAmount] = useState(0);
+  const [potentialSavings, setPotentialSavings] = useState(0);
   const initRef = useRef(false);
 
-  // Parse URL and query parameters
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
-  const queryType = urlParams.get('type');
-  const queryUserGroupId = urlParams.get('userGroupId');
-  const queryGroup = urlParams.get('group'); // Share token for group payments
-  const queryMember = urlParams.get('member'); // Specific member ID for payment
+  // Parse URL and query parameters - use a function to ensure we get fresh values
+  const getUrlParams = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return {
+      queryType: urlParams.get('type'),
+      queryUserGroupId: urlParams.get('userGroupId'),
+      queryGroup: urlParams.get('group'), // Share token for group payments
+      queryMember: urlParams.get('member'), // Specific member ID for payment
+    };
+  };
+  
+  const { queryType, queryUserGroupId, queryGroup, queryMember } = getUrlParams();
+  
+  // Debug logging
+  console.log("URL Debug Info:", {
+    fullUrl: window.location.href,
+    search: window.location.search,
+    queryType,
+    queryUserGroupId,
+    queryGroup,
+    queryMember
+  });
 
   useEffect(() => {
     if (initRef.current) return;
@@ -136,24 +154,70 @@ export default function Checkout() {
       try {
         setIsLoading(true);
         
+        // Get fresh URL parameters
+        const urlParams = getUrlParams();
+        console.log("Fresh URL params in initializePayment:", urlParams);
+        
+        // If no parameters are detected, wait a bit and try again
+        if (!urlParams.queryType && !urlParams.queryUserGroupId && !urlParams.queryGroup && !match) {
+          console.log("No URL parameters detected, waiting for URL to be ready...");
+          setTimeout(() => {
+            const retryParams = getUrlParams();
+            console.log("Retry URL params:", retryParams);
+            if (retryParams.queryGroup || retryParams.queryType || retryParams.queryUserGroupId || match) {
+              initializePayment();
+            }
+          }, 100);
+          return;
+        }
+        
         // Check if this is a group payment via query params (either old or new format)
-        if ((queryType === 'group' && queryUserGroupId) || queryGroup) {
-          console.log("Detected group payment:", { queryType, queryUserGroupId, queryGroup, queryMember });
+        // Also check window.location.search directly as a fallback
+        const hasGroupParam = urlParams.queryGroup || window.location.search.includes('group=');
+        const hasUserGroupIdParam = urlParams.queryUserGroupId || window.location.search.includes('userGroupId=');
+        const hasTypeParam = urlParams.queryType === 'group' || window.location.search.includes('type=group');
+        
+        if ((hasTypeParam && hasUserGroupIdParam) || hasGroupParam) {
+          console.log("Detected group payment:", urlParams);
           setIsGroupPayment(true);
           
-          if (queryGroup) {
+          // Extract group token from URL directly
+          const groupToken = urlParams.queryGroup || (() => {
+            const match = window.location.search.match(/group=([^&]+)/);
+            return match ? match[1] : null;
+          })();
+          
+          if (groupToken) {
             // New format: using share token and member ID
-            console.log("Processing group payment with share token:", queryGroup);
+            console.log("Processing group payment with share token:", groupToken);
             try {
               // Get group details by share token
-              const groupResponse = await apiRequest("GET", `/api/shared/${queryGroup}`);
+              const groupResponse = await apiRequest("GET", `/api/shared/${groupToken}`);
               const groupDataResponse = await groupResponse.json();
               console.log("Group data received:", groupDataResponse);
+              
+              // Debug discount tiers for each item
+              if (groupDataResponse.items) {
+                groupDataResponse.items.forEach((item: any) => {
+                  console.log(`Item: ${item.product.name}, Discount Tiers:`, item.product.discountTiers);
+                });
+              }
               setUserGroupId(groupDataResponse.id);
               setGroupData(groupDataResponse);
               
+              // Fetch the full user group details to get the correct potential savings
+              const userGroupResponse = await apiRequest("GET", `/api/user-groups/${groupDataResponse.id}`);
+              const userGroupDetails = await userGroupResponse.json();
+              console.log("User group details received:", userGroupDetails);
+              
+              // Extract member ID from URL directly
+              const memberId = urlParams.queryMember || (() => {
+                const match = window.location.search.match(/member=([^&]+)/);
+                return match ? match[1] : null;
+              })();
+              
               // Get member details if specified
-              if (queryMember) {
+              if (memberId) {
                 try {
                   const memberResponse = await apiRequest("GET", `/api/auth/user`);
                   const member = await memberResponse.json();
@@ -167,26 +231,76 @@ export default function Checkout() {
               // Get participant count for pricing calculations
               const approvedResponse = await apiRequest("GET", `/api/user-groups/${groupDataResponse.id}/approved`);
               const approved = await approvedResponse.json();
-              setTotalMembers(approved.length + 1); // +1 for owner
-              console.log("Total members:", approved.length + 1);
+              const totalMembersCount = approved.length + 1; // +1 for owner
+              setTotalMembers(totalMembersCount);
+              console.log("Total members:", totalMembersCount);
               
-              setProductName(`Group Purchase${queryMember ? ` for Member` : ""}`);
+              // Calculate pricing using the EXACT same method as user-group page
+              let totalOriginalAmount = 0;
+              let totalDiscountedAmount = 0;
+              
+              if (userGroupDetails.items && userGroupDetails.items.length > 0) {
+                for (const item of userGroupDetails.items) {
+                  const originalPrice = parseFloat(item.product.originalPrice);
+                  totalOriginalAmount += originalPrice * item.quantity;
+                  
+                  // Use the EXACT same calculation as user-group page: first discount tier
+                  const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+                  const discountedPrice = parseFloat(discountPrice.toString());
+                  totalDiscountedAmount += discountedPrice * item.quantity;
+                  
+                  console.log(`Item: ${item.product.name}, Original: $${originalPrice}, Discounted: $${discountedPrice}, Using first tier: ${item.product.discountTiers?.[0]?.finalPrice || 'none'}`);
+                }
+              }
+              
+              // Calculate potential savings using the EXACT same method as user-group page
+              const potentialSavingsFromGroup = userGroupDetails.items?.reduce((sum, item) => {
+                const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+                const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
+                return sum + savings;
+              }, 0) || 0;
+              
+              // Calculate amounts based on the formula: Popular Group Value - Potential Savings
+              const popularGroupValue = totalOriginalAmount; // This is the "Popular Group Value"
+              const finalAmount = popularGroupValue - potentialSavingsFromGroup; // This equals totalDiscountedAmount
+              
+              // Set the potential savings from the user-group page calculation
+              setPotentialSavings(potentialSavingsFromGroup);
+              
+              // Each user pays the final amount (Popular Group Value - Potential Savings)
+              const memberAmount = finalAmount;
+              setAmount(memberAmount);
+              setOriginalAmount(popularGroupValue);
+              
+              console.log("Client - Final calculations:", {
+                popularGroupValue: totalOriginalAmount.toFixed(2),
+                totalDiscountedAmount: totalDiscountedAmount.toFixed(2),
+                potentialSavings: potentialSavingsFromGroup.toFixed(2),
+                finalAmount: memberAmount.toFixed(2),
+                totalMembersCount
+              });
+              
+              setProductName(`Group Purchase${memberId ? ` for Member` : ""}`);
               
               // For group payments, we don't create PaymentIntent yet - wait for address selection
+              // Show product details but keep payment loading until address is selected
               setIsLoading(false);
+              setIsLoadingPayment(true);
               return; // Early return to prevent falling through
             } catch (error) {
               console.error("Error fetching group data:", error);
               setProductName("Group Purchase");
               // Still continue with group payment setup even if there are errors
               setIsLoading(false);
+              setIsLoadingPayment(true);
               return;
             }
-          } else if (queryUserGroupId) {
+          } else if (urlParams.queryUserGroupId) {
             // Old format: direct userGroupId
-            setUserGroupId(parseInt(queryUserGroupId));
+            setUserGroupId(parseInt(urlParams.queryUserGroupId));
             setProductName("Group Purchase");
             setIsLoading(false);
+            setIsLoadingPayment(true);
             return;
           }
         } 
@@ -214,13 +328,15 @@ export default function Checkout() {
           setClientSecret(data.clientSecret);
           setAmount(paymentAmount);
           setIsLoading(false);
+          setIsLoadingPayment(false);
         } 
         // Handle individual payment via query params (fallback)
-        else if (urlParams.get('productId')) {
-          const productIdParam = urlParams.get('productId');
+        else if (urlParams.queryType || window.location.search.includes('productId')) {
+          const urlParamsObj = new URLSearchParams(window.location.search);
+          const productIdParam = urlParamsObj.get('productId');
           if (!productIdParam) return;
           const productId = parseInt(productIdParam);
-          const type = urlParams.get('type') || 'individual';
+          const type = urlParamsObj.get('type') || 'individual';
           setIsGroupPayment(false);
           
           // Get product details
@@ -242,29 +358,32 @@ export default function Checkout() {
           setClientSecret(data.clientSecret);
           setAmount(paymentAmount);
           setIsLoading(false);
+          setIsLoadingPayment(false);
         } 
         else {
           // No valid payment type detected - show error
           console.error("Invalid checkout URL - no valid payment type detected");
           console.log("URL parameters:", {
-            queryType,
-            queryUserGroupId,
-            queryGroup,
-            queryMember,
-            productId: urlParams.get('productId'),
+            queryType: urlParams.queryType,
+            queryUserGroupId: urlParams.queryUserGroupId,
+            queryGroup: urlParams.queryGroup,
+            queryMember: urlParams.queryMember,
+            productId: new URLSearchParams(window.location.search).get('productId'),
             match,
             params
           });
           setIsLoading(false);
+          setIsLoadingPayment(false);
         }
       } catch (error) {
         console.error("Error initializing payment:", error);
         setIsLoading(false);
+        setIsLoadingPayment(false);
       }
     };
 
     initializePayment();
-  }, [queryType, queryUserGroupId, queryGroup, queryMember, match]); // Include dependencies for re-initialization if URL changes
+  }, [queryType, queryUserGroupId, queryGroup, queryMember, match, params]); // Include dependencies for re-initialization if URL changes
 
   // Create group payment intent when address is selected
   useEffect(() => {
@@ -272,7 +391,12 @@ export default function Checkout() {
 
     const createGroupPaymentIntent = async () => {
       try {
-        setIsLoading(true);
+        console.log("Creating group payment intent with:", {
+          isGroupPayment,
+          userGroupId,
+          selectedAddressId
+        });
+        setIsLoadingPayment(true);
         
         // Get selected address details
         const addressResponse = await apiRequest("GET", `/api/addresses`);
@@ -280,12 +404,19 @@ export default function Checkout() {
         const address = addresses.find((addr: any) => addr.id === selectedAddressId);
         setSelectedAddress(address);
         
+        // Extract member ID from URL for payment intent
+        const memberId = (() => {
+          const match = window.location.search.match(/member=([^&]+)/);
+          return match ? match[1] : null;
+        })();
+        
         const response = await apiRequest("POST", "/api/group-payment-intent", {
           userGroupId,
           addressId: selectedAddressId,
-          memberId: queryMember, // Pass the specific member ID for payment
+          memberId: memberId, // Pass the specific member ID for payment
         });
         const data = await response.json();
+        console.log("Group payment intent created:", data);
         setClientSecret(data.clientSecret);
         setAmount(data.amount);
         
@@ -300,7 +431,7 @@ export default function Checkout() {
       } catch (error) {
         console.error("Error creating group payment intent:", error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingPayment(false);
       }
     };
 
@@ -455,27 +586,22 @@ export default function Checkout() {
                     {isGroupPayment ? (
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Original Total:</span>
+                          <span className="text-gray-600 dark:text-gray-400">Popular Group Value:</span>
                           <span className="font-medium">${originalAmount.toFixed(2)}</span>
                         </div>
-                        {originalAmount > amount * totalMembers && (
+                        {potentialSavings > 0 && (
                           <div className="flex justify-between text-sm text-green-600">
-                            <span>Group Discount:</span>
-                            <span className="font-medium">-${(originalAmount - amount * totalMembers).toFixed(2)}</span>
+                            <span>Potential Savings:</span>
+                            <span className="font-medium">-${potentialSavings.toFixed(2)}</span>
                           </div>
                         )}
-                        <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-2">
-                          <span className="text-gray-600 dark:text-gray-400">Total for Group:</span>
-                          <span className="font-medium">${(amount * totalMembers).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Split Among {totalMembers} Members:</span>
-                          <span className="font-medium">${amount.toFixed(2)} each</span>
-                        </div>
                         <div className="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
                           <div className="flex justify-between">
-                            <span className="font-bold text-lg text-gray-900 dark:text-white">Your Payment:</span>
+                            <span className="font-bold text-lg text-gray-900 dark:text-white">Total Amount:</span>
                             <span className="font-bold text-2xl text-green-600">${amount.toFixed(2)}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1 text-center">
+                            Formula: Popular Group Value - Potential Savings
                           </div>
                         </div>
                       </div>
@@ -539,19 +665,39 @@ export default function Checkout() {
               <CardContent className="p-6">
                 {/* Show address selection requirement for group payments */}
                 {isGroupPayment && !selectedAddressId ? (
-                  <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border-2 border-orange-200 dark:border-orange-800 text-center">
-                    <div className="w-16 h-16 bg-orange-100 dark:bg-orange-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
+                  <div className="space-y-4">
+                    <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border-2 border-orange-200 dark:border-orange-800 text-center">
+                      <div className="w-16 h-16 bg-orange-100 dark:bg-orange-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="font-semibold text-lg text-orange-800 dark:text-orange-200 mb-2">Address Required</h3>
+                      <p className="text-orange-700 dark:text-orange-300 mb-4">
+                        Please select a delivery address above to continue with your secure group purchase.
+                      </p>
                     </div>
-                    <h3 className="font-semibold text-lg text-orange-800 dark:text-orange-200 mb-2">Address Required</h3>
-                    <p className="text-orange-700 dark:text-orange-300">
-                      Please select a delivery address above to continue with your secure group purchase.
-                    </p>
+                    
+                    {/* Show checkout button with disabled state */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                          Ready to Pay: ${amount > 0 ? amount.toFixed(2) : '0.00'}
+                        </div>
+                        <Button
+                          disabled={true}
+                          className="w-full bg-gray-400 text-white font-semibold py-3 text-lg cursor-not-allowed"
+                        >
+                          Select Address to Continue
+                        </Button>
+                        <p className="text-sm text-gray-500 mt-2">
+                          Add and select a delivery address above to proceed with payment
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                ) : clientSecret ? (
+                ) : clientSecret && !isLoadingPayment ? (
                   <div className="space-y-6">
                     <Elements key={clientSecret} stripe={stripePromise} options={{ 
                       clientSecret,
@@ -577,7 +723,7 @@ export default function Checkout() {
                       />
                     </Elements>
                   </div>
-                ) : (
+                ) : isLoadingPayment ? (
                   <div className="p-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-center">
                     <div className="w-16 h-16 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
                       <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
@@ -585,6 +731,18 @@ export default function Checkout() {
                     <h3 className="font-semibold text-lg text-blue-800 dark:text-blue-200 mb-2">Setting Up Payment</h3>
                     <p className="text-blue-700 dark:text-blue-300">
                       Preparing your secure payment experience...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-8 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-lg border border-red-200 dark:border-red-800 text-center">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-lg text-red-800 dark:text-red-200 mb-2">Payment Setup Failed</h3>
+                    <p className="text-red-700 dark:text-red-300">
+                      Unable to initialize payment. Please try again.
                     </p>
                   </div>
                 )}

@@ -1763,14 +1763,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             // Create order for each item in the group purchase (for the beneficiary)
+            // Each member gets the full discounted price for all items
             for (const item of userGroup.items) {
+              // Calculate the discounted price for this specific item
+              let discountedPrice = parseFloat(item.product.originalPrice);
+              if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+                const totalMembers = parseInt(paymentIntent.metadata.totalMembers);
+                const applicableTiers = item.product.discountTiers.filter(tier => totalMembers >= tier.participantCount);
+                if (applicableTiers.length > 0) {
+                  const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
+                  discountedPrice = parseFloat(bestTier.finalPrice);
+                }
+              }
+              
               const orderData = {
                 userId: beneficiaryId, // Order belongs to the beneficiary
                 productId: item.product.id,
                 quantity: item.quantity,
-                unitPrice: (amount / userGroup.items.length).toFixed(2), // Split evenly across items
-                totalPrice: amount.toString(),
-                finalPrice: amount.toString(),
+                unitPrice: discountedPrice.toFixed(2), // Full discounted price per unit
+                totalPrice: (discountedPrice * item.quantity).toFixed(2), // Total for this item
+                finalPrice: (discountedPrice * item.quantity).toFixed(2), // Final price for this item
                 status: "completed" as const,
                 type: "group" as const,
                 shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
@@ -1911,11 +1923,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get current participant count for correct discount tier calculation
       const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
       const totalMembers = approvedCount + 1; // +1 for the owner
+      
+      console.log(`Server - Group ${userGroupId}: Approved count: ${approvedCount}, Total members: ${totalMembers}`);
 
       // Calculate total amount with correct discount tiers
-      let totalGroupAmount = 0;
+      let popularGroupValue = 0; // Original total without discount
+      let totalDiscountedAmount = 0; // Total with discount applied
+      
+      console.log(`Server - Processing ${groupItems.length} items for group ${userGroupId}`);
+      
       for (const item of groupItems) {
+        console.log(`Server - Item: ${item.product.name}, Discount Tiers:`, item.product.discountTiers);
         const originalPrice = parseFloat(item.product.originalPrice.toString());
+        popularGroupValue += originalPrice * item.quantity;
+        
         let discountPrice = originalPrice;
         
         // Find correct discount tier based on current member count - pick the highest applicable tier
@@ -1925,14 +1946,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Sort by participantCount descending and take the first (highest applicable tier)
             const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
             discountPrice = parseFloat(bestTier.finalPrice.toString());
+            console.log(`Server - Item: ${item.product.name}, Original: $${originalPrice}, Discounted: $${discountPrice}, Tier: ${bestTier.participantCount} participants, Total Members: ${totalMembers}`);
+          } else {
+            console.log(`Server - Item: ${item.product.name}, No applicable discount tiers for ${totalMembers} members`);
           }
+        } else {
+          console.log(`Server - Item: ${item.product.name}, No discount tiers available`);
         }
         
-        totalGroupAmount += discountPrice * item.quantity;
+        totalDiscountedAmount += discountPrice * item.quantity;
       }
 
-      // Calculate per-member amount (split evenly)
-      const memberAmount = totalGroupAmount / totalMembers;
+      // Calculate final amount using formula: Popular Group Value - Potential Savings
+      const potentialSavings = popularGroupValue - totalDiscountedAmount;
+      const memberAmount = popularGroupValue - potentialSavings; // This equals totalDiscountedAmount
+      
+      console.log(`Server - Final calculations: Popular Group Value: $${popularGroupValue.toFixed(2)}, Total Discounted: $${totalDiscountedAmount.toFixed(2)}, Potential Savings: $${potentialSavings.toFixed(2)}, Member Amount: $${memberAmount.toFixed(2)}`);
 
       // Get address for shipping
       const addresses = await storage.getUserAddresses(userId);
@@ -1944,8 +1973,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment description
       const isPayingForOther = memberId && memberId !== userId;
       const description = isPayingForOther 
-        ? `Group Purchase Payment for Member (${memberAmount.toFixed(2)} of ${totalGroupAmount.toFixed(2)} total)`
-        : `Group Purchase Payment (${memberAmount.toFixed(2)} of ${totalGroupAmount.toFixed(2)} total)`;
+        ? `Group Purchase Payment for Member (${memberAmount.toFixed(2)} - Popular Group Value minus Potential Savings)`
+        : `Group Purchase Payment (${memberAmount.toFixed(2)} - Popular Group Value minus Potential Savings)`;
 
       // Create customer with billing address
       const customer = await stripe.customers.create({
@@ -1981,15 +2010,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userGroupId: userGroupId.toString(),
           addressId: addressId.toString(),
           totalMembers: totalMembers.toString(),
-          memberAmount: memberAmount.toFixed(2),
-          totalGroupAmount: totalGroupAmount.toFixed(2),
+          memberAmount: memberAmount.toFixed(2), // Full discounted amount per member
+          totalGroupValue: (memberAmount * totalMembers).toFixed(2), // Total value for all members
           type: "group_member"
         }
       });
 
       res.json({
         clientSecret: paymentIntent.client_secret,
-        amount: memberAmount, // Return the member amount, not total
+        amount: memberAmount, // Return the full discounted amount per member
         paymentId: paymentIntent.id
       });
     } catch (error) {
