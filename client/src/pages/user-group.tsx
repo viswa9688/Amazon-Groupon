@@ -109,6 +109,14 @@ export default function UserGroupPage() {
     enabled: isAuthenticated && !!groupId && isOwner,
   });
 
+  // Check if group is locked (at max capacity)
+  const { data: lockedStatus, isLoading: lockedLoading } = useQuery<{ isLocked: boolean }>({
+    queryKey: [`/api/user-groups/${groupId}/locked`],
+    enabled: isAuthenticated && !!groupId,
+  });
+
+  const isLocked = lockedStatus?.isLocked || false;
+
   // Edit group form
   const editForm = useForm<z.infer<typeof editGroupSchema>>({
     resolver: zodResolver(editGroupSchema),
@@ -320,6 +328,7 @@ export default function UserGroupPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId, "pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId, "approved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/user-groups/${groupId}/locked`] });
       toast({
         title: "Success",
         description: "Participant approved!",
@@ -535,6 +544,11 @@ export default function UserGroupPage() {
                           Owner
                         </Badge>
                       )}
+                      {isLocked && (
+                        <Badge variant="destructive" className="bg-orange-600 text-white border-orange-600">
+                          🔒 Locked (Max Capacity)
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -562,6 +576,7 @@ export default function UserGroupPage() {
                         <Button 
                           variant="outline"
                           className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20"
+                          disabled={isLocked}
                           data-testid="button-edit-group"
                         >
                           <Edit className="w-4 h-4 mr-2" />
@@ -616,6 +631,7 @@ export default function UserGroupPage() {
                     <Button 
                       variant="outline"
                       onClick={() => setIsDeleteDialogOpen(true)}
+                      disabled={isLocked}
                       className="border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
                       data-testid="button-delete-group"
                     >

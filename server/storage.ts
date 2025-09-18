@@ -804,6 +804,9 @@ export class DatabaseStorage implements IStorage {
         const savingsBonus = totalPotentialSavings > 50 ? 20 : totalPotentialSavings > 20 ? 10 : 0;
         const optimizedScore = similarityScore + matchingProductsBonus + savingsBonus;
         
+        const isAlreadyMember = await this.isUserInUserGroup(userGroup.id, userId);
+        const isFull = (userGroup.participantCount || 0) >= (userGroup.maxMembers || 5);
+        
         similarities.push({
           userGroup,
           similarityScore: Math.round(optimizedScore),
@@ -811,32 +814,19 @@ export class DatabaseStorage implements IStorage {
           totalCartProducts: cartProductIds.length,
           potentialSavings: totalPotentialSavings,
           matchingItems,
+          isAlreadyMember,
+          isFull,
         });
       }
     }
     
     // Sort by optimized similarity score descending, then by potential savings
-    const sortedSimilarities = similarities.sort((a, b) => {
+    return similarities.sort((a, b) => {
       if (b.similarityScore === a.similarityScore) {
         return b.potentialSavings - a.potentialSavings;
       }
       return b.similarityScore - a.similarityScore;
     });
-    
-    // Include all groups but mark membership and full status
-    const enhancedSimilarities = [];
-    for (const similarity of sortedSimilarities) {
-      const isAlreadyMember = await this.isUserInUserGroup(similarity.userGroup.id, userId);
-      const isFull = (similarity.userGroup.participantCount || 0) >= 5;
-      
-      enhancedSimilarities.push({
-        ...similarity,
-        isAlreadyMember,
-        isFull
-      });
-    }
-    
-    return enhancedSimilarities;
   }
 
   async getOptimizationSuggestions(userId: string): Promise<Array<{
@@ -948,7 +938,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Seller metrics operations
-  async getSellerAnalytics(sellerId: string, dateRange?: { startDate?: string; endDate?: string }) {
+  async getSellerAnalytics(sellerId: string, dateRange?: { startDate?: string; endDate?: string }): Promise<{
+    totalRevenue: number;
+    revenueGrowth: number;
+    monthlyRevenue: Array<{ month: string; revenue: number }>;
+    dailyRevenue: Array<{ date: string; revenue: number }>;
+    totalOrders: number;
+    ordersGrowth: number;
+    averageOrderValue: number;
+    conversionRate: number;
+    topProducts: Array<{
+      id: number;
+      name: string;
+      revenue: number;
+      orders: number;
+      growth: number;
+    }>;
+    productCategories: Array<{
+      category: string;
+      revenue: number;
+      percentage: number;
+    }>;
+    totalCustomers: number;
+    newCustomers: number;
+    repeatCustomers: number;
+    customerLifetimeValue: number;
+    orderStatuses: Array<{
+      status: string;
+      count: number;
+      percentage: number;
+    }>;
+  }> {
     try {
       const now = new Date();
       // Default to a wider date range to capture all historical data

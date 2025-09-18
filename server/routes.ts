@@ -1002,6 +1002,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if user group is locked (at max capacity)
+  app.get('/api/user-groups/:id/locked', isAuthenticated, async (req: any, res) => {
+    try {
+      const userGroupId = parseInt(req.params.id);
+      
+      if (isNaN(userGroupId)) {
+        return res.status(400).json({ message: "Invalid user group ID" });
+      }
+
+      const isLocked = await storage.isUserGroupLocked(userGroupId);
+      
+      res.json({ 
+        isLocked
+      });
+    } catch (error) {
+      console.error("Error checking user group locked status:", error);
+      res.status(500).json({ message: "Failed to check locked status" });
+    }
+  });
+
   // Approval System API Endpoints
   
   // Get pending participants for owner to approve/reject
