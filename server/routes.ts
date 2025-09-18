@@ -1732,58 +1732,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Payment succeeded:", paymentIntent.id);
         
         try {
-          // Extract metadata
-          const userId = paymentIntent.metadata.userId;
-          const productId = parseInt(paymentIntent.metadata.productId);
           const type = paymentIntent.metadata.type || "individual";
           const amount = paymentIntent.amount / 100; // Convert from cents
           
-          if (!userId || !productId) {
-            console.error("Missing required metadata for order creation");
-            break;
-          }
-
-          // Get product details for order
-          const product = await storage.getProduct(productId);
-          if (!product) {
-            console.error("Product not found for order creation:", productId);
-            break;
-          }
-
-          // Create order record
-          const orderData = {
-            userId,
-            productId,
-            quantity: 1, // Default quantity
-            unitPrice: amount.toString(),
-            totalPrice: amount.toString(),
-            finalPrice: amount.toString(),
-            status: "completed" as const,
-            type: type as "individual" | "group",
-            shippingAddress: "International Shipping Address"
-          };
-
-          const newOrder = await storage.createOrder(orderData);
-          console.log("Order created successfully:", newOrder.id);
-
-          // Handle group payment completion
-          if (type === "group") {
+          if (type === "group_member") {
+            // Handle group member payments
+            const payerId = paymentIntent.metadata.payerId;
+            const beneficiaryId = paymentIntent.metadata.beneficiaryId;
             const userGroupId = parseInt(paymentIntent.metadata.userGroupId);
-            if (userGroupId) {
-              try {
-                // Find and update the group payment record
-                const groupPayment = await storage.getGroupPaymentByStripeIntent(paymentIntent.id);
-                if (groupPayment) {
-                  await storage.updateGroupPaymentStatus(groupPayment.id, "succeeded");
-                  console.log("Group payment updated to succeeded:", groupPayment.id);
-                } else {
-                  console.error("Group payment not found for Stripe intent:", paymentIntent.id);
-                }
-              } catch (error) {
-                console.error("Error updating group payment:", error);
-              }
+            const addressId = parseInt(paymentIntent.metadata.addressId);
+            
+            if (!payerId || !beneficiaryId || !userGroupId || !addressId) {
+              console.error("Missing required group payment metadata");
+              break;
             }
-            console.log("Group purchase order completed for user:", userId);
+
+            // Get the user group to find product information
+            const userGroup = await storage.getUserGroup(userGroupId);
+            if (!userGroup || !userGroup.items || userGroup.items.length === 0) {
+              console.error("User group or items not found:", userGroupId);
+              break;
+            }
+
+            // Get the address for shipping information
+            const addresses = await storage.getUserAddresses(payerId);
+            const address = addresses.find(addr => addr.id === addressId);
+            if (!address) {
+              console.error("Address not found:", addressId);
+              break;
+            }
+
+            // Create order for each item in the group purchase (for the beneficiary)
+            for (const item of userGroup.items) {
+              const orderData = {
+                userId: beneficiaryId, // Order belongs to the beneficiary
+                productId: item.product.id,
+                quantity: item.quantity,
+                unitPrice: (amount / userGroup.items.length).toFixed(2), // Split evenly across items
+                totalPrice: amount.toString(),
+                finalPrice: amount.toString(),
+                status: "completed" as const,
+                type: "group" as const,
+                shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
+              };
+
+              const newOrder = await storage.createOrder(orderData);
+              console.log(`Group order created for beneficiary ${beneficiaryId}:`, newOrder.id);
+            }
+
+            console.log(`Group purchase payment processed: ${payerId} paid for ${beneficiaryId}`);
+            
+          } else {
+            // Handle individual payments (original logic)
+            const userId = paymentIntent.metadata.userId;
+            const productId = parseInt(paymentIntent.metadata.productId);
+            
+            if (!userId || !productId) {
+              console.error("Missing required metadata for individual order creation");
+              break;
+            }
+
+            // Get product details for order
+            const product = await storage.getProduct(productId);
+            if (!product) {
+              console.error("Product not found for order creation:", productId);
+              break;
+            }
+
+            // Create order record for individual purchase
+            const orderData = {
+              userId,
+              productId,
+              quantity: 1, // Default quantity
+              unitPrice: amount.toString(),
+              totalPrice: amount.toString(),
+              finalPrice: amount.toString(),
+              status: "completed" as const,
+              type: type as "individual" | "group",
+              shippingAddress: "International Shipping Address"
+            };
+
+            const newOrder = await storage.createOrder(orderData);
+            console.log("Individual order created successfully:", newOrder.id);
           }
 
         } catch (error) {
