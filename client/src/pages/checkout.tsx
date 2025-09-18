@@ -55,21 +55,25 @@ const CheckoutForm = ({
         variant: "destructive",
       });
     } else {
-      // Payment succeeded - create order record as backup
-      try {
-        await apiRequest("POST", "/api/orders", {
-          productId,
-          quantity: 1,
-          unitPrice: amount.toString(),
-          totalPrice: amount.toString(),
-          finalPrice: amount.toString(),
-          status: "completed",
-          type,
-          addressId: selectedAddressId,
-        });
-      } catch (orderError) {
-        console.log("Order creation handled by webhook"); // This is fine, webhook will create it
+      // Payment succeeded  
+      if (type === 'individual' && !userGroupId) {
+        // For individual purchases only, create order record as backup
+        try {
+          await apiRequest("POST", "/api/orders", {
+            productId,
+            quantity: 1,
+            unitPrice: amount.toString(),
+            totalPrice: amount.toString(),
+            finalPrice: amount.toString(),
+            status: "completed",
+            type,
+            addressId: selectedAddressId,
+          });
+        } catch (orderError) {
+          console.log("Order creation handled by webhook"); // This is fine, webhook will create it
+        }
       }
+      // For group payments, order creation is handled entirely by webhook using metadata
 
       toast({
         title: "Payment Successful",

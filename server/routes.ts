@@ -1833,6 +1833,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // New group payment intent endpoint for member-specific payments
+  app.post("/api/group-payment-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      const { userGroupId, addressId, memberId } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!userGroupId || !addressId) {
+        return res.status(400).json({ message: "userGroupId and addressId are required" });
+      }
+
+      // Verify access - user must be owner or approved participant
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+      
+      const isOwner = userGroup.userId === userId;
+      if (!isOwner) {
+        const isApproved = await storage.isUserInUserGroup(userGroupId, userId);
+        if (!isApproved) {
+          return res.status(403).json({ message: "Access denied - only group owner or approved participants can create payments" });
+        }
+      }
+
+      // Validate group is ready for payments (locked and has items)
+      const isLocked = await storage.isUserGroupLocked(userGroupId);
+      if (!isLocked) {
+        return res.status(400).json({ message: `Group must be at full capacity before payments can be processed` });
+      }
+
+      const groupItems = userGroup.items || [];
+      if (groupItems.length === 0) {
+        return res.status(400).json({ message: "Group has no items to purchase" });
+      }
+
+      // Determine beneficiary and validate membership
+      const payingForMember = memberId || userId;
+      if (memberId && memberId !== userId) {
+        // Validate that the specified member is actually in this group
+        const isMemberInGroup = payingForMember === userGroup.userId || await storage.isUserInUserGroup(userGroupId, payingForMember);
+        if (!isMemberInGroup) {
+          return res.status(400).json({ message: "Specified member is not part of this group" });
+        }
+      }
+
+      // Get current participant count for correct discount tier calculation
+      const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
+      const totalMembers = approvedCount + 1; // +1 for the owner
+
+      // Calculate total amount with correct discount tiers
+      let totalGroupAmount = 0;
+      for (const item of groupItems) {
+        const originalPrice = parseFloat(item.product.originalPrice.toString());
+        let discountPrice = originalPrice;
+        
+        // Find correct discount tier based on current member count - pick the highest applicable tier
+        if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+          const applicableTiers = item.product.discountTiers.filter(tier => totalMembers >= tier.participantCount);
+          if (applicableTiers.length > 0) {
+            // Sort by participantCount descending and take the first (highest applicable tier)
+            const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
+            discountPrice = parseFloat(bestTier.finalPrice.toString());
+          }
+        }
+        
+        totalGroupAmount += discountPrice * item.quantity;
+      }
+
+      // Calculate per-member amount (split evenly)
+      const memberAmount = totalGroupAmount / totalMembers;
+
+      // Get address for shipping
+      const addresses = await storage.getUserAddresses(userId);
+      const address = addresses.find(addr => addr.id === addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      // Create payment description
+      const isPayingForOther = memberId && memberId !== userId;
+      const description = isPayingForOther 
+        ? `Group Purchase Payment for Member (${memberAmount.toFixed(2)} of ${totalGroupAmount.toFixed(2)} total)`
+        : `Group Purchase Payment (${memberAmount.toFixed(2)} of ${totalGroupAmount.toFixed(2)} total)`;
+
+      // Create customer with billing address
+      const customer = await stripe.customers.create({
+        name: address.fullName,
+        address: {
+          line1: address.addressLine,
+          city: address.city,
+          state: address.state || undefined,
+          postal_code: address.pincode,
+          country: address.country || "US"
+        }
+      });
+
+      // Create payment intent for member-specific amount
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(memberAmount * 100), // Convert to cents - ONLY the member's portion
+        currency: "usd",
+        customer: customer.id,
+        description,
+        shipping: {
+          name: address.fullName,
+          address: {
+            line1: address.addressLine,
+            city: address.city,
+            state: address.state || undefined,
+            postal_code: address.pincode,
+            country: address.country || "US"
+          }
+        },
+        metadata: {
+          payerId: userId, // Who is making the payment
+          beneficiaryId: payingForMember, // Who the payment is for
+          userGroupId: userGroupId.toString(),
+          addressId: addressId.toString(),
+          totalMembers: totalMembers.toString(),
+          memberAmount: memberAmount.toFixed(2),
+          totalGroupAmount: totalGroupAmount.toFixed(2),
+          type: "group_member"
+        }
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        amount: memberAmount, // Return the member amount, not total
+        paymentId: paymentIntent.id
+      });
+    } catch (error) {
+      console.error("Error creating group payment intent:", error);
+      res.status(500).json({ message: "Failed to create payment intent" });
+    }
+  });
+
 
   const httpServer = createServer(app);
   return httpServer;
