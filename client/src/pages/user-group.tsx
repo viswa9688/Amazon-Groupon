@@ -37,7 +37,8 @@ import {
   UserCheck,
   UserX,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  CreditCard
 } from "lucide-react";
 import type { UserGroupWithDetails, ProductWithDetails, UserGroupParticipant, User } from "@shared/schema";
 
@@ -959,6 +960,140 @@ export default function UserGroupPage() {
               </Card>
             </TabsContent>
           )}
+
+          {/* Members Tab - Shows all group members with Pay Now functionality */}
+          <TabsContent value="members">
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-blue-600" />
+                      <span>Group Members ({approvedParticipants.length}/5)</span>
+                    </div>
+                    {approvedParticipants.length >= 5 && (
+                      <div className="flex items-center text-green-600">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        <span className="text-sm font-medium">Group Full</span>
+                      </div>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {approvedLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : approvedParticipants.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">No group members yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {approvedParticipants.map((participant: any) => (
+                        <div
+                          key={participant.userId}
+                          className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-blue-200 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                              {participant.userId === user?.id ? (
+                                <Crown className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+                              ) : (
+                                <Users className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {participant.user.firstName || participant.user.email || participant.userId}
+                                {participant.userId === userGroup.userId && " (Owner)"}
+                                {participant.userId === user?.id && " (You)"}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {participant.userId === userGroup.userId ? "Group Owner" : "Member"}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Pay Now button - shown when group is full and has items */}
+                          {totalItems > 0 && approvedParticipants.length >= 5 && (
+                            <div className="flex flex-col items-end space-y-1">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  const shareUrl = `${window.location.origin}/checkout?group=${userGroup.shareToken}&member=${participant.userId}`;
+                                  window.location.href = shareUrl;
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                data-testid={`button-pay-now-${participant.userId}`}
+                              >
+                                <CreditCard className="w-4 h-4 mr-1" />
+                                Pay Now
+                              </Button>
+                              <p className="text-xs text-green-600 dark:text-green-400">
+                                Ready for payment
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Payment Instructions when conditions are met */}
+                  {totalItems > 0 && approvedParticipants.length >= 5 && (
+                    <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-8 h-8 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+                            <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                            🎉 Ready for Payment!
+                          </h4>
+                          <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                            Your group is now full with {approvedParticipants.length} members and has {totalItems} item{totalItems !== 1 ? 's' : ''}. 
+                            Each member can now click their "Pay Now" button to complete individual payments.
+                          </p>
+                          
+                          {(() => {
+                            const totalAmount = userGroup.items?.reduce((sum, item) => {
+                              const originalPrice = parseFloat(item.product.originalPrice.toString());
+                              const discountPrice = item.product.discountTiers?.[0]?.finalPrice 
+                                ? parseFloat(item.product.discountTiers[0].finalPrice.toString())
+                                : originalPrice;
+                              return sum + (discountPrice * item.quantity);
+                            }, 0);
+
+                            return (
+                              <div className="text-center">
+                                <p className="text-sm text-green-600 dark:text-green-400">Total amount per member:</p>
+                                <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                                  ${totalAmount.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                  Click "Pay Now" next to your name above to complete payment
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
           {/* Approved Participants Tab - Now visible to all group members */}
           <TabsContent value="approved">
