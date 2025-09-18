@@ -253,6 +253,22 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Group payments - tracks individual user payments within groups  
+export const groupPayments = pgTable("group_payments", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  userGroupId: integer("user_group_id").notNull().references(() => userGroups.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }).unique(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("usd"),
+  status: varchar("status", { length: 20 }).default("pending"), // pending, succeeded, failed, canceled
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   products: many(products),
@@ -260,6 +276,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   addresses: many(userAddresses),
   cartItems: many(cartItems),
   userGroups: many(userGroups),
+  groupPayments: many(groupPayments),
 }));
 
 export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
@@ -272,6 +289,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   discountTiers: many(discountTiers),
   orders: many(orders),
   serviceProvider: one(serviceProviders, { fields: [products.id], references: [serviceProviders.productId] }),
+  groupPayments: many(groupPayments),
 }));
 
 export const serviceProvidersRelations = relations(serviceProviders, ({ one, many }) => ({
@@ -309,6 +327,7 @@ export const userGroupsRelations = relations(userGroups, ({ one, many }) => ({
   user: one(users, { fields: [userGroups.userId], references: [users.id] }),
   items: many(userGroupItems),
   participants: many(userGroupParticipants),
+  groupPayments: many(groupPayments),
 }));
 
 export const userGroupItemsRelations = relations(userGroupItems, ({ one }) => ({
@@ -319,6 +338,12 @@ export const userGroupItemsRelations = relations(userGroupItems, ({ one }) => ({
 export const userGroupParticipantsRelations = relations(userGroupParticipants, ({ one }) => ({
   userGroup: one(userGroups, { fields: [userGroupParticipants.userGroupId], references: [userGroups.id] }),
   user: one(users, { fields: [userGroupParticipants.userId], references: [users.id] }),
+}));
+
+export const groupPaymentsRelations = relations(groupPayments, ({ one }) => ({
+  user: one(users, { fields: [groupPayments.userId], references: [users.id] }),
+  userGroup: one(userGroups, { fields: [groupPayments.userGroupId], references: [userGroups.id] }),
+  product: one(products, { fields: [groupPayments.productId], references: [products.id] }),
 }));
 
 // Insert schemas
@@ -391,6 +416,12 @@ export const insertUserGroupParticipantSchema = createInsertSchema(userGroupPart
   joinedAt: true,
 });
 
+export const insertGroupPaymentSchema = createInsertSchema(groupPayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Admin credentials schema
 export const insertAdminCredentialsSchema = createInsertSchema(adminCredentials).omit({
   id: true,
@@ -430,6 +461,8 @@ export type UserGroupItem = typeof userGroupItems.$inferSelect;
 export type InsertUserGroupItem = z.infer<typeof insertUserGroupItemSchema>;
 export type UserGroupParticipant = typeof userGroupParticipants.$inferSelect;
 export type InsertUserGroupParticipant = z.infer<typeof insertUserGroupParticipantSchema>;
+export type GroupPayment = typeof groupPayments.$inferSelect;
+export type InsertGroupPayment = z.infer<typeof insertGroupPaymentSchema>;
 export type AdminCredentials = typeof adminCredentials.$inferSelect;
 export type InsertAdminCredentials = z.infer<typeof insertAdminCredentialsSchema>;
 
