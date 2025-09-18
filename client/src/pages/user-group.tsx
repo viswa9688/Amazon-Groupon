@@ -1018,25 +1018,51 @@ export default function UserGroupPage() {
                               </p>
                             </div>
                           </div>
-                          {isOwner && participant.userId !== user?.id && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => removeParticipantMutation.mutate(participant.userId)}
-                              disabled={removeParticipantMutation.isPending}
-                              className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
-                              data-testid={`button-remove-${participant.userId}`}
-                            >
-                              <UserX className="w-4 h-4 mr-1" />
-                              {removeParticipantMutation.isPending ? "..." : "Remove"}
-                            </Button>
-                          )}
+                          <div className="flex items-center space-x-2">
+                            {/* Pay Now Button for each member when group is locked and has items */}
+                            {userGroup && userGroup.items && userGroup.items.length > 0 && isLocked && (
+                              (() => {
+                                const totalAmount = userGroup.items.reduce((sum, item) => {
+                                  const originalPrice = parseFloat(item.product.originalPrice.toString());
+                                  const discountPrice = item.product.discountTiers?.[0]?.finalPrice 
+                                    ? parseFloat(item.product.discountTiers[0].finalPrice.toString())
+                                    : originalPrice;
+                                  return sum + (discountPrice * item.quantity);
+                                }, 0);
+
+                                return (
+                                  <Button 
+                                    size="sm"
+                                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
+                                    onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
+                                    data-testid={`button-pay-now-${participant.userId}`}
+                                  >
+                                    <DollarSign className="w-4 h-4 mr-1" />
+                                    Pay Now - ${totalAmount.toFixed(2)}
+                                  </Button>
+                                );
+                              })()
+                            )}
+                            {isOwner && participant.userId !== user?.id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => removeParticipantMutation.mutate(participant.userId)}
+                                disabled={removeParticipantMutation.isPending}
+                                className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
+                                data-testid={`button-remove-${participant.userId}`}
+                              >
+                                <UserX className="w-4 h-4 mr-1" />
+                                {removeParticipantMutation.isPending ? "..." : "Remove"}
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Group Pay Now Button - Shows when group has items and is at max capacity */}
+                  {/* Group Payment Status - Shows when group has items and is at max capacity */}
                   {userGroup && userGroup.items && userGroup.items.length > 0 && isLocked && (
                     <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                       <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800">
@@ -1051,7 +1077,7 @@ export default function UserGroupPage() {
                             This group has reached maximum capacity! All members can now pay for their items with group discounts.
                           </p>
                           
-                          {/* Calculate total amount with discounts */}
+                          {/* Calculate and display total amount with discounts */}
                           {(() => {
                             const totalAmount = userGroup.items.reduce((sum, item) => {
                               const originalPrice = parseFloat(item.product.originalPrice.toString());
@@ -1062,23 +1088,14 @@ export default function UserGroupPage() {
                             }, 0);
 
                             return (
-                              <div className="space-y-3">
-                                <div className="text-center">
-                                  <p className="text-sm text-green-600 dark:text-green-400">Total amount per member:</p>
-                                  <p className="text-2xl font-bold text-green-800 dark:text-green-200">
-                                    ${totalAmount.toFixed(2)}
-                                  </p>
-                                </div>
-                                
-                                <Button 
-                                  size="lg"
-                                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3"
-                                  onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
-                                  data-testid="button-group-pay-now"
-                                >
-                                  <DollarSign className="w-5 h-5 mr-2" />
-                                  Pay Now - ${totalAmount.toFixed(2)}
-                                </Button>
+                              <div className="text-center">
+                                <p className="text-sm text-green-600 dark:text-green-400">Total amount per member:</p>
+                                <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                                  ${totalAmount.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                  Click "Pay Now" next to your name above to complete payment
+                                </p>
                               </div>
                             );
                           })()}

@@ -69,6 +69,9 @@ function Router() {
       <Route path="/checkout/:productId/:type">
         {() => <AuthGuard><Checkout /></AuthGuard>}
       </Route>
+      <Route path="/checkout">
+        {() => <AuthGuard><Checkout /></AuthGuard>}
+      </Route>
       <Route path="/orders">
         {() => <AuthGuard><Orders /></AuthGuard>}
       </Route>
