@@ -154,6 +154,10 @@ export default function Checkout() {
           setClientSecret(data.clientSecret);
           setAmount(paymentAmount);
           setIsLoading(false);
+        } else {
+          // Neither group payment nor individual payment - this shouldn't happen
+          console.error("Invalid checkout URL - no valid payment type detected");
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error initializing payment:", error);
@@ -188,7 +192,7 @@ export default function Checkout() {
     createGroupPaymentIntent();
   }, [isGroupPayment, userGroupId, selectedAddressId]);
 
-  if (isLoading || (!clientSecret && !isGroupPayment)) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
