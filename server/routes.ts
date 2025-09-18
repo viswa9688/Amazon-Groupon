@@ -956,6 +956,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Not a member of this collection" });
       }
 
+      // Check if group is locked (at max capacity)
+      const isLocked = await storage.isUserGroupLocked(userGroupId);
+      if (isLocked) {
+        return res.status(400).json({ 
+          message: "Cannot leave group - group is locked because it has reached maximum member capacity",
+          locked: true
+        });
+      }
+
       const success = await storage.leaveUserGroup(userGroupId, userId);
       if (success) {
         res.json({ message: "Successfully left collection" });
