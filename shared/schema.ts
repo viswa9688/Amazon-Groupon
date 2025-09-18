@@ -211,6 +211,7 @@ export const userGroups = pgTable("user_groups", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   shareToken: varchar("share_token", { length: 32 }).notNull().unique(),
+  maxMembers: integer("max_members").notNull().default(5),
   isPublic: boolean("is_public").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
