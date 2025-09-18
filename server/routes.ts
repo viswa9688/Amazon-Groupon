@@ -1759,15 +1759,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid order ID" });
       }
 
-      // Get the order to verify seller ownership
-      const order = await storage.getOrder(orderId);
+      // Get the order with items to verify seller ownership
+      console.log(`Fetching order ${orderId} for seller ${sellerId}`);
+      const order = await storage.getOrderWithItems(orderId);
       if (!order) {
+        console.log(`Order ${orderId} not found`);
         return res.status(404).json({ message: "Order not found" });
       }
+      
+      console.log(`Order ${orderId} found. Items:`, order.items?.length || 0, "Direct productId:", order.productId);
 
-      // Check if the order belongs to a product owned by this seller
-      const product = await storage.getProduct(order.productId);
-      if (!product || product.sellerId !== sellerId) {
+      // Check if any of the order items belong to this seller
+      let hasSellerProduct = false;
+      
+      // Check if order has items (new structure)
+      if (order.items && order.items.length > 0) {
+        console.log(`Order ${orderId} has ${order.items.length} items. Checking seller ownership...`);
+        order.items.forEach((item, index) => {
+          console.log(`Item ${index}: productId=${item.productId}, sellerId=${item.product.sellerId}, requestedSellerId=${sellerId}`);
+        });
+        hasSellerProduct = order.items.some(item => item.product.sellerId === sellerId);
+        console.log(`Has seller product (new structure): ${hasSellerProduct}`);
+      } 
+      // Fallback: check if order has direct productId (old structure)
+      else if (order.productId) {
+        console.log(`Order ${orderId} using old structure with productId: ${order.productId}`);
+        const product = await storage.getProduct(order.productId);
+        hasSellerProduct = product && product.sellerId === sellerId;
+        console.log(`Product found: ${!!product}, sellerId: ${product?.sellerId}, requestedSellerId: ${sellerId}, hasSellerProduct: ${hasSellerProduct}`);
+      } else {
+        console.log(`Order ${orderId} has no items and no productId`);
+      }
+
+      if (!hasSellerProduct) {
+        console.log(`Access denied for seller ${sellerId} on order ${orderId}. Order items:`, order.items?.map(i => ({ productId: i.productId, sellerId: i.product.sellerId })) || 'No items');
         return res.status(403).json({ message: "Access denied" });
       }
 
