@@ -1297,17 +1297,17 @@ export default function UserGroupPage() {
                                     </Button>
                                   );
                                 } else {
-                                  return (
-                                    <Button 
-                                      size="sm"
-                                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
-                                      onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
-                                      data-testid={`button-pay-now-${participant.userId}`}
-                                    >
-                                      <DollarSign className="w-4 h-4 mr-1" />
-                                      Pay Now - ${totalAmount.toFixed(2)}
-                                    </Button>
-                                  );
+                                  // return (
+                                  //   <Button 
+                                  //     size="sm"
+                                  //     className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
+                                  //     onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
+                                  //     data-testid={`button-pay-now-${participant.userId}`}
+                                  //   >
+                                  //     <DollarSign className="w-4 h-4 mr-1" />
+                                  //     Pay Now - ${totalAmount.toFixed(2)}
+                                  //   </Button>
+                                  // );
                                 }
                               })()
                             )}

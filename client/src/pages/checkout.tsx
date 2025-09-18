@@ -186,7 +186,18 @@ export default function Checkout() {
   const [totalMembers, setTotalMembers] = useState(1);
   const [originalAmount, setOriginalAmount] = useState(0);
   const [potentialSavings, setPotentialSavings] = useState(0);
+  const [amountLocked, setAmountLocked] = useState(false); // Prevent amount changes after initial calculation
   const initRef = useRef(false);
+
+  // Safe setAmount function that respects the lock
+  const setAmountSafe = (newAmount: number) => {
+    if (!amountLocked) {
+      console.log("Setting amount (unlocked):", newAmount);
+      setAmount(newAmount);
+    } else {
+      console.log("Amount change blocked - amount is locked. Current amount:", amount, "Attempted amount:", newAmount);
+    }
+  };
 
   // Parse URL and query parameters - use a function to ensure we get fresh values
   const getUrlParams = () => {
@@ -319,7 +330,7 @@ export default function Checkout() {
               }
               
               // Calculate potential savings using the EXACT same method as user-group page
-              const potentialSavingsFromGroup = userGroupDetails.items?.reduce((sum, item) => {
+              const potentialSavingsFromGroup = userGroupDetails.items?.reduce((sum: number, item: any) => {
                 const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
                 const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
                 return sum + savings;
@@ -334,8 +345,9 @@ export default function Checkout() {
               
               // Each user pays the final amount (Popular Group Value - Potential Savings)
               const memberAmount = finalAmount;
-              setAmount(memberAmount);
+              setAmountSafe(memberAmount);
               setOriginalAmount(popularGroupValue);
+              setAmountLocked(true); // Lock amount after initial calculation
               
               console.log("Client - Final calculations:", {
                 popularGroupValue: totalOriginalAmount.toFixed(2),
@@ -391,7 +403,8 @@ export default function Checkout() {
           });
           const data = await response.json();
           setClientSecret(data.clientSecret);
-          setAmount(paymentAmount);
+          setAmountSafe(paymentAmount);
+          setAmountLocked(true); // Lock amount after initial calculation
           setIsLoading(false);
           setIsLoadingPayment(false);
         } 
@@ -421,7 +434,8 @@ export default function Checkout() {
           });
           const data = await response.json();
           setClientSecret(data.clientSecret);
-          setAmount(paymentAmount);
+          setAmountSafe(paymentAmount);
+          setAmountLocked(true); // Lock amount after initial calculation
           setIsLoading(false);
           setIsLoadingPayment(false);
         } 
@@ -484,11 +498,12 @@ export default function Checkout() {
         console.log("Group payment intent created:", data);
         setClientSecret(data.clientSecret);
         
-        // Set the amount from server response
-        setAmount(data.amount);
+        // DO NOT update the amount - it should remain consistent
+        // The amount was already calculated during initial payment setup
+        console.log("Payment intent created with consistent amount:", amount);
         
-        // Calculate original amount for display
-        if (groupData && groupData.items) {
+        // Only calculate original amount if not already set
+        if (groupData && groupData.items && !originalAmount) {
           let total = 0;
           for (const item of groupData.items) {
             total += parseFloat(item.product.originalPrice) * item.quantity;
@@ -817,7 +832,7 @@ export default function Checkout() {
                 )}
                 
                 {/* Test card information */}
-                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                {/* <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -845,7 +860,7 @@ export default function Checkout() {
                       <span className="font-mono text-blue-800 dark:text-blue-200">12345</span>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 
                 {/* Security Notice */}
                 <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
