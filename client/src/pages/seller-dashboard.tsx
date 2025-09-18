@@ -10,39 +10,84 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { 
-  DollarSign, Package, ShoppingBag, TrendingUp, Plus, Edit, Truck, Trash2, 
-  BarChart3, Home, Calendar as CalendarIcon, MapPin, Clock, Users, Star,
-  Briefcase, Shield, Phone, Globe
+import {
+  DollarSign,
+  Package,
+  ShoppingBag,
+  TrendingUp,
+  Plus,
+  Edit,
+  Truck,
+  Trash2,
+  BarChart3,
+  Home,
+  Calendar as CalendarIcon,
+  MapPin,
+  Clock,
+  Users,
+  Star,
+  Briefcase,
+  Shield,
+  Phone,
+  Globe,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import type { ProductWithDetails, Order, Category, InsertProduct } from "@shared/schema";
+import type {
+  ProductWithDetails,
+  Order,
+  Category,
+  InsertProduct,
+} from "@shared/schema";
 import { Link } from "wouter";
 
 // Service categories
 const serviceCategories = [
   "Salon & Beauty",
-  "Tutoring & Education", 
+  "Tutoring & Education",
   "Cleaning & Maintenance",
   "Repairs & Installation",
   "Fitness & Wellness",
   "Professional Services",
   "Healthcare",
   "Events & Entertainment",
-  "Other"
+  "Other",
 ];
 
 // Pricing models
@@ -50,14 +95,14 @@ const pricingModels = [
   { value: "flat_fee", label: "Flat Fee" },
   { value: "hourly", label: "Hourly Rate" },
   { value: "per_session", label: "Per Session" },
-  { value: "subscription", label: "Subscription" }
+  { value: "subscription", label: "Subscription" },
 ];
 
 // Service modes
 const serviceModes = [
   { value: "in_person", label: "In-Person Only" },
   { value: "online", label: "Online Only" },
-  { value: "hybrid", label: "Both In-Person & Online" }
+  { value: "hybrid", label: "Both In-Person & Online" },
 ];
 
 // Product form schema - Base fields
@@ -66,7 +111,11 @@ const baseProductSchema = z.object({
   name: z.string().min(1, "Product/Service name is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   categoryId: z.string().min(1, "Category is required"),
-  imageUrl: z.string().url("Please enter a valid image URL").optional().or(z.literal("")),
+  imageUrl: z
+    .string()
+    .url("Please enter a valid image URL")
+    .optional()
+    .or(z.literal("")),
   originalPrice: z.string().min(1, "Price is required"),
   discountPrice: z.string().min(1, "Discount price is required"),
   minimumParticipants: z.string().min(1, "Minimum participants required"),
@@ -83,7 +132,7 @@ const serviceProviderSchema = z.object({
   licenseNumber: z.string().optional(),
   yearsInBusiness: z.string().optional(),
   insuranceValidTill: z.date().optional(),
-  
+
   // Location & Coverage
   serviceMode: z.string().default("in_person"),
   addressLine1: z.string().optional(),
@@ -92,7 +141,7 @@ const serviceProviderSchema = z.object({
   region: z.string().optional(),
   postalCode: z.string().optional(),
   serviceAreaPolygon: z.any().optional(), // GeoJSON
-  
+
   // Service Details
   serviceName: z.string().optional(),
   durationMinutes: z.string().optional(),
@@ -100,27 +149,31 @@ const serviceProviderSchema = z.object({
   materialsIncluded: z.boolean().default(false),
   ageRestriction: z.string().optional(),
   taxClass: z.string().optional(),
-  
+
   // Availability
   availabilityType: z.string().default("by_appointment"),
   operatingHours: z.any().optional(), // JSON for operating hours
   advanceBookingDays: z.string().default("7"),
   cancellationPolicyUrl: z.string().optional(),
   rescheduleAllowed: z.boolean().default(true),
-  
+
   // Compliance
   insurancePolicyNumber: z.string().optional(),
   liabilityWaiverRequired: z.boolean().default(false),
   healthSafetyCert: z.string().optional(),
-  
+
   // Staff
-  staff: z.array(z.object({
-    name: z.string(),
-    skills: z.string(),
-    availability: z.string(),
-    rating: z.string(),
-  })).optional(),
-  
+  staff: z
+    .array(
+      z.object({
+        name: z.string(),
+        skills: z.string(),
+        availability: z.string(),
+        rating: z.string(),
+      }),
+    )
+    .optional(),
+
   // Reviews & Ratings
   avgRating: z.string().optional(),
   reviewCount: z.string().optional(),
@@ -137,10 +190,12 @@ export default function SellerDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("products");
   const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<ProductWithDetails | null>(null);
+  const [editingProduct, setEditingProduct] =
+    useState<ProductWithDetails | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<ProductWithDetails | null>(null);
+  const [productToDelete, setProductToDelete] =
+    useState<ProductWithDetails | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -157,7 +212,9 @@ export default function SellerDashboard() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: products, isLoading: productsLoading } = useQuery<ProductWithDetails[]>({
+  const { data: products, isLoading: productsLoading } = useQuery<
+    ProductWithDetails[]
+  >({
     queryKey: ["/api/seller/products"],
     enabled: isAuthenticated,
     retry: false,
@@ -222,7 +279,7 @@ export default function SellerDashboard() {
   // Watch shop selection to automatically set category
   const selectedShopId = form.watch("shopId");
   const selectedShop = shops.find((shop: any) => shop.id === selectedShopId);
-  
+
   // Automatically set category based on shop type
   useEffect(() => {
     if (selectedShop) {
@@ -236,9 +293,10 @@ export default function SellerDashboard() {
 
   // Watch category to show/hide service fields
   const selectedCategoryId = form.watch("categoryId");
-  
+
   // Check for service category - grocery shops should show product fields, service shops should show service fields
-  const isServiceCategory = selectedCategoryId === "2" && selectedShop?.shopType === "services";
+  const isServiceCategory =
+    selectedCategoryId === "2" && selectedShop?.shopType === "services";
 
   // Edit product form
   const editForm = useForm<ProductFormData>({
@@ -282,7 +340,9 @@ export default function SellerDashboard() {
           displayName: data.displayName,
           serviceCategory: data.serviceCategory,
           licenseNumber: data.licenseNumber,
-          yearsInBusiness: data.yearsInBusiness ? parseInt(data.yearsInBusiness) : undefined,
+          yearsInBusiness: data.yearsInBusiness
+            ? parseInt(data.yearsInBusiness)
+            : undefined,
           serviceMode: data.serviceMode,
           addressLine1: data.addressLine1,
           addressLine2: data.addressLine2,
@@ -290,10 +350,14 @@ export default function SellerDashboard() {
           region: data.region,
           postalCode: data.postalCode,
           serviceName: data.serviceName,
-          durationMinutes: data.durationMinutes ? parseInt(data.durationMinutes) : undefined,
+          durationMinutes: data.durationMinutes
+            ? parseInt(data.durationMinutes)
+            : undefined,
           pricingModel: data.pricingModel,
           materialsIncluded: data.materialsIncluded,
-          ageRestriction: data.ageRestriction ? parseInt(data.ageRestriction) : undefined,
+          ageRestriction: data.ageRestriction
+            ? parseInt(data.ageRestriction)
+            : undefined,
           availabilityType: data.availabilityType,
           advanceBookingDays: parseInt(data.advanceBookingDays || "7"),
           rescheduleAllowed: data.rescheduleAllowed,
@@ -308,7 +372,9 @@ export default function SellerDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       toast({
         title: "Success!",
-        description: isServiceCategory ? "Service added successfully." : "Product added successfully.",
+        description: isServiceCategory
+          ? "Service added successfully."
+          : "Product added successfully.",
       });
       setProductDialogOpen(false);
       form.reset();
@@ -324,7 +390,13 @@ export default function SellerDashboard() {
 
   // Edit product mutation
   const editProductMutation = useMutation({
-    mutationFn: async ({ productId, data }: { productId: number; data: ProductFormData }) => {
+    mutationFn: async ({
+      productId,
+      data,
+    }: {
+      productId: number;
+      data: ProductFormData;
+    }) => {
       const productData: any = {
         name: data.name,
         description: data.description,
@@ -344,7 +416,9 @@ export default function SellerDashboard() {
           displayName: data.displayName,
           serviceCategory: data.serviceCategory,
           licenseNumber: data.licenseNumber,
-          yearsInBusiness: data.yearsInBusiness ? parseInt(data.yearsInBusiness) : undefined,
+          yearsInBusiness: data.yearsInBusiness
+            ? parseInt(data.yearsInBusiness)
+            : undefined,
           serviceMode: data.serviceMode,
           addressLine1: data.addressLine1,
           addressLine2: data.addressLine2,
@@ -352,10 +426,14 @@ export default function SellerDashboard() {
           region: data.region,
           postalCode: data.postalCode,
           serviceName: data.serviceName,
-          durationMinutes: data.durationMinutes ? parseInt(data.durationMinutes) : undefined,
+          durationMinutes: data.durationMinutes
+            ? parseInt(data.durationMinutes)
+            : undefined,
           pricingModel: data.pricingModel,
           materialsIncluded: data.materialsIncluded,
-          ageRestriction: data.ageRestriction ? parseInt(data.ageRestriction) : undefined,
+          ageRestriction: data.ageRestriction
+            ? parseInt(data.ageRestriction)
+            : undefined,
           availabilityType: data.availabilityType,
           advanceBookingDays: parseInt(data.advanceBookingDays || "7"),
           rescheduleAllowed: data.rescheduleAllowed,
@@ -364,14 +442,20 @@ export default function SellerDashboard() {
         };
       }
 
-      return apiRequest("PATCH", `/api/seller/products/${productId}`, productData);
+      return apiRequest(
+        "PATCH",
+        `/api/seller/products/${productId}`,
+        productData,
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
       toast({
         title: "Success!",
-        description: isEditServiceCategory ? "Service updated successfully." : "Product updated successfully.",
+        description: isEditServiceCategory
+          ? "Service updated successfully."
+          : "Product updated successfully.",
       });
       setEditDialogOpen(false);
       setEditingProduct(null);
@@ -388,8 +472,16 @@ export default function SellerDashboard() {
 
   // Update order status mutation
   const updateOrderStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
-      return apiRequest("PATCH", `/api/seller/orders/${orderId}/status`, { status });
+    mutationFn: async ({
+      orderId,
+      status,
+    }: {
+      orderId: number;
+      status: string;
+    }) => {
+      return apiRequest("PATCH", `/api/seller/orders/${orderId}/status`, {
+        status,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
@@ -445,12 +537,13 @@ export default function SellerDashboard() {
 
   const handleEditClick = (product: ProductWithDetails) => {
     setEditingProduct(product);
-    
+
     // Get discount price from discount tiers if available
-    const discountPrice = product.discountTiers && product.discountTiers.length > 0 
-      ? product.discountTiers[0].finalPrice.toString() 
-      : product.originalPrice.toString();
-    
+    const discountPrice =
+      product.discountTiers && product.discountTiers.length > 0
+        ? product.discountTiers[0].finalPrice.toString()
+        : product.originalPrice.toString();
+
     const formData: any = {
       name: product.name,
       description: product.description || "",
@@ -460,7 +553,9 @@ export default function SellerDashboard() {
       discountPrice: discountPrice,
       minimumParticipants: product.minimumParticipants.toString(),
       maximumParticipants: product.maximumParticipants.toString(),
-      offerValidTill: product.offerValidTill ? new Date(product.offerValidTill) : undefined,
+      offerValidTill: product.offerValidTill
+        ? new Date(product.offerValidTill)
+        : undefined,
     };
 
     // Load service provider data if exists
@@ -471,7 +566,9 @@ export default function SellerDashboard() {
       formData.serviceCategory = sp.serviceCategory || "";
       formData.licenseNumber = sp.licenseNumber || "";
       formData.yearsInBusiness = sp.yearsInBusiness?.toString() || "";
-      formData.insuranceValidTill = sp.insuranceValidTill ? new Date(sp.insuranceValidTill) : undefined;
+      formData.insuranceValidTill = sp.insuranceValidTill
+        ? new Date(sp.insuranceValidTill)
+        : undefined;
       formData.serviceMode = sp.serviceMode || "in_person";
       formData.addressLine1 = sp.addressLine1 || "";
       formData.addressLine2 = sp.addressLine2 || "";
@@ -493,23 +590,27 @@ export default function SellerDashboard() {
       formData.insurancePolicyNumber = sp.insurancePolicyNumber || "";
       formData.liabilityWaiverRequired = sp.liabilityWaiverRequired || false;
       formData.healthSafetyCert = sp.healthSafetyCert || "";
-      
+
       // Load staff data
       if (sp.staff && sp.staff.length > 0) {
         formData.staff = sp.staff.map((staffMember: any) => ({
           name: staffMember.name || "",
-          skills: Array.isArray(staffMember.skills) ? staffMember.skills.join(", ") : staffMember.skills || "",
-          availability: staffMember.availability ? JSON.stringify(staffMember.availability) : "",
+          skills: Array.isArray(staffMember.skills)
+            ? staffMember.skills.join(", ")
+            : staffMember.skills || "",
+          availability: staffMember.availability
+            ? JSON.stringify(staffMember.availability)
+            : "",
           rating: staffMember.rating?.toString() || "",
         }));
       }
-      
+
       // Load reviews data
       formData.avgRating = sp.avgRating?.toString() || "0";
       formData.reviewCount = sp.reviewCount?.toString() || "0";
       formData.highlightedTestimonials = sp.highlightedTestimonials || null;
     }
-      
+
     editForm.reset(formData);
     setEditDialogOpen(true);
   };
@@ -544,10 +645,10 @@ export default function SellerDashboard() {
         }, 500);
         return;
       }
-      
+
       // Handle participant warning
       if (error.message.includes("participants")) {
-        const data = JSON.parse(error.message.split(': ')[1] || '{}');
+        const data = JSON.parse(error.message.split(": ")[1] || "{}");
         toast({
           title: "Cannot Delete Product",
           description: data.details || "This product has active participants.",
@@ -593,15 +694,19 @@ export default function SellerDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2" data-testid="text-dashboard-title">
+            <h1
+              className="text-3xl font-bold text-foreground mb-2"
+              data-testid="text-dashboard-title"
+            >
               Seller Dashboard
             </h1>
             <p className="text-muted-foreground">
-              Welcome back, {(user as any)?.firstName || 'Seller'}! Here's your store overview.
+              Welcome back, {(user as any)?.firstName || "Seller"}! Here's your
+              store overview.
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -626,9 +731,17 @@ export default function SellerDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-revenue">
-                    ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Revenue
+                  </p>
+                  <p
+                    className="text-2xl font-bold text-foreground"
+                    data-testid="text-revenue"
+                  >
+                    $
+                    {totalRevenue.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-accent" />
@@ -640,9 +753,17 @@ export default function SellerDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Potential Revenue</p>
-                  <p className="text-2xl font-bold text-orange-600" data-testid="text-potential-revenue">
-                    ${potentialRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Potential Revenue
+                  </p>
+                  <p
+                    className="text-2xl font-bold text-orange-600"
+                    data-testid="text-potential-revenue"
+                  >
+                    $
+                    {potentialRevenue.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-orange-500" />
@@ -654,8 +775,13 @@ export default function SellerDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Active Groups</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-active-groups">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Active Groups
+                  </p>
+                  <p
+                    className="text-2xl font-bold text-foreground"
+                    data-testid="text-active-groups"
+                  >
                     {activeGroups}
                   </p>
                 </div>
@@ -668,8 +794,13 @@ export default function SellerDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Products</p>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-products">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Products
+                  </p>
+                  <p
+                    className="text-2xl font-bold text-foreground"
+                    data-testid="text-total-products"
+                  >
                     {totalProducts}
                   </p>
                 </div>
@@ -682,9 +813,15 @@ export default function SellerDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Growth</p>
-                  <p className="text-2xl font-bold text-accent" data-testid="text-growth-percentage">
-                    {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Growth
+                  </p>
+                  <p
+                    className="text-2xl font-bold text-accent"
+                    data-testid="text-growth-percentage"
+                  >
+                    {growthPercentage >= 0 ? "+" : ""}
+                    {growthPercentage.toFixed(1)}%
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-accent" />
@@ -714,19 +851,28 @@ export default function SellerDashboard() {
             <div className="space-y-6">
               {/* Add Product Button */}
               <div className="flex justify-end">
-                <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+                <Dialog
+                  open={productDialogOpen}
+                  onOpenChange={setProductDialogOpen}
+                >
                   <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary/90" data-testid="button-add-product">
+                    <Button
+                      className="bg-primary hover:bg-primary/90"
+                      data-testid="button-add-product"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
-                      Add Product/Service
+                      Add Groceries/Service
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Add New Product/Service</DialogTitle>
+                      <DialogTitle>Add New Groceries/Service</DialogTitle>
                     </DialogHeader>
                     <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                      <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-6"
+                      >
                         {/* Shop Selection - FIRST */}
                         <FormField
                           control={form.control}
@@ -734,7 +880,10 @@ export default function SellerDashboard() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Shop *</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
                                 <FormControl>
                                   <SelectTrigger data-testid="select-shop">
                                     <SelectValue placeholder="Select a shop first" />
@@ -749,7 +898,8 @@ export default function SellerDashboard() {
                                 </SelectContent>
                               </Select>
                               <FormDescription>
-                                Choose the shop to automatically set the category
+                                Choose the shop to automatically set the
+                                category
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -761,33 +911,44 @@ export default function SellerDashboard() {
                           control={form.control}
                           name="categoryId"
                           render={({ field }) => {
-                            const selectedCategory = categories?.find(cat => cat.id.toString() === field.value);
+                            const selectedCategory = categories?.find(
+                              (cat) => cat.id.toString() === field.value,
+                            );
                             return (
                               <FormItem>
                                 <FormLabel>Category *</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  value={field.value}
+                                  disabled
+                                >
                                   <FormControl>
                                     <SelectTrigger data-testid="select-category">
-                                      <SelectValue placeholder={
-                                        selectedCategory 
-                                          ? selectedCategory.name 
-                                          : selectedShop 
-                                            ? "Auto-determined by shop" 
-                                            : "Select a shop first"
-                                      } />
+                                      <SelectValue
+                                        placeholder={
+                                          selectedCategory
+                                            ? selectedCategory.name
+                                            : selectedShop
+                                              ? "Auto-determined by shop"
+                                              : "Select a shop first"
+                                        }
+                                      />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
                                     {categories?.map((category) => (
-                                      <SelectItem key={category.id} value={category.id.toString()}>
+                                      <SelectItem
+                                        key={category.id}
+                                        value={category.id.toString()}
+                                      >
                                         {category.name}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                                 <FormDescription>
-                                  {selectedCategory 
-                                    ? `Category: ${selectedCategory.name} (auto-selected based on shop type)` 
+                                  {selectedCategory
+                                    ? `Category: ${selectedCategory.name} (auto-selected based on shop type)`
                                     : "Category is automatically determined by the selected shop"}
                                 </FormDescription>
                                 <FormMessage />
@@ -802,19 +963,28 @@ export default function SellerDashboard() {
                           name="name"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>{isServiceCategory ? "Service Name" : "Product Name"} *</FormLabel>
+                              <FormLabel>
+                                {isServiceCategory
+                                  ? "Service Name"
+                                  : "Product Name"}{" "}
+                                *
+                              </FormLabel>
                               <FormControl>
-                                <Input 
-                                  placeholder={isServiceCategory ? "Enter service name" : "Enter product name"} 
-                                  {...field} 
-                                  data-testid="input-product-name" 
+                                <Input
+                                  placeholder={
+                                    isServiceCategory
+                                      ? "Enter service name"
+                                      : "Enter product name"
+                                  }
+                                  {...field}
+                                  data-testid="input-product-name"
                                 />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="description"
@@ -822,18 +992,22 @@ export default function SellerDashboard() {
                             <FormItem>
                               <FormLabel>Description *</FormLabel>
                               <FormControl>
-                                <Textarea 
-                                  placeholder={isServiceCategory ? "Describe your service" : "Describe your product"} 
-                                  rows={4} 
-                                  {...field} 
-                                  data-testid="input-product-description" 
+                                <Textarea
+                                  placeholder={
+                                    isServiceCategory
+                                      ? "Describe your service"
+                                      : "Describe your product"
+                                  }
+                                  rows={4}
+                                  {...field}
+                                  data-testid="input-product-description"
                                 />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="imageUrl"
@@ -841,13 +1015,17 @@ export default function SellerDashboard() {
                             <FormItem>
                               <FormLabel>Image URL (Optional)</FormLabel>
                               <FormControl>
-                                <Input placeholder="https://example.com/image.jpg" {...field} data-testid="input-image-url" />
+                                <Input
+                                  placeholder="https://example.com/image.jpg"
+                                  {...field}
+                                  data-testid="input-image-url"
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         {/* Service-Specific Fields */}
                         {isServiceCategory && (
                           <>
@@ -856,29 +1034,37 @@ export default function SellerDashboard() {
                                 <Briefcase className="w-5 h-5" />
                                 Service Provider Details
                               </h3>
-                              
+
                               <div className="grid grid-cols-2 gap-4">
                                 <FormField
                                   control={form.control}
                                   name="displayName"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>Business Display Name</FormLabel>
+                                      <FormLabel>
+                                        Business Display Name
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input placeholder="Your business name" {...field} />
+                                        <Input
+                                          placeholder="Your business name"
+                                          {...field}
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
                                   )}
                                 />
-                                
+
                                 <FormField
                                   control={form.control}
                                   name="serviceCategory"
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>Service Category</FormLabel>
-                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                      >
                                         <FormControl>
                                           <SelectTrigger>
                                             <SelectValue placeholder="Select service type" />
@@ -906,21 +1092,30 @@ export default function SellerDashboard() {
                                     <FormItem>
                                       <FormLabel>Years in Business</FormLabel>
                                       <FormControl>
-                                        <Input type="number" placeholder="5" {...field} />
+                                        <Input
+                                          type="number"
+                                          placeholder="5"
+                                          {...field}
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
                                   )}
                                 />
-                                
+
                                 <FormField
                                   control={form.control}
                                   name="licenseNumber"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>License Number (if applicable)</FormLabel>
+                                      <FormLabel>
+                                        License Number (if applicable)
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input placeholder="LIC-123456" {...field} />
+                                        <Input
+                                          placeholder="LIC-123456"
+                                          {...field}
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
@@ -932,12 +1127,20 @@ export default function SellerDashboard() {
                                   name="insuranceValidTill"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>Insurance Valid Till</FormLabel>
+                                      <FormLabel>
+                                        Insurance Valid Till
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input 
-                                          type="date" 
+                                        <Input
+                                          type="date"
                                           {...field}
-                                          value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                          value={
+                                            field.value
+                                              ? new Date(field.value)
+                                                  .toISOString()
+                                                  .split("T")[0]
+                                              : ""
+                                          }
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -952,7 +1155,7 @@ export default function SellerDashboard() {
                                 <MapPin className="w-5 h-5" />
                                 Service Location & Coverage
                               </h3>
-                              
+
                               <FormField
                                 control={form.control}
                                 name="serviceMode"
@@ -966,9 +1169,17 @@ export default function SellerDashboard() {
                                         className="flex flex-row space-x-4"
                                       >
                                         {serviceModes.map((mode) => (
-                                          <div key={mode.value} className="flex items-center space-x-2">
-                                            <RadioGroupItem value={mode.value} id={mode.value} />
-                                            <Label htmlFor={mode.value}>{mode.label}</Label>
+                                          <div
+                                            key={mode.value}
+                                            className="flex items-center space-x-2"
+                                          >
+                                            <RadioGroupItem
+                                              value={mode.value}
+                                              id={mode.value}
+                                            />
+                                            <Label htmlFor={mode.value}>
+                                              {mode.label}
+                                            </Label>
                                           </div>
                                         ))}
                                       </RadioGroup>
@@ -978,7 +1189,8 @@ export default function SellerDashboard() {
                                 )}
                               />
 
-                              {(form.watch("serviceMode") === "in_person" || form.watch("serviceMode") === "hybrid") && (
+                              {(form.watch("serviceMode") === "in_person" ||
+                                form.watch("serviceMode") === "hybrid") && (
                                 <>
                                   <div className="grid grid-cols-2 gap-4">
                                     <FormField
@@ -988,13 +1200,16 @@ export default function SellerDashboard() {
                                         <FormItem>
                                           <FormLabel>Address Line 1</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="123 Main St" {...field} />
+                                            <Input
+                                              placeholder="123 Main St"
+                                              {...field}
+                                            />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
                                       )}
                                     />
-                                    
+
                                     <FormField
                                       control={form.control}
                                       name="addressLine2"
@@ -1002,7 +1217,10 @@ export default function SellerDashboard() {
                                         <FormItem>
                                           <FormLabel>Address Line 2</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="Suite 100" {...field} />
+                                            <Input
+                                              placeholder="Suite 100"
+                                              {...field}
+                                            />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
@@ -1018,13 +1236,16 @@ export default function SellerDashboard() {
                                         <FormItem>
                                           <FormLabel>City</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="New York" {...field} />
+                                            <Input
+                                              placeholder="New York"
+                                              {...field}
+                                            />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
                                       )}
                                     />
-                                    
+
                                     <FormField
                                       control={form.control}
                                       name="region"
@@ -1032,13 +1253,16 @@ export default function SellerDashboard() {
                                         <FormItem>
                                           <FormLabel>State/Region</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="NY" {...field} />
+                                            <Input
+                                              placeholder="NY"
+                                              {...field}
+                                            />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
                                       )}
                                     />
-                                    
+
                                     <FormField
                                       control={form.control}
                                       name="postalCode"
@@ -1046,7 +1270,10 @@ export default function SellerDashboard() {
                                         <FormItem>
                                           <FormLabel>Postal Code</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="10001" {...field} />
+                                            <Input
+                                              placeholder="10001"
+                                              {...field}
+                                            />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
@@ -1059,16 +1286,26 @@ export default function SellerDashboard() {
                                     name="serviceAreaPolygon"
                                     render={({ field }) => (
                                       <FormItem>
-                                        <FormLabel>Service Area Coverage (GeoJSON)</FormLabel>
+                                        <FormLabel>
+                                          Service Area Coverage (GeoJSON)
+                                        </FormLabel>
                                         <FormControl>
-                                          <Textarea 
+                                          <Textarea
                                             placeholder='Optional: Enter GeoJSON for service area coverage, e.g., {"type": "Polygon", "coordinates": [...]}'
                                             className="min-h-[100px]"
                                             {...field}
-                                            value={field.value ? JSON.stringify(field.value) : ''}
+                                            value={
+                                              field.value
+                                                ? JSON.stringify(field.value)
+                                                : ""
+                                            }
                                             onChange={(e) => {
                                               try {
-                                                field.onChange(e.target.value ? JSON.parse(e.target.value) : null);
+                                                field.onChange(
+                                                  e.target.value
+                                                    ? JSON.parse(e.target.value)
+                                                    : null,
+                                                );
                                               } catch {
                                                 field.onChange(e.target.value);
                                               }
@@ -1076,7 +1313,8 @@ export default function SellerDashboard() {
                                           />
                                         </FormControl>
                                         <FormDescription>
-                                          Define the geographical area where you provide services
+                                          Define the geographical area where you
+                                          provide services
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
@@ -1091,29 +1329,38 @@ export default function SellerDashboard() {
                                 <Clock className="w-5 h-5" />
                                 Service Details & Availability
                               </h3>
-                              
+
                               <div className="grid grid-cols-2 gap-4">
                                 <FormField
                                   control={form.control}
                                   name="durationMinutes"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>Service Duration (minutes)</FormLabel>
+                                      <FormLabel>
+                                        Service Duration (minutes)
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input type="number" placeholder="60" {...field} />
+                                        <Input
+                                          type="number"
+                                          placeholder="60"
+                                          {...field}
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
                                   )}
                                 />
-                                
+
                                 <FormField
                                   control={form.control}
                                   name="pricingModel"
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>Pricing Model</FormLabel>
-                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                      >
                                         <FormControl>
                                           <SelectTrigger>
                                             <SelectValue placeholder="Select pricing model" />
@@ -1121,7 +1368,10 @@ export default function SellerDashboard() {
                                         </FormControl>
                                         <SelectContent>
                                           {pricingModels.map((model) => (
-                                            <SelectItem key={model.value} value={model.value}>
+                                            <SelectItem
+                                              key={model.value}
+                                              value={model.value}
+                                            >
                                               {model.label}
                                             </SelectItem>
                                           ))}
@@ -1139,9 +1389,15 @@ export default function SellerDashboard() {
                                   name="advanceBookingDays"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>Advance Booking (days)</FormLabel>
+                                      <FormLabel>
+                                        Advance Booking (days)
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input type="number" placeholder="7" {...field} />
+                                        <Input
+                                          type="number"
+                                          placeholder="7"
+                                          {...field}
+                                        />
                                       </FormControl>
                                       <FormDescription>
                                         How far in advance can customers book?
@@ -1150,15 +1406,21 @@ export default function SellerDashboard() {
                                     </FormItem>
                                   )}
                                 />
-                                
+
                                 <FormField
                                   control={form.control}
                                   name="ageRestriction"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>Age Restriction (if any)</FormLabel>
+                                      <FormLabel>
+                                        Age Restriction (if any)
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input type="number" placeholder="18" {...field} />
+                                        <Input
+                                          type="number"
+                                          placeholder="18"
+                                          {...field}
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
@@ -1173,17 +1435,28 @@ export default function SellerDashboard() {
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>Tax Class</FormLabel>
-                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                      >
                                         <FormControl>
                                           <SelectTrigger>
                                             <SelectValue placeholder="Select tax class" />
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                          <SelectItem value="services_basic">Services Basic</SelectItem>
-                                          <SelectItem value="personal_training">Personal Training</SelectItem>
-                                          <SelectItem value="beauty_services">Beauty Services</SelectItem>
-                                          <SelectItem value="exempt">Tax Exempt</SelectItem>
+                                          <SelectItem value="services_basic">
+                                            Services Basic
+                                          </SelectItem>
+                                          <SelectItem value="personal_training">
+                                            Personal Training
+                                          </SelectItem>
+                                          <SelectItem value="beauty_services">
+                                            Beauty Services
+                                          </SelectItem>
+                                          <SelectItem value="exempt">
+                                            Tax Exempt
+                                          </SelectItem>
                                         </SelectContent>
                                       </Select>
                                       <FormMessage />
@@ -1197,15 +1470,22 @@ export default function SellerDashboard() {
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>Availability Type</FormLabel>
-                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                      >
                                         <FormControl>
                                           <SelectTrigger>
                                             <SelectValue placeholder="Select availability type" />
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                          <SelectItem value="fixed_hours">Fixed Hours</SelectItem>
-                                          <SelectItem value="by_appointment">By Appointment</SelectItem>
+                                          <SelectItem value="fixed_hours">
+                                            Fixed Hours
+                                          </SelectItem>
+                                          <SelectItem value="by_appointment">
+                                            By Appointment
+                                          </SelectItem>
                                         </SelectContent>
                                       </Select>
                                       <FormMessage />
@@ -1221,7 +1501,9 @@ export default function SellerDashboard() {
                                   render={({ field }) => (
                                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                       <div className="space-y-0.5">
-                                        <FormLabel>Materials Included</FormLabel>
+                                        <FormLabel>
+                                          Materials Included
+                                        </FormLabel>
                                         <FormDescription>
                                           Are materials/supplies included?
                                         </FormDescription>
@@ -1235,14 +1517,16 @@ export default function SellerDashboard() {
                                     </FormItem>
                                   )}
                                 />
-                                
+
                                 <FormField
                                   control={form.control}
                                   name="rescheduleAllowed"
                                   render={({ field }) => (
                                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                       <div className="space-y-0.5">
-                                        <FormLabel>Allow Rescheduling</FormLabel>
+                                        <FormLabel>
+                                          Allow Rescheduling
+                                        </FormLabel>
                                         <FormDescription>
                                           Can customers reschedule?
                                         </FormDescription>
@@ -1264,30 +1548,38 @@ export default function SellerDashboard() {
                                 <Shield className="w-5 h-5" />
                                 Compliance & Insurance
                               </h3>
-                              
+
                               <FormField
                                 control={form.control}
                                 name="insurancePolicyNumber"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Insurance Policy Number (optional)</FormLabel>
+                                    <FormLabel>
+                                      Insurance Policy Number (optional)
+                                    </FormLabel>
                                     <FormControl>
-                                      <Input placeholder="POL-123456789" {...field} />
+                                      <Input
+                                        placeholder="POL-123456789"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
-                              
+
                               <FormField
                                 control={form.control}
                                 name="liabilityWaiverRequired"
                                 render={({ field }) => (
                                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                     <div className="space-y-0.5">
-                                      <FormLabel>Liability Waiver Required</FormLabel>
+                                      <FormLabel>
+                                        Liability Waiver Required
+                                      </FormLabel>
                                       <FormDescription>
-                                        Do customers need to sign a liability waiver?
+                                        Do customers need to sign a liability
+                                        waiver?
                                       </FormDescription>
                                     </div>
                                     <FormControl>
@@ -1308,14 +1600,22 @@ export default function SellerDashboard() {
                                     <FormItem>
                                       <FormLabel>Operating Hours</FormLabel>
                                       <FormControl>
-                                        <Textarea 
+                                        <Textarea
                                           placeholder="E.g., Mon-Fri: 9:00 AM - 6:00 PM, Sat: 10:00 AM - 4:00 PM"
                                           className="min-h-[80px]"
                                           {...field}
-                                          value={field.value ? JSON.stringify(field.value) : ''}
+                                          value={
+                                            field.value
+                                              ? JSON.stringify(field.value)
+                                              : ""
+                                          }
                                           onChange={(e) => {
                                             try {
-                                              field.onChange(e.target.value ? JSON.parse(e.target.value) : null);
+                                              field.onChange(
+                                                e.target.value
+                                                  ? JSON.parse(e.target.value)
+                                                  : null,
+                                              );
                                             } catch {
                                               field.onChange(e.target.value);
                                             }
@@ -1335,12 +1635,14 @@ export default function SellerDashboard() {
                                   name="cancellationPolicyUrl"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel>Cancellation Policy URL</FormLabel>
+                                      <FormLabel>
+                                        Cancellation Policy URL
+                                      </FormLabel>
                                       <FormControl>
-                                        <Input 
-                                          type="url" 
-                                          placeholder="https://example.com/cancellation-policy" 
-                                          {...field} 
+                                        <Input
+                                          type="url"
+                                          placeholder="https://example.com/cancellation-policy"
+                                          {...field}
                                         />
                                       </FormControl>
                                       <FormDescription>
@@ -1357,16 +1659,19 @@ export default function SellerDashboard() {
                                 name="healthSafetyCert"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Health & Safety Certificate URL</FormLabel>
+                                    <FormLabel>
+                                      Health & Safety Certificate URL
+                                    </FormLabel>
                                     <FormControl>
-                                      <Input 
-                                        type="url" 
-                                        placeholder="https://example.com/certificate.pdf" 
-                                        {...field} 
+                                      <Input
+                                        type="url"
+                                        placeholder="https://example.com/certificate.pdf"
+                                        {...field}
                                       />
                                     </FormControl>
                                     <FormDescription>
-                                      Link to health and safety certification (optional)
+                                      Link to health and safety certification
+                                      (optional)
                                     </FormDescription>
                                     <FormMessage />
                                   </FormItem>
@@ -1379,7 +1684,7 @@ export default function SellerDashboard() {
                                 <Users className="w-5 h-5" />
                                 Staff Management (Optional)
                               </h3>
-                              
+
                               <FormField
                                 control={form.control}
                                 name="staff"
@@ -1388,81 +1693,122 @@ export default function SellerDashboard() {
                                     <FormLabel>Staff Members</FormLabel>
                                     <FormControl>
                                       <div className="space-y-4">
-                                        {(!field.value || field.value.length === 0) ? (
+                                        {!field.value ||
+                                        field.value.length === 0 ? (
                                           <div className="text-sm text-muted-foreground p-4 border-2 border-dashed rounded-lg">
                                             No staff members added yet
                                           </div>
                                         ) : (
-                                          field.value.map((staff: any, index: number) => (
-                                            <div key={index} className="p-4 border rounded-lg space-y-3">
-                                              <div className="flex justify-between">
-                                                <h4 className="font-medium">Staff Member {index + 1}</h4>
-                                                <Button
-                                                  type="button"
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  onClick={() => {
-                                                    const newStaff = [...(field.value || [])];
-                                                    newStaff.splice(index, 1);
-                                                    field.onChange(newStaff);
-                                                  }}
-                                                >
-                                                  <Trash2 className="w-4 h-4" />
-                                                </Button>
+                                          field.value.map(
+                                            (staff: any, index: number) => (
+                                              <div
+                                                key={index}
+                                                className="p-4 border rounded-lg space-y-3"
+                                              >
+                                                <div className="flex justify-between">
+                                                  <h4 className="font-medium">
+                                                    Staff Member {index + 1}
+                                                  </h4>
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                      const newStaff = [
+                                                        ...(field.value || []),
+                                                      ];
+                                                      newStaff.splice(index, 1);
+                                                      field.onChange(newStaff);
+                                                    }}
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />
+                                                  </Button>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                  <Input
+                                                    placeholder="Staff name"
+                                                    value={staff.name || ""}
+                                                    onChange={(e) => {
+                                                      const newStaff = [
+                                                        ...(field.value || []),
+                                                      ];
+                                                      newStaff[index] = {
+                                                        ...newStaff[index],
+                                                        name: e.target.value,
+                                                      };
+                                                      field.onChange(newStaff);
+                                                    }}
+                                                  />
+                                                  <Input
+                                                    placeholder="Skills (comma separated)"
+                                                    value={staff.skills || ""}
+                                                    onChange={(e) => {
+                                                      const newStaff = [
+                                                        ...(field.value || []),
+                                                      ];
+                                                      newStaff[index] = {
+                                                        ...newStaff[index],
+                                                        skills: e.target.value,
+                                                      };
+                                                      field.onChange(newStaff);
+                                                    }}
+                                                  />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                  <Input
+                                                    placeholder="Availability (e.g., Mon-Fri 9-5)"
+                                                    value={
+                                                      staff.availability || ""
+                                                    }
+                                                    onChange={(e) => {
+                                                      const newStaff = [
+                                                        ...(field.value || []),
+                                                      ];
+                                                      newStaff[index] = {
+                                                        ...newStaff[index],
+                                                        availability:
+                                                          e.target.value,
+                                                      };
+                                                      field.onChange(newStaff);
+                                                    }}
+                                                  />
+                                                  <Input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min="0"
+                                                    max="5"
+                                                    placeholder="Rating (0-5)"
+                                                    value={staff.rating || ""}
+                                                    onChange={(e) => {
+                                                      const newStaff = [
+                                                        ...(field.value || []),
+                                                      ];
+                                                      newStaff[index] = {
+                                                        ...newStaff[index],
+                                                        rating: e.target.value,
+                                                      };
+                                                      field.onChange(newStaff);
+                                                    }}
+                                                  />
+                                                </div>
                                               </div>
-                                              <div className="grid grid-cols-2 gap-3">
-                                                <Input
-                                                  placeholder="Staff name"
-                                                  value={staff.name || ''}
-                                                  onChange={(e) => {
-                                                    const newStaff = [...(field.value || [])];
-                                                    newStaff[index] = { ...newStaff[index], name: e.target.value };
-                                                    field.onChange(newStaff);
-                                                  }}
-                                                />
-                                                <Input
-                                                  placeholder="Skills (comma separated)"
-                                                  value={staff.skills || ''}
-                                                  onChange={(e) => {
-                                                    const newStaff = [...(field.value || [])];
-                                                    newStaff[index] = { ...newStaff[index], skills: e.target.value };
-                                                    field.onChange(newStaff);
-                                                  }}
-                                                />
-                                              </div>
-                                              <div className="grid grid-cols-2 gap-3">
-                                                <Input
-                                                  placeholder="Availability (e.g., Mon-Fri 9-5)"
-                                                  value={staff.availability || ''}
-                                                  onChange={(e) => {
-                                                    const newStaff = [...(field.value || [])];
-                                                    newStaff[index] = { ...newStaff[index], availability: e.target.value };
-                                                    field.onChange(newStaff);
-                                                  }}
-                                                />
-                                                <Input
-                                                  type="number"
-                                                  step="0.1"
-                                                  min="0"
-                                                  max="5"
-                                                  placeholder="Rating (0-5)"
-                                                  value={staff.rating || ''}
-                                                  onChange={(e) => {
-                                                    const newStaff = [...(field.value || [])];
-                                                    newStaff[index] = { ...newStaff[index], rating: e.target.value };
-                                                    field.onChange(newStaff);
-                                                  }}
-                                                />
-                                              </div>
-                                            </div>
-                                          ))
+                                            ),
+                                          )
                                         )}
                                         <Button
                                           type="button"
                                           variant="outline"
                                           className="w-full"
                                           onClick={() => {
-                                            const newStaff = [...(field.value || []), { name: '', skills: '', availability: '', rating: '' }];
+                                            const newStaff = [
+                                              ...(field.value || []),
+                                              {
+                                                name: "",
+                                                skills: "",
+                                                availability: "",
+                                                rating: "",
+                                              },
+                                            ];
                                             field.onChange(newStaff);
                                           }}
                                         >
@@ -1472,7 +1818,8 @@ export default function SellerDashboard() {
                                       </div>
                                     </FormControl>
                                     <FormDescription>
-                                      Add staff members who will provide this service
+                                      Add staff members who will provide this
+                                      service
                                     </FormDescription>
                                     <FormMessage />
                                   </FormItem>
@@ -1485,7 +1832,7 @@ export default function SellerDashboard() {
                                 <Star className="w-5 h-5" />
                                 Reviews & Ratings
                               </h3>
-                              
+
                               <div className="grid grid-cols-2 gap-4">
                                 <FormField
                                   control={form.control}
@@ -1494,14 +1841,14 @@ export default function SellerDashboard() {
                                     <FormItem>
                                       <FormLabel>Average Rating</FormLabel>
                                       <FormControl>
-                                        <Input 
-                                          type="number" 
-                                          step="0.1" 
-                                          min="0" 
-                                          max="5" 
-                                          placeholder="0.0" 
-                                          {...field} 
-                                          disabled 
+                                        <Input
+                                          type="number"
+                                          step="0.1"
+                                          min="0"
+                                          max="5"
+                                          placeholder="0.0"
+                                          {...field}
+                                          disabled
                                         />
                                       </FormControl>
                                       <FormDescription>
@@ -1511,7 +1858,7 @@ export default function SellerDashboard() {
                                     </FormItem>
                                   )}
                                 />
-                                
+
                                 <FormField
                                   control={form.control}
                                   name="reviewCount"
@@ -1519,11 +1866,11 @@ export default function SellerDashboard() {
                                     <FormItem>
                                       <FormLabel>Total Reviews</FormLabel>
                                       <FormControl>
-                                        <Input 
-                                          type="number" 
-                                          placeholder="0" 
-                                          {...field} 
-                                          disabled 
+                                        <Input
+                                          type="number"
+                                          placeholder="0"
+                                          {...field}
+                                          disabled
                                         />
                                       </FormControl>
                                       <FormDescription>
@@ -1534,19 +1881,25 @@ export default function SellerDashboard() {
                                   )}
                                 />
                               </div>
-                              
+
                               <FormField
                                 control={form.control}
                                 name="highlightedTestimonials"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Highlighted Testimonials</FormLabel>
+                                    <FormLabel>
+                                      Highlighted Testimonials
+                                    </FormLabel>
                                     <FormControl>
                                       <Textarea
                                         placeholder="Featured customer testimonials will appear here"
                                         className="min-h-[100px]"
                                         {...field}
-                                        value={field.value ? JSON.stringify(field.value) : ''}
+                                        value={
+                                          field.value
+                                            ? JSON.stringify(field.value)
+                                            : ""
+                                        }
                                         disabled
                                       />
                                     </FormControl>
@@ -1560,7 +1913,7 @@ export default function SellerDashboard() {
                             </div>
                           </>
                         )}
-                        
+
                         {/* Pricing Fields - Show for both categories */}
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
@@ -1570,28 +1923,42 @@ export default function SellerDashboard() {
                               <FormItem>
                                 <FormLabel>Original Price ($) *</FormLabel>
                                 <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-original-price" />
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    {...field}
+                                    data-testid="input-original-price"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                          
+
                           <FormField
                             control={form.control}
                             name="discountPrice"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Group Discount Price ($) *</FormLabel>
+                                <FormLabel>
+                                  Group Discount Price ($) *
+                                </FormLabel>
                                 <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-discount-price" />
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    {...field}
+                                    data-testid="input-discount-price"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
@@ -1600,13 +1967,17 @@ export default function SellerDashboard() {
                               <FormItem>
                                 <FormLabel>Minimum Participants *</FormLabel>
                                 <FormControl>
-                                  <Input type="number" {...field} data-testid="input-min-participants" />
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    data-testid="input-min-participants"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                          
+
                           <FormField
                             control={form.control}
                             name="maximumParticipants"
@@ -1614,14 +1985,18 @@ export default function SellerDashboard() {
                               <FormItem>
                                 <FormLabel>Maximum Participants *</FormLabel>
                                 <FormControl>
-                                  <Input type="number" {...field} data-testid="input-max-participants" />
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    data-testid="input-max-participants"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
                         </div>
-                        
+
                         {/* Offer Valid Till Field */}
                         <FormField
                           control={form.control}
@@ -1646,7 +2021,10 @@ export default function SellerDashboard() {
                                     </Button>
                                   </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent
+                                  className="w-auto p-0"
+                                  align="start"
+                                >
                                   <Calendar
                                     mode="single"
                                     selected={field.value}
@@ -1660,13 +2038,25 @@ export default function SellerDashboard() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <div className="flex justify-end space-x-4">
-                          <Button type="button" variant="outline" onClick={() => setProductDialogOpen(false)}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setProductDialogOpen(false)}
+                          >
                             Cancel
                           </Button>
-                          <Button type="submit" disabled={addProductMutation.isPending} data-testid="button-submit-product">
-                            {addProductMutation.isPending ? "Adding..." : isServiceCategory ? "Add Service" : "Add Product"}
+                          <Button
+                            type="submit"
+                            disabled={addProductMutation.isPending}
+                            data-testid="button-submit-product"
+                          >
+                            {addProductMutation.isPending
+                              ? "Adding..."
+                              : isServiceCategory
+                                ? "Add Service"
+                                : "Add Product"}
                           </Button>
                         </div>
                       </form>
@@ -1689,41 +2079,59 @@ export default function SellerDashboard() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-semibold text-foreground" data-testid={`text-product-name-${product.id}`}>
+                            <h3
+                              className="text-lg font-semibold text-foreground"
+                              data-testid={`text-product-name-${product.id}`}
+                            >
                               {product.name}
                             </h3>
-                            <Badge variant={product.categoryId === 1 ? "default" : "secondary"}>
-                              {product.categoryId === 1 ? "Groceries" : "Services"}
+                            <Badge
+                              variant={
+                                product.categoryId === 1
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {product.categoryId === 1
+                                ? "Groceries"
+                                : "Services"}
                             </Badge>
                           </div>
-                          <p className="text-muted-foreground mb-3">{product.description}</p>
+                          <p className="text-muted-foreground mb-3">
+                            {product.description}
+                          </p>
                           <div className="flex items-center gap-4 text-sm">
                             <span className="flex items-center gap-1">
                               <DollarSign className="w-4 h-4" />
-                              <span className="line-through text-muted-foreground">${product.originalPrice}</span>
+                              <span className="line-through text-muted-foreground">
+                                ${product.originalPrice}
+                              </span>
                               <span className="font-semibold text-green-600">
-                                ${product.discountTiers?.[0]?.finalPrice || product.originalPrice}
+                                $
+                                {product.discountTiers?.[0]?.finalPrice ||
+                                  product.originalPrice}
                               </span>
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-4 h-4" />
-                              {product.minimumParticipants}-{product.maximumParticipants} participants
+                              {product.minimumParticipants}-
+                              {product.maximumParticipants} participants
                             </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-4">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleEditClick(product)}
                             data-testid={`button-edit-${product.id}`}
                           >
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
                           </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm" 
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => handleDeleteClick(product)}
                             data-testid={`button-delete-${product.id}`}
                           >
@@ -1738,9 +2146,16 @@ export default function SellerDashboard() {
               ) : (
                 <div className="text-center py-12">
                   <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No products yet</h3>
-                  <p className="text-muted-foreground mb-4">Start by adding your first product or service</p>
-                  <Button onClick={() => setProductDialogOpen(true)} data-testid="button-add-first-product">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    No products yet
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Start by adding your first product or service
+                  </p>
+                  <Button
+                    onClick={() => setProductDialogOpen(true)}
+                    data-testid="button-add-first-product"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Your First Product
                   </Button>
@@ -1765,20 +2180,26 @@ export default function SellerDashboard() {
                       <div className="flex justify-between items-center">
                         <div>
                           <h4 className="font-semibold">Order #{order.id}</h4>
-                          <p className="text-sm text-muted-foreground">Status: {order.status}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Status: {order.status}
+                          </p>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => handleStatusUpdate(order.id!, "processing")}
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "processing")
+                            }
                           >
                             Processing
                           </Button>
-                          <Button 
-                            variant="default" 
+                          <Button
+                            variant="default"
                             size="sm"
-                            onClick={() => handleStatusUpdate(order.id!, "shipped")}
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "shipped")
+                            }
                           >
                             Ship
                           </Button>
@@ -1791,7 +2212,9 @@ export default function SellerDashboard() {
                 <div className="text-center py-12">
                   <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold">No orders yet</h3>
-                  <p className="text-muted-foreground">Orders will appear here when customers make purchases.</p>
+                  <p className="text-muted-foreground">
+                    Orders will appear here when customers make purchases.
+                  </p>
                 </div>
               )}
             </div>
@@ -1801,8 +2224,12 @@ export default function SellerDashboard() {
           <TabsContent value="potential">
             <div className="text-center py-12">
               <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold">Potential Revenue Tracking</h3>
-              <p className="text-muted-foreground">Advanced revenue analytics coming soon.</p>
+              <h3 className="text-lg font-semibold">
+                Potential Revenue Tracking
+              </h3>
+              <p className="text-muted-foreground">
+                Advanced revenue analytics coming soon.
+              </p>
             </div>
           </TabsContent>
         </Tabs>
@@ -1814,7 +2241,10 @@ export default function SellerDashboard() {
               <DialogTitle>Edit Product/Service</DialogTitle>
             </DialogHeader>
             <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <form
+                onSubmit={editForm.handleSubmit(onEditSubmit)}
+                className="space-y-4"
+              >
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={editForm.control}
@@ -1843,7 +2273,7 @@ export default function SellerDashboard() {
                     )}
                   />
                 </div>
-                
+
                 <FormField
                   control={editForm.control}
                   name="description"
@@ -1888,11 +2318,20 @@ export default function SellerDashboard() {
                 </div>
 
                 <div className="flex justify-end space-x-4">
-                  <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={editProductMutation.isPending}>
-                    {editProductMutation.isPending ? "Updating..." : "Update Product"}
+                  <Button
+                    type="submit"
+                    disabled={editProductMutation.isPending}
+                  >
+                    {editProductMutation.isPending
+                      ? "Updating..."
+                      : "Update Product"}
                   </Button>
                 </div>
               </form>
@@ -1907,15 +2346,23 @@ export default function SellerDashboard() {
               <DialogTitle>Delete Product</DialogTitle>
             </DialogHeader>
             <div className="py-4">
-              <p>Are you sure you want to delete "<strong>{productToDelete?.name}</strong>"?</p>
-              <p className="text-sm text-muted-foreground mt-2">This action cannot be undone.</p>
+              <p>
+                Are you sure you want to delete "
+                <strong>{productToDelete?.name}</strong>"?
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                This action cannot be undone.
+              </p>
             </div>
             <div className="flex justify-end space-x-4">
-              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => {
                   if (productToDelete) {
                     deleteProductMutation.mutate(productToDelete.id!);
