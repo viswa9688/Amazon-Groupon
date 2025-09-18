@@ -190,7 +190,7 @@ export default function Checkout() {
             return;
           }
         } 
-        // Handle individual payment via URL params
+        // Handle individual payment via URL params (path-based routes)
         else if (match && params) {
           const { productId, type } = params;
           setIsGroupPayment(false);
@@ -207,16 +207,54 @@ export default function Checkout() {
           // Create individual payment intent
           const response = await apiRequest("POST", "/api/create-payment-intent", {
             amount: paymentAmount,
-            productId: parseInt(productId),
+            productId: productId,
             type,
           });
           const data = await response.json();
           setClientSecret(data.clientSecret);
           setAmount(paymentAmount);
           setIsLoading(false);
-        } else {
-          // Neither group payment nor individual payment - this shouldn't happen
+        } 
+        // Handle individual payment via query params (fallback)
+        else if (urlParams.get('productId')) {
+          const productIdParam = urlParams.get('productId');
+          if (!productIdParam) return;
+          const productId = parseInt(productIdParam);
+          const type = urlParams.get('type') || 'individual';
+          setIsGroupPayment(false);
+          
+          // Get product details
+          const productResponse = await apiRequest("GET", `/api/products/${productId}`);
+          const product = await productResponse.json();
+          setProductName(product.name);
+          setProductData(product);
+
+          let paymentAmount = parseFloat(product.originalPrice);
+          setOriginalAmount(paymentAmount);
+
+          // Create individual payment intent
+          const response = await apiRequest("POST", "/api/create-payment-intent", {
+            amount: paymentAmount,
+            productId: productId,
+            type,
+          });
+          const data = await response.json();
+          setClientSecret(data.clientSecret);
+          setAmount(paymentAmount);
+          setIsLoading(false);
+        } 
+        else {
+          // No valid payment type detected - show error
           console.error("Invalid checkout URL - no valid payment type detected");
+          console.log("URL parameters:", {
+            queryType,
+            queryUserGroupId,
+            queryGroup,
+            queryMember,
+            productId: urlParams.get('productId'),
+            match,
+            params
+          });
           setIsLoading(false);
         }
       } catch (error) {
@@ -226,7 +264,7 @@ export default function Checkout() {
     };
 
     initializePayment();
-  }, []); // Empty dependency array to run only once
+  }, [queryType, queryUserGroupId, queryGroup, queryMember, match]); // Include dependencies for re-initialization if URL changes
 
   // Create group payment intent when address is selected
   useEffect(() => {
