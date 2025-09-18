@@ -39,7 +39,7 @@ import {
   Clock,
   AlertTriangle
 } from "lucide-react";
-import type { UserGroupWithDetails, ProductWithDetails } from "@shared/schema";
+import type { UserGroupWithDetails, ProductWithDetails, UserGroupParticipant, User } from "@shared/schema";
 
 // Form schemas
 const editGroupSchema = z.object({
@@ -98,13 +98,13 @@ export default function UserGroupPage() {
   const isOwner = userGroup?.userId === user?.id;
 
   // Get pending participants (owner only)
-  const { data: pendingParticipants = [], isLoading: pendingLoading } = useQuery({
+  const { data: pendingParticipants = [], isLoading: pendingLoading } = useQuery<(UserGroupParticipant & { user: User })[]>({
     queryKey: ["/api/user-groups", groupId, "pending"],
     enabled: isAuthenticated && !!groupId && isOwner,
   });
 
   // Get approved participants (owner only)
-  const { data: approvedParticipants = [], isLoading: approvedLoading } = useQuery({
+  const { data: approvedParticipants = [], isLoading: approvedLoading } = useQuery<(UserGroupParticipant & { user: User })[]>({
     queryKey: ["/api/user-groups", groupId, "approved"],
     enabled: isAuthenticated && !!groupId && isOwner,
   });

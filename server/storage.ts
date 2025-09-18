@@ -715,6 +715,8 @@ export class DatabaseStorage implements IStorage {
       groupQuantity: number;
       individualSavings: number;
     }>;
+    isAlreadyMember: boolean;
+    isFull: boolean;
   }>> {
     // Get user's cart
     const userCart = await this.getUserCart(userId);
@@ -870,7 +872,7 @@ export class DatabaseStorage implements IStorage {
         totalSavings: bestSingleGroup.potentialSavings,
         coverage,
         uncoveredProducts,
-        recommendationType: 'single_best',
+        recommendationType: 'single_best' as const,
         description: `Join ${bestSingleGroup.userGroup.name} - matches ${bestSingleGroup.matchingProducts} of your items with $${bestSingleGroup.potentialSavings.toFixed(2)} total savings`,
       });
     }
@@ -901,7 +903,7 @@ export class DatabaseStorage implements IStorage {
           totalSavings: totalCombinedSavings,
           coverage: combinedCoverage,
           uncoveredProducts,
-          recommendationType: 'multi_group',
+          recommendationType: 'multi_group' as const,
           description: `Join ${topGroups.length} collections to cover ${allCoveredProductIds.size} products with $${totalCombinedSavings.toFixed(2)} total savings`,
         });
       }
@@ -922,7 +924,7 @@ export class DatabaseStorage implements IStorage {
           totalSavings: perfectMatch.potentialSavings,
           coverage,
           uncoveredProducts,
-          recommendationType: 'complete_coverage',
+          recommendationType: 'complete_coverage' as const,
           description: `Perfect match! ${perfectMatch.userGroup.name} covers ${perfectMatch.matchingProducts} of your ${cartProducts.length} items`,
         });
       }
