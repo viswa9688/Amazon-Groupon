@@ -1719,7 +1719,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let event;
 
     try {
+      // In development, we might not have proper webhook signature verification
+      // For now, we'll accept the raw body and add extensive logging
       event = req.body;
+      console.log("Webhook received:", JSON.stringify(event, null, 2));
     } catch (err) {
       console.error("Webhook signature verification failed:", err);
       return res.status(400).send(`Webhook Error: ${err}`);
@@ -1730,6 +1733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       case "payment_intent.succeeded":
         const paymentIntent = event.data.object;
         console.log("Payment succeeded:", paymentIntent.id);
+        console.log("Payment metadata:", paymentIntent.metadata);
         
         try {
           const type = paymentIntent.metadata.type || "individual";

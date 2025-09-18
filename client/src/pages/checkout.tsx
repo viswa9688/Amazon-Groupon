@@ -20,13 +20,17 @@ const CheckoutForm = ({
   productId, 
   type, 
   userGroupId, 
-  selectedAddressId 
+  selectedAddressId,
+  groupData,
+  selectedAddress
 }: { 
   amount: number; 
   productId?: number; 
   type: string; 
   userGroupId?: number; 
-  selectedAddressId?: number; 
+  selectedAddressId?: number;
+  groupData?: any;
+  selectedAddress?: any;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -72,8 +76,35 @@ const CheckoutForm = ({
         } catch (orderError) {
           console.log("Order creation handled by webhook"); // This is fine, webhook will create it
         }
+      } else if (type === 'group' && userGroupId && groupData) {
+        // For group payments, create order records as backup (in case webhook fails)
+        try {
+          console.log("Creating backup orders for group payment...");
+          
+          // Create order for each item in the group
+          for (const item of groupData.items) {
+            // Calculate discounted price using the same method as user-group page
+            const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+            const discountedPrice = parseFloat(discountPrice.toString());
+            
+            await apiRequest("POST", "/api/orders", {
+              productId: item.product.id,
+              quantity: item.quantity,
+              unitPrice: discountedPrice.toFixed(2),
+              totalPrice: (discountedPrice * item.quantity).toFixed(2),
+              finalPrice: (discountedPrice * item.quantity).toFixed(2),
+              status: "completed",
+              type: "group",
+              shippingAddress: selectedAddress ? 
+                `${selectedAddress.fullName}, ${selectedAddress.addressLine}, ${selectedAddress.city}, ${selectedAddress.state || ''} ${selectedAddress.pincode}, ${selectedAddress.country || 'US'}` :
+                "International Shipping Address"
+            });
+          }
+          console.log("Backup orders created successfully for group payment");
+        } catch (orderError) {
+          console.log("Order creation handled by webhook or failed:", orderError); // This is fine, webhook will create it
+        }
       }
-      // For group payments, order creation is handled entirely by webhook using metadata
 
       toast({
         title: "Payment Successful",
@@ -720,6 +751,8 @@ export default function Checkout() {
                         type={isGroupPayment ? "group" : (params?.type || "individual")}
                         userGroupId={userGroupId || undefined}
                         selectedAddressId={selectedAddressId || undefined}
+                        groupData={groupData}
+                        selectedAddress={selectedAddress}
                       />
                     </Elements>
                   </div>
