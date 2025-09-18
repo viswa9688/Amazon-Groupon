@@ -708,17 +708,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid order ID" });
       }
 
-      const order = await storage.getOrder(orderId);
+      console.log("Fetching order with items for order ID:", orderId);
+      const order = await storage.getOrderWithItems(orderId);
       
       if (!order) {
+        console.log("Order not found for ID:", orderId);
         return res.status(404).json({ message: "Order not found" });
       }
 
       // Check if order belongs to user
       if (order.userId !== userId) {
+        console.log("Access denied for user:", userId, "order belongs to:", order.userId);
         return res.status(403).json({ message: "Access denied" });
       }
 
+      console.log("Order found with items:", order.items?.length || 0);
       res.json(order);
     } catch (error) {
       console.error("Error fetching order:", error);

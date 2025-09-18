@@ -33,15 +33,9 @@ export default function OrderDetails() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: order, isLoading: orderLoading, error } = useQuery<Order>({
+  const { data: order, isLoading: orderLoading, error } = useQuery<Order & { items: any[] }>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId && !!isAuthenticated,
-    retry: false,
-  });
-
-  const { data: product } = useQuery<Product>({
-    queryKey: ["/api/products", order?.productId],
-    enabled: !!order?.productId,
     retry: false,
   });
 
@@ -146,34 +140,50 @@ export default function OrderDetails() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {product && (
-                  <div className="flex gap-4">
-                    <img
-                      src={product.imageUrl || `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop`}
-                      alt={product.name}
-                      className="w-24 h-24 object-cover rounded-lg"
-                      data-testid="img-product"
-                    />
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-foreground" data-testid="text-product-name">
-                        {product.name}
-                      </h3>
-                      <p className="text-muted-foreground mt-1" data-testid="text-product-description">
-                        {product.description}
-                      </p>
-                      <div className="mt-3 flex items-center justify-between">
-                        <div>
-                          <span className="text-sm text-muted-foreground">Purchase Type: </span>
-                          <Badge variant="outline" data-testid="badge-purchase-type">
-                            {order.type.charAt(0).toUpperCase() + order.type.slice(1)}
-                          </Badge>
-                        </div>
-                        <div>
-                          <span className="text-sm text-muted-foreground">Quantity: </span>
-                          <span className="font-medium" data-testid="text-quantity">{order.quantity}</span>
+                {order?.items && order.items.length > 0 ? (
+                  <div className="space-y-4">
+                    {order.items.map((item: any, index: number) => (
+                      <div key={index} className="flex gap-4 p-4 border rounded-lg">
+                        <img
+                          src={item.product?.imageUrl || `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop`}
+                          alt={item.product?.name || 'Product'}
+                          className="w-24 h-24 object-cover rounded-lg"
+                          data-testid={`img-product-${index}`}
+                        />
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-foreground" data-testid={`text-product-name-${index}`}>
+                            {item.product?.name || 'Product Name'}
+                          </h3>
+                          <p className="text-muted-foreground mt-1" data-testid={`text-product-description-${index}`}>
+                            {item.product?.description || 'Product description'}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Purchase Type: </span>
+                              <Badge variant="outline" data-testid={`badge-purchase-type-${index}`}>
+                                {order.type.charAt(0).toUpperCase() + order.type.slice(1)}
+                              </Badge>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Quantity: </span>
+                              <span className="font-medium" data-testid={`text-quantity-${index}`}>{item.quantity}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Unit Price: </span>
+                              <span className="font-medium" data-testid={`text-unit-price-${index}`}>${item.unitPrice}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Total: </span>
+                              <span className="font-medium" data-testid={`text-total-price-${index}`}>${item.totalPrice}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No product details available
                   </div>
                 )}
               </CardContent>
@@ -189,27 +199,64 @@ export default function OrderDetails() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Unit Price:</span>
-                    <span className="font-medium" data-testid="text-unit-price">${order.unitPrice}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Quantity:</span>
-                    <span data-testid="text-payment-quantity">{order.quantity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span data-testid="text-subtotal">${order.totalPrice}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Final Price:</span>
-                    <span data-testid="text-final-price">${order.finalPrice}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Total Paid:</span>
-                    <span className="text-primary" data-testid="text-total-paid">${order.finalPrice}</span>
-                  </div>
+                  {order?.items && order.items.length > 0 ? (
+                    <>
+                      {order.items.map((item: any, index: number) => (
+                        <div key={index} className="border rounded-lg p-3">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="font-medium">{item.product?.name || 'Product'}</span>
+                            <span className="text-sm text-muted-foreground">Qty: {item.quantity}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Unit Price:</span>
+                            <span data-testid={`text-unit-price-${index}`}>${item.unitPrice}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Item Total:</span>
+                            <span data-testid={`text-item-total-${index}`}>${item.totalPrice}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Order Total:</span>
+                        <span data-testid="text-order-total">${order.totalPrice}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Final Price:</span>
+                        <span data-testid="text-final-price">${order.finalPrice}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-semibold">
+                        <span>Total Paid:</span>
+                        <span className="text-primary" data-testid="text-total-paid">${order.finalPrice}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Unit Price:</span>
+                        <span className="font-medium" data-testid="text-unit-price">${order.unitPrice || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Quantity:</span>
+                        <span data-testid="text-payment-quantity">{order.quantity || 1}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal:</span>
+                        <span data-testid="text-subtotal">${order.totalPrice}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Final Price:</span>
+                        <span data-testid="text-final-price">${order.finalPrice}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-semibold">
+                        <span>Total Paid:</span>
+                        <span className="text-primary" data-testid="text-total-paid">${order.finalPrice}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Payment Status:</span>
                     <Badge className="bg-green-100 text-green-800" data-testid="badge-payment-status">
