@@ -216,7 +216,7 @@ export default function Checkout() {
           <CardHeader>
             <CardTitle>Complete Your Purchase</CardTitle>
             <CardDescription>
-              {productName}{amount > 0 ? ` - $${amount.toFixed(2)}` : ''}
+              {productName} - ${amount.toFixed(2)}
             </CardDescription>
           </CardHeader>
           <CardContent>
