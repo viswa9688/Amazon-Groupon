@@ -779,6 +779,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      // Check if group is locked (at max capacity)
+      const isLocked = await storage.isUserGroupLocked(groupId);
+      if (isLocked) {
+        return res.status(400).json({ 
+          message: "Cannot delete group - group is locked because it has reached maximum member capacity",
+          locked: true
+        });
+      }
+
       const success = await storage.deleteUserGroup(groupId);
       if (success) {
         res.json({ message: "User group deleted successfully" });
