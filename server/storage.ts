@@ -9,6 +9,7 @@ import {
   userGroups,
   userGroupItems,
   userGroupParticipants,
+  groupPayments,
   serviceProviders,
   serviceProviderStaff,
   adminCredentials,
@@ -33,6 +34,8 @@ import {
   type InsertUserGroupItem,
   type UserGroupParticipant,
   type InsertUserGroupParticipant,
+  type GroupPayment,
+  type InsertGroupPayment,
   type ProductWithDetails,
   type UserGroupWithDetails,
   type ServiceProvider,
@@ -132,6 +135,17 @@ export interface IStorage {
   addUserGroupParticipant(userGroupId: number, userId: string): Promise<UserGroupParticipant>;
   removeUserGroupParticipant(userGroupId: number, userId: string): Promise<boolean>;
   isUserGroupLocked(userGroupId: number): Promise<boolean>;
+  
+  // Group payment operations
+  createGroupPayment(payment: InsertGroupPayment): Promise<GroupPayment>;
+  getGroupPayment(paymentId: number): Promise<GroupPayment | undefined>;
+  getGroupPaymentsByUser(userId: string): Promise<GroupPayment[]>;
+  getGroupPaymentsByGroup(userGroupId: number): Promise<GroupPayment[]>;
+  getGroupPaymentsByProduct(userGroupId: number, productId: number): Promise<GroupPayment[]>;
+  getGroupPaymentByStripeIntent(stripePaymentIntentId: string): Promise<GroupPayment | undefined>;
+  updateGroupPaymentStatus(paymentId: number, status: string): Promise<GroupPayment>;
+  updateGroupPaymentStripeIntent(paymentId: number, stripePaymentIntentId: string): Promise<GroupPayment>;
+  hasUserPaidForProduct(userId: string, userGroupId: number, productId: number): Promise<boolean>;
   
   // Group matching and optimization operations
   findSimilarGroups(userId: string): Promise<Array<{
@@ -1697,6 +1711,93 @@ export class DatabaseStorage implements IStorage {
       console.error("Error checking if user group is locked:", error);
       return false; // Assume not locked on error
     }
+  }
+
+  // Group payment operations
+  async createGroupPayment(payment: InsertGroupPayment): Promise<GroupPayment> {
+    const [newPayment] = await db.insert(groupPayments).values(payment).returning();
+    return newPayment;
+  }
+
+  async getGroupPayment(paymentId: number): Promise<GroupPayment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(groupPayments)
+      .where(eq(groupPayments.id, paymentId));
+    return payment;
+  }
+
+  async getGroupPaymentsByUser(userId: string): Promise<GroupPayment[]> {
+    return await db
+      .select()
+      .from(groupPayments)
+      .where(eq(groupPayments.userId, userId))
+      .orderBy(desc(groupPayments.createdAt));
+  }
+
+  async getGroupPaymentsByGroup(userGroupId: number): Promise<GroupPayment[]> {
+    return await db
+      .select()
+      .from(groupPayments)
+      .where(eq(groupPayments.userGroupId, userGroupId))
+      .orderBy(desc(groupPayments.createdAt));
+  }
+
+  async getGroupPaymentsByProduct(userGroupId: number, productId: number): Promise<GroupPayment[]> {
+    return await db
+      .select()
+      .from(groupPayments)
+      .where(and(
+        eq(groupPayments.userGroupId, userGroupId),
+        eq(groupPayments.productId, productId)
+      ))
+      .orderBy(desc(groupPayments.createdAt));
+  }
+
+  async getGroupPaymentByStripeIntent(stripePaymentIntentId: string): Promise<GroupPayment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(groupPayments)
+      .where(eq(groupPayments.stripePaymentIntentId, stripePaymentIntentId));
+    return payment;
+  }
+
+  async updateGroupPaymentStatus(paymentId: number, status: string): Promise<GroupPayment> {
+    const [updatedPayment] = await db
+      .update(groupPayments)
+      .set({ 
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(groupPayments.id, paymentId))
+      .returning();
+    return updatedPayment;
+  }
+
+  async updateGroupPaymentStripeIntent(paymentId: number, stripePaymentIntentId: string): Promise<GroupPayment> {
+    const [updatedPayment] = await db
+      .update(groupPayments)
+      .set({ 
+        stripePaymentIntentId,
+        updatedAt: new Date()
+      })
+      .where(eq(groupPayments.id, paymentId))
+      .returning();
+    return updatedPayment;
+  }
+
+  async hasUserPaidForProduct(userId: string, userGroupId: number, productId: number): Promise<boolean> {
+    const [payment] = await db
+      .select({ id: groupPayments.id })
+      .from(groupPayments)
+      .where(and(
+        eq(groupPayments.userId, userId),
+        eq(groupPayments.userGroupId, userGroupId),
+        eq(groupPayments.productId, productId),
+        eq(groupPayments.status, "succeeded")
+      ))
+      .limit(1);
+    return !!payment;
   }
 
   // New methods for approval system
