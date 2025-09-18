@@ -664,7 +664,7 @@ export default function UserGroupPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Tabs for Products and Participants */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : 'grid-cols-3'} bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm mb-6`}>
+              <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : 'grid-cols-3'} bg-red-500 h-20 z-50 relative mb-6`}>
                 <TabsTrigger value="products" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   Items ({totalItems})
