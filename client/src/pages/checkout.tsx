@@ -138,14 +138,17 @@ export default function Checkout() {
         
         // Check if this is a group payment via query params (either old or new format)
         if ((queryType === 'group' && queryUserGroupId) || queryGroup) {
+          console.log("Detected group payment:", { queryType, queryUserGroupId, queryGroup, queryMember });
           setIsGroupPayment(true);
           
           if (queryGroup) {
             // New format: using share token and member ID
+            console.log("Processing group payment with share token:", queryGroup);
             try {
               // Get group details by share token
               const groupResponse = await apiRequest("GET", `/api/shared/${queryGroup}`);
               const groupDataResponse = await groupResponse.json();
+              console.log("Group data received:", groupDataResponse);
               setUserGroupId(groupDataResponse.id);
               setGroupData(groupDataResponse);
               
@@ -155,6 +158,7 @@ export default function Checkout() {
                   const memberResponse = await apiRequest("GET", `/api/auth/user`);
                   const member = await memberResponse.json();
                   setMemberDetails(member);
+                  console.log("Member details:", member);
                 } catch (error) {
                   console.log("Could not fetch member details");
                 }
@@ -164,20 +168,27 @@ export default function Checkout() {
               const approvedResponse = await apiRequest("GET", `/api/user-groups/${groupDataResponse.id}/approved`);
               const approved = await approvedResponse.json();
               setTotalMembers(approved.length + 1); // +1 for owner
+              console.log("Total members:", approved.length + 1);
               
               setProductName(`Group Purchase${queryMember ? ` for Member` : ""}`);
+              
+              // For group payments, we don't create PaymentIntent yet - wait for address selection
+              setIsLoading(false);
+              return; // Early return to prevent falling through
             } catch (error) {
               console.error("Error fetching group data:", error);
               setProductName("Group Purchase");
+              // Still continue with group payment setup even if there are errors
+              setIsLoading(false);
+              return;
             }
           } else if (queryUserGroupId) {
             // Old format: direct userGroupId
             setUserGroupId(parseInt(queryUserGroupId));
             setProductName("Group Purchase");
+            setIsLoading(false);
+            return;
           }
-          
-          // For group payments, we don't create PaymentIntent yet - wait for address selection
-          setIsLoading(false);
         } 
         // Handle individual payment via URL params
         else if (match && params) {
