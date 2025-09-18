@@ -117,6 +117,25 @@ export default function UserGroupPage() {
 
   const isLocked = lockedStatus?.isLocked || false;
 
+  // Check user participation status
+  const { data: participationStatus, isLoading: participationLoading } = useQuery<{
+    isParticipating: boolean;
+    status: string | null;
+    isPending: boolean;
+    isApproved: boolean;
+  }>({
+    queryKey: ["/api/user-groups", groupId, "participation"],
+    enabled: isAuthenticated && !!groupId,
+  });
+
+  const isApprovedParticipant = participationStatus?.isApproved || false;
+
+  // Handle Pay Now button click - redirect to checkout with group context
+  const handlePayNow = (productId: number, amount: number) => {
+    // Redirect to checkout with group payment context
+    setLocation(`/checkout?type=group&userGroupId=${groupId}&productId=${productId}&amount=${amount}`);
+  };
+
   // Edit group form
   const editForm = useForm<z.infer<typeof editGroupSchema>>({
     resolver: zodResolver(editGroupSchema),
@@ -815,7 +834,7 @@ export default function UserGroupPage() {
                             </div>
                           </div>
                           
-                          {/* Quantity Controls */}
+                          {/* Quantity Controls and Pay Now Button */}
                           <div className="flex items-center space-x-2">
                             {isOwner && (
                               <Button 
@@ -853,6 +872,19 @@ export default function UserGroupPage() {
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
                               </>
+                            )}
+                            
+                            {/* Pay Now Button for approved participants */}
+                            {!isOwner && isApprovedParticipant && (
+                              <Button 
+                                size="sm"
+                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                                onClick={() => handlePayNow(item.productId, discountPrice)}
+                                data-testid={`button-pay-now-${item.product.id}`}
+                              >
+                                <DollarSign className="w-4 h-4 mr-2" />
+                                Pay Now ${discountPrice.toFixed(2)}
+                              </Button>
                             )}
                           </div>
                         </div>

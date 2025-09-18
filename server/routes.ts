@@ -1555,6 +1555,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stripe payment routes
+  // Group-specific payment intent creation
+  app.post("/api/create-group-payment-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      const { userGroupId, productId, amount, currency = "usd" } = req.body;
+      
+      if (!userGroupId || !productId || !amount || amount <= 0) {
+        return res.status(400).json({ message: "userGroupId, productId, and valid amount are required" });
+      }
+
+      // Check if user is already part of this group
+      const isInGroup = await storage.isUserInUserGroup(userGroupId, req.user.claims.sub);
+      if (!isInGroup) {
+        return res.status(403).json({ message: "User must be a participant in this group to make payments" });
+      }
+
+      // Check if user has already paid for this product in this group
+      const alreadyPaid = await storage.hasUserPaidForProduct(req.user.claims.sub, userGroupId, productId);
+      if (alreadyPaid) {
+        return res.status(400).json({ message: "You have already paid for this product in this group" });
+      }
+
+      // Get product details for description
+      let productName = "Group Purchase Product";
+      try {
+        const product = await storage.getProduct(productId);
+        productName = product?.name || "Group Purchase Product";
+      } catch (e) {
+        console.log("Could not fetch product details for group payment intent");
+      }
+
+      // Create customer with billing address
+      const customer = await stripe.customers.create({
+        name: "Group Purchase Customer",
+        address: {
+          line1: "Customer Address",
+          city: "Customer City",
+          state: "CA",
+          postal_code: "90210",
+          country: "US"
+        }
+      });
+
+      // Create payment intent for group purchase
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency,
+        customer: customer.id,
+        description: `Group Purchase: ${productName}`,
+        shipping: {
+          name: "Group Purchase Customer",
+          address: {
+            line1: "Shipping Address",
+            city: "Shipping City", 
+            state: "CA",
+            postal_code: "90210",
+            country: "US"
+          }
+        },
+        metadata: {
+          userId: req.user.claims.sub,
+          userGroupId: userGroupId.toString(),
+          productId: productId.toString(),
+          type: "group"
+        }
+      });
+
+      // Create group payment record
+      const groupPayment = await storage.createGroupPayment({
+        userId: req.user.claims.sub,
+        userGroupId,
+        productId,
+        unitPrice: amount.toString(),
+        amount: amount.toString(),
+        status: "pending",
+        stripePaymentIntentId: paymentIntent.id
+      });
+      
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentId: groupPayment.id 
+      });
+    } catch (error: any) {
+      console.error("Error creating group payment intent:", error);
+      res.status(500).json({ message: "Error creating group payment intent: " + error.message });
+    }
+  });
+
   app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
       const { amount, currency = "usd", productId, type = "individual" } = req.body;
@@ -1668,10 +1755,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const newOrder = await storage.createOrder(orderData);
           console.log("Order created successfully:", newOrder.id);
 
-          // If it's a group purchase, also create group participant record
+          // Handle group payment completion
           if (type === "group") {
-            // Note: In a real implementation, you'd want to find the existing group purchase
-            // For now, we'll just create the order
+            const userGroupId = parseInt(paymentIntent.metadata.userGroupId);
+            if (userGroupId) {
+              try {
+                // Find and update the group payment record
+                const groupPayment = await storage.getGroupPaymentByStripeIntent(paymentIntent.id);
+                if (groupPayment) {
+                  await storage.updateGroupPaymentStatus(groupPayment.id, "succeeded");
+                  console.log("Group payment updated to succeeded:", groupPayment.id);
+                } else {
+                  console.error("Group payment not found for Stripe intent:", paymentIntent.id);
+                }
+              } catch (error) {
+                console.error("Error updating group payment:", error);
+              }
+            }
             console.log("Group purchase order completed for user:", userId);
           }
 
