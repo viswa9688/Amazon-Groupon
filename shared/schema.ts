@@ -240,7 +240,10 @@ export const userGroupParticipants = pgTable("user_group_participants", {
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
+  productId: integer("product_id").references(() => products.id), // For backward compatibility
   addressId: integer("address_id").references(() => userAddresses.id), // Reference to user address
+  quantity: integer("quantity").default(1), // For backward compatibility
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }), // For backward compatibility
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   finalPrice: decimal("final_price", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: text("shipping_address"), // Fallback for legacy orders
@@ -253,7 +256,7 @@ export const orders = pgTable("orders", {
 // Order items - individual products within an order
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
-  orderId: integer("order_id").notNull().references(() => orders.id),
+  orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   productId: integer("product_id").notNull().references(() => products.id),
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
@@ -313,6 +316,7 @@ export const serviceProviderStaffRelations = relations(serviceProviderStaff, ({ 
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
+  product: one(products, { fields: [orders.productId], references: [products.id] }),
   address: one(userAddresses, { fields: [orders.addressId], references: [userAddresses.id] }),
   items: many(orderItems),
 }));

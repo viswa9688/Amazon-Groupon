@@ -95,6 +95,9 @@ export default function UserGroupPage() {
     queryKey: ["/api/user-groups", groupId, "payment-status"],
     enabled: isAuthenticated && !!groupId,
     retry: false,
+    onError: (error) => {
+      console.log("Payment status query error:", error);
+    }
   });
 
   // Get all products for the add product dialog
@@ -1106,7 +1109,7 @@ export default function UserGroupPage() {
                                 {(() => {
                                   // Check if this member has paid
                                   const memberPaymentStatus = paymentStatus?.find(p => p.userId === member.userId);
-                                  const hasPaid = memberPaymentStatus?.hasPaid;
+                                  const hasPaid = memberPaymentStatus?.hasPaid || false;
                                   
                                   if (hasPaid) {
                                     return (
@@ -1277,17 +1280,35 @@ export default function UserGroupPage() {
                                   return sum + (discountPrice * item.quantity);
                                 }, 0);
 
-                                return (
-                                  <Button 
-                                    size="sm"
-                                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
-                                    onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
-                                    data-testid={`button-pay-now-${participant.userId}`}
-                                  >
-                                    <DollarSign className="w-4 h-4 mr-1" />
-                                    Pay Now - ${totalAmount.toFixed(2)}
-                                  </Button>
-                                );
+                                // Check if this participant has paid
+                                const participantPaymentStatus = paymentStatus?.find(p => p.userId === participant.userId);
+                                const hasPaid = participantPaymentStatus?.hasPaid || false;
+
+                                if (hasPaid) {
+                                  return (
+                                    <Button 
+                                      size="sm"
+                                      disabled
+                                      className="bg-green-100 text-green-800 border-green-200 cursor-default"
+                                      data-testid={`button-paid-${participant.userId}`}
+                                    >
+                                      <CheckCircle className="w-4 h-4 mr-1" />
+                                      Paid
+                                    </Button>
+                                  );
+                                } else {
+                                  return (
+                                    <Button 
+                                      size="sm"
+                                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
+                                      onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
+                                      data-testid={`button-pay-now-${participant.userId}`}
+                                    >
+                                      <DollarSign className="w-4 h-4 mr-1" />
+                                      Pay Now - ${totalAmount.toFixed(2)}
+                                    </Button>
+                                  );
+                                }
                               })()
                             )}
                             {isOwner && participant.userId !== user?.id && (

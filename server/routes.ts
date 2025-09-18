@@ -416,22 +416,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to check database connection
+  app.get('/api/test-db', async (req: any, res) => {
+    try {
+      console.log("Testing database connection...");
+      const result = await db.select().from(userGroups).limit(1);
+      console.log("Database test successful:", result.length > 0 ? "Connected" : "No data");
+      res.json({ status: "connected", data: result.length > 0 });
+    } catch (error) {
+      console.error("Database test failed:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get payment status for all members in a group
   app.get('/api/user-groups/:id/payment-status', isAuthenticated, async (req: any, res) => {
     try {
       const groupId = parseInt(req.params.id);
+      console.log("Fetching payment status for group:", groupId);
+      
       if (isNaN(groupId)) {
         return res.status(400).json({ message: "Invalid group ID" });
       }
 
       // Get all group payments for this group
+      console.log("Getting group payments for group:", groupId);
       const groupPayments = await storage.getGroupPaymentsByGroup(groupId);
+      console.log("Group payments found:", groupPayments.length);
       
       // Get group details to get all members
+      console.log("Getting user group details for group:", groupId);
       const userGroup = await storage.getUserGroup(groupId);
       if (!userGroup) {
+        console.log("User group not found for ID:", groupId);
         return res.status(404).json({ message: "User group not found" });
       }
+      console.log("User group found:", userGroup.id, "Owner:", userGroup.userId, "Participants:", userGroup.participants?.length || 0);
 
       // Create a map of user payment status
       const paymentStatus = new Map();
@@ -442,6 +462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...(userGroup.participants || []).filter(p => p.status === 'approved').map(p => ({ userId: p.userId, isOwner: false }))
       ];
       
+      console.log("All members in group:", allMembers.length, allMembers.map(m => ({ userId: m.userId, isOwner: m.isOwner })));
+      
       allMembers.forEach(member => {
         paymentStatus.set(member.userId, {
           hasPaid: false,
@@ -451,7 +473,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Update payment status for users who have paid
+      console.log("Processing group payments:", groupPayments.length);
       groupPayments.forEach(payment => {
+        console.log("Payment:", { userId: payment.userId, status: payment.status, amount: payment.amount });
         if (payment.status === 'succeeded') {
           paymentStatus.set(payment.userId, {
             hasPaid: true,
@@ -462,6 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               createdAt: payment.createdAt
             }
           });
+          console.log("Marked user as paid:", payment.userId);
         }
       });
 
@@ -471,10 +496,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...status
       }));
 
+      console.log("Final payment status result:", result);
       res.json(result);
     } catch (error) {
       console.error("Error fetching group payment status:", error);
-      res.status(500).json({ message: "Failed to fetch payment status" });
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ message: "Failed to fetch payment status", error: error.message });
     }
   });
 
@@ -1981,10 +2009,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               addressId: addressId,
               totalPrice: totalOrderPrice.toFixed(2),
               finalPrice: totalOrderPrice.toFixed(2),
-              status: "completed" as const,
-              type: "group" as const,
-              shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
-            };
+                status: "completed" as const,
+                type: "group" as const,
+                shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
+              };
 
             const newOrder = await storage.createOrderWithItems(orderData, orderItems);
             console.log(`Group order with ${orderItems.length} items created for beneficiary ${beneficiaryId}:`, newOrder.id);
@@ -2167,7 +2195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Server - Using cached pricing for group ${userGroupId}: Amount: $${memberAmount.toFixed(2)}`);
       } else {
         // Calculate fresh pricing
-        const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
+      const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
         totalMembers = approvedCount + 1; // +1 for the owner
         
         // Ensure we have a minimum of 5 members for group pricing (as per the UI logic)
@@ -2175,23 +2203,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`Server - Group ${userGroupId}: Approved count: ${approvedCount}, Total members: ${totalMembers}, Effective count: ${effectiveMemberCount}`);
 
-        // Calculate total amount with correct discount tiers
+      // Calculate total amount with correct discount tiers
         console.log(`Server - Processing ${groupItems.length} items for group ${userGroupId}`);
         
-        for (const item of groupItems) {
+      for (const item of groupItems) {
           console.log(`Server - Item: ${item.product.name}, Discount Tiers:`, item.product.discountTiers);
-          const originalPrice = parseFloat(item.product.originalPrice.toString());
+        const originalPrice = parseFloat(item.product.originalPrice.toString());
           popularGroupValue += originalPrice * item.quantity;
           
-          let discountPrice = originalPrice;
-          
+        let discountPrice = originalPrice;
+        
           // Find correct discount tier based on effective member count - pick the highest applicable tier
-          if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+        if (item.product.discountTiers && item.product.discountTiers.length > 0) {
             const applicableTiers = item.product.discountTiers.filter(tier => effectiveMemberCount >= tier.participantCount);
-            if (applicableTiers.length > 0) {
-              // Sort by participantCount descending and take the first (highest applicable tier)
-              const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
-              discountPrice = parseFloat(bestTier.finalPrice.toString());
+          if (applicableTiers.length > 0) {
+            // Sort by participantCount descending and take the first (highest applicable tier)
+            const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
+            discountPrice = parseFloat(bestTier.finalPrice.toString());
               console.log(`Server - Item: ${item.product.name}, Original: $${originalPrice}, Discounted: $${discountPrice}, Tier: ${bestTier.participantCount} participants, Effective Members: ${effectiveMemberCount}`);
             } else {
               console.log(`Server - Item: ${item.product.name}, No applicable discount tiers for ${effectiveMemberCount} members`);

@@ -1455,36 +1455,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserGroup(groupId: number): Promise<UserGroupWithDetails | undefined> {
-    const group = await db.query.userGroups.findFirst({
-      where: eq(userGroups.id, groupId),
-      with: {
-        user: true,
-        items: {
-          with: {
-            product: {
-              with: {
-                seller: true,
-                category: true,
-                discountTiers: true,
+    try {
+      console.log("Getting user group with ID:", groupId);
+      const group = await db.query.userGroups.findFirst({
+        where: eq(userGroups.id, groupId),
+        with: {
+          user: true,
+          items: {
+            with: {
+              product: {
+                with: {
+                  seller: true,
+                  category: true,
+                  discountTiers: true,
 
+                },
               },
             },
           },
-        },
-        participants: {
-          with: {
-            user: true,
+          participants: {
+            with: {
+              user: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!group) return undefined;
+      console.log("User group query result:", group ? "Found" : "Not found");
+      if (group) {
+        console.log("Group participants:", group.participants?.length || 0);
+      }
 
-    return {
-      ...group,
-      participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
-    };
+      if (!group) return undefined;
+
+      return {
+        ...group,
+        participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
+      };
+    } catch (error) {
+      console.error("Error in getUserGroup:", error);
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      throw error;
+    }
   }
 
   async getUserGroupByShareToken(shareToken: string): Promise<UserGroupWithDetails | undefined> {
@@ -1820,11 +1833,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGroupPaymentsByGroup(userGroupId: number): Promise<GroupPayment[]> {
-    return await db
-      .select()
-      .from(groupPayments)
-      .where(eq(groupPayments.userGroupId, userGroupId))
-      .orderBy(desc(groupPayments.createdAt));
+    try {
+      console.log("Getting group payments for group ID:", userGroupId);
+      const payments = await db
+        .select()
+        .from(groupPayments)
+        .where(eq(groupPayments.userGroupId, userGroupId))
+        .orderBy(desc(groupPayments.createdAt));
+      
+      console.log("Group payments found:", payments.length);
+      return payments;
+    } catch (error) {
+      console.error("Error in getGroupPaymentsByGroup:", error);
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      throw error;
+    }
   }
 
   async getGroupPaymentsByProduct(userGroupId: number, productId: number): Promise<GroupPayment[]> {
