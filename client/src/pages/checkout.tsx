@@ -94,10 +94,10 @@ const CheckoutForm = ({
       <Button
         type="submit"
         disabled={!stripe || isProcessing}
-        className="w-full"
-        data-testid="button-pay"
+        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg"
+        data-testid="button-checkout"
       >
-        {isProcessing ? "Processing..." : `Pay $${amount.toFixed(2)}`}
+        {isProcessing ? "Processing Payment..." : "Checkout"}
       </Button>
     </form>
   );
