@@ -129,6 +129,8 @@ export default function Checkout() {
           setIsGroupPayment(true);
           setUserGroupId(parseInt(queryUserGroupId));
           setProductName("Group Purchase");
+          // For group payments, we don't create PaymentIntent yet - wait for address selection
+          setIsLoading(false);
         } 
         // Handle individual payment via URL params
         else if (match && params) {
@@ -151,10 +153,10 @@ export default function Checkout() {
           const data = await response.json();
           setClientSecret(data.clientSecret);
           setAmount(paymentAmount);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error initializing payment:", error);
-      } finally {
         setIsLoading(false);
       }
     };
