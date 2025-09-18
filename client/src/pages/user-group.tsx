@@ -103,10 +103,10 @@ export default function UserGroupPage() {
     enabled: isAuthenticated && !!groupId && isOwner,
   });
 
-  // Get approved participants (owner only)
+  // Get approved participants (visible to all group members)
   const { data: approvedParticipants = [], isLoading: approvedLoading } = useQuery<(UserGroupParticipant & { user: User })[]>({
     queryKey: ["/api/user-groups", groupId, "approved"],
-    enabled: isAuthenticated && !!groupId && isOwner,
+    enabled: isAuthenticated && !!groupId,
   });
 
   // Check if group is locked (at max capacity)
@@ -130,11 +130,6 @@ export default function UserGroupPage() {
 
   const isApprovedParticipant = participationStatus?.isApproved || false;
 
-  // Handle Pay Now button click - redirect to checkout with group context
-  const handlePayNow = (productId: number, amount: number) => {
-    // Redirect to checkout with group payment context
-    setLocation(`/checkout?type=group&userGroupId=${groupId}&productId=${productId}&amount=${amount}`);
-  };
 
   // Edit group form
   const editForm = useForm<z.infer<typeof editGroupSchema>>({
@@ -674,17 +669,15 @@ export default function UserGroupPage() {
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   Popular Group Items ({totalItems})
                 </TabsTrigger>
+                <TabsTrigger value="approved" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  Approved ({approvedParticipants.length})
+                </TabsTrigger>
                 {isOwner && (
-                  <>
-                    <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
-                      <Clock className="w-4 h-4 mr-2" />
-                      Pending ({pendingParticipants.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="approved" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
-                      <UserCheck className="w-4 h-4 mr-2" />
-                      Approved ({approvedParticipants.length})
-                    </TabsTrigger>
-                  </>
+                  <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
+                    <Clock className="w-4 h-4 mr-2" />
+                    Pending ({pendingParticipants.length})
+                  </TabsTrigger>
                 )}
               </TabsList>
 
@@ -873,19 +866,6 @@ export default function UserGroupPage() {
                                 </Button>
                               </>
                             )}
-                            
-                            {/* Pay Now Button for approved participants */}
-                            {!isOwner && isApprovedParticipant && (
-                              <Button 
-                                size="sm"
-                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-                                onClick={() => handlePayNow(item.productId, discountPrice)}
-                                data-testid={`button-pay-now-${item.product.id}`}
-                              >
-                                <DollarSign className="w-4 h-4 mr-2" />
-                                Pay Now ${discountPrice.toFixed(2)}
-                              </Button>
-                            )}
                           </div>
                         </div>
                       );
@@ -976,9 +956,8 @@ export default function UserGroupPage() {
             </TabsContent>
           )}
 
-          {/* Approved Participants Tab */}
-          {isOwner && (
-            <TabsContent value="approved">
+          {/* Approved Participants Tab - Now visible to all group members */}
+          <TabsContent value="approved">
               <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
@@ -1039,7 +1018,7 @@ export default function UserGroupPage() {
                               </p>
                             </div>
                           </div>
-                          {participant.userId !== user?.id && (
+                          {isOwner && participant.userId !== user?.id && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -1056,10 +1035,61 @@ export default function UserGroupPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* Group Pay Now Button - Shows when group has items and is at max capacity */}
+                  {userGroup && userGroup.items && userGroup.items.length > 0 && isLocked && (
+                    <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800">
+                        <div className="text-center space-y-4">
+                          <div className="flex items-center justify-center space-x-2">
+                            <DollarSign className="w-6 h-6 text-green-600" />
+                            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
+                              Group Payment Ready
+                            </h3>
+                          </div>
+                          <p className="text-sm text-green-700 dark:text-green-300">
+                            This group has reached maximum capacity! All members can now pay for their items with group discounts.
+                          </p>
+                          
+                          {/* Calculate total amount with discounts */}
+                          {(() => {
+                            const totalAmount = userGroup.items.reduce((sum, item) => {
+                              const originalPrice = parseFloat(item.product.originalPrice.toString());
+                              const discountPrice = item.product.discountTiers?.[0]?.finalPrice 
+                                ? parseFloat(item.product.discountTiers[0].finalPrice.toString())
+                                : originalPrice;
+                              return sum + (discountPrice * item.quantity);
+                            }, 0);
+
+                            return (
+                              <div className="space-y-3">
+                                <div className="text-center">
+                                  <p className="text-sm text-green-600 dark:text-green-400">Total amount per member:</p>
+                                  <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                                    ${totalAmount.toFixed(2)}
+                                  </p>
+                                </div>
+                                
+                                <Button 
+                                  size="lg"
+                                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3"
+                                  onClick={() => setLocation(`/checkout?type=group&userGroupId=${groupId}`)}
+                                  data-testid="button-group-pay-now"
+                                >
+                                  <DollarSign className="w-5 h-5 mr-2" />
+                                  Pay Now - ${totalAmount.toFixed(2)}
+                                </Button>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
-          )}
+
         </Tabs>
           </div>
 
