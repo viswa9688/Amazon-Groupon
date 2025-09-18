@@ -1058,10 +1058,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid user group ID" });
       }
 
-      // Verify ownership
+      // Verify ownership or approved participation
       const userGroup = await storage.getUserGroup(userGroupId);
-      if (!userGroup || userGroup.userId !== userId) {
-        return res.status(403).json({ message: "Access denied - only collection owner can view approved participants" });
+      if (!userGroup) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+      
+      // Allow access if user is owner or an approved participant
+      const isOwner = userGroup.userId === userId;
+      if (!isOwner) {
+        const userParticipation = await storage.getUserParticipation(userGroupId, userId);
+        if (!userParticipation || userParticipation.status !== 'approved') {
+          return res.status(403).json({ message: "Access denied - only group owner or approved participants can view member list" });
+        }
       }
 
       const approvedParticipants = await storage.getApprovedParticipants(userGroupId);
