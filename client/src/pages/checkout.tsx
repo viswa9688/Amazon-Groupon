@@ -115,6 +115,8 @@ export default function Checkout() {
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const queryType = urlParams.get('type');
   const queryUserGroupId = urlParams.get('userGroupId');
+  const queryGroup = urlParams.get('group'); // Share token for group payments
+  const queryMember = urlParams.get('member'); // Specific member ID for payment
 
   useEffect(() => {
     if (initRef.current) return;
@@ -124,11 +126,28 @@ export default function Checkout() {
       try {
         setIsLoading(true);
         
-        // Check if this is a group payment via query params
-        if (queryType === 'group' && queryUserGroupId) {
+        // Check if this is a group payment via query params (either old or new format)
+        if ((queryType === 'group' && queryUserGroupId) || queryGroup) {
           setIsGroupPayment(true);
-          setUserGroupId(parseInt(queryUserGroupId));
-          setProductName("Group Purchase");
+          
+          if (queryGroup) {
+            // New format: using share token and member ID
+            try {
+              // Get group details by share token
+              const groupResponse = await apiRequest("GET", `/api/shared/${queryGroup}`);
+              const groupData = await groupResponse.json();
+              setUserGroupId(groupData.id);
+              setProductName(`Group Purchase${queryMember ? ` for Member` : ""}`);
+            } catch (error) {
+              console.error("Error fetching group data:", error);
+              setProductName("Group Purchase");
+            }
+          } else if (queryUserGroupId) {
+            // Old format: direct userGroupId
+            setUserGroupId(parseInt(queryUserGroupId));
+            setProductName("Group Purchase");
+          }
+          
           // For group payments, we don't create PaymentIntent yet - wait for address selection
           setIsLoading(false);
         } 
@@ -178,6 +197,7 @@ export default function Checkout() {
         const response = await apiRequest("POST", "/api/group-payment-intent", {
           userGroupId,
           addressId: selectedAddressId,
+          memberId: queryMember, // Pass the specific member ID for payment
         });
         const data = await response.json();
         setClientSecret(data.clientSecret);

@@ -1093,12 +1093,12 @@ export default function UserGroupPage() {
                             </div>
                             
                             {/* Pay Now button - only shown for current user when conditions are met */}
-                            {totalItems > 0 && allMembers.length >= 5 && member.userId === user?.id && (
+                            {totalItems > 0 && allMembers.length >= 5 && (
                               <div className="flex flex-col items-end space-y-1">
                                 <Button
                                   size="sm"
                                   onClick={() => {
-                                    const shareUrl = `${window.location.origin}/checkout?group=${userGroup?.shareToken}`;
+                                    const shareUrl = `${window.location.origin}/checkout?group=${userGroup?.shareToken}&member=${member.userId}`;
                                     window.location.href = shareUrl;
                                   }}
                                   className="bg-green-600 hover:bg-green-700 text-white"

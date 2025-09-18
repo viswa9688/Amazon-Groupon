@@ -1067,8 +1067,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Allow access if user is owner or an approved participant
       const isOwner = userGroup.userId === userId;
       if (!isOwner) {
-        const userParticipation = await storage.getUserParticipation(userGroupId, userId);
-        if (!userParticipation || userParticipation.status !== 'approved') {
+        console.log(`Checking if user ${userId} is approved in group ${userGroupId}`);
+        const isApproved = await storage.isUserInUserGroup(userGroupId, userId);
+        console.log(`User ${userId} approved status: ${isApproved}`);
+        if (!isApproved) {
           return res.status(403).json({ message: "Access denied - only group owner or approved participants can view member list" });
         }
       }
