@@ -38,7 +38,8 @@ import {
   UserX,
   Clock,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  CheckCircle
 } from "lucide-react";
 import type { UserGroupWithDetails, ProductWithDetails, UserGroupParticipant, User } from "@shared/schema";
 
@@ -87,6 +88,13 @@ export default function UserGroupPage() {
   const { data: userGroup, isLoading: groupLoading } = useQuery<UserGroupWithDetails>({
     queryKey: ["/api/user-groups", groupId],
     enabled: isAuthenticated && !!groupId,
+  });
+
+  // Get payment status for all members
+  const { data: paymentStatus, isLoading: paymentStatusLoading } = useQuery<any[]>({
+    queryKey: ["/api/user-groups", groupId, "payment-status"],
+    enabled: isAuthenticated && !!groupId,
+    retry: false,
   });
 
   // Get all products for the add product dialog
@@ -1092,24 +1100,53 @@ export default function UserGroupPage() {
                               </div>
                             </div>
                             
-                            {/* Pay Now button - only shown for current user when conditions are met */}
+                            {/* Payment status - only shown when conditions are met */}
                             {totalItems > 0 && allMembers.length >= 5 && (
                               <div className="flex flex-col items-end space-y-1">
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    const shareUrl = `${window.location.origin}/checkout?group=${userGroup?.shareToken}&member=${member.userId}`;
-                                    window.location.href = shareUrl;
-                                  }}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  data-testid={`button-pay-now-${member.userId}`}
-                                >
-                                  <CreditCard className="w-4 h-4 mr-1" />
-                                  Pay Now
-                                </Button>
-                                <p className="text-xs text-green-600 dark:text-green-400">
-                                  Ready for payment
-                                </p>
+                                {(() => {
+                                  // Check if this member has paid
+                                  const memberPaymentStatus = paymentStatus?.find(p => p.userId === member.userId);
+                                  const hasPaid = memberPaymentStatus?.hasPaid;
+                                  
+                                  if (hasPaid) {
+                                    return (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          disabled
+                                          className="bg-green-100 text-green-800 border-green-200 cursor-default"
+                                          data-testid={`button-paid-${member.userId}`}
+                                        >
+                                          <CheckCircle className="w-4 h-4 mr-1" />
+                                          Paid
+                                        </Button>
+                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                          Payment completed
+                                        </p>
+                                      </>
+                                    );
+                                  } else {
+                                    return (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            const shareUrl = `${window.location.origin}/checkout?group=${userGroup?.shareToken}&member=${member.userId}`;
+                                            window.location.href = shareUrl;
+                                          }}
+                                          className="bg-green-600 hover:bg-green-700 text-white"
+                                          data-testid={`button-pay-now-${member.userId}`}
+                                        >
+                                          <CreditCard className="w-4 h-4 mr-1" />
+                                          Pay Now
+                                        </Button>
+                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                          Ready for payment
+                                        </p>
+                                      </>
+                                    );
+                                  }
+                                })()}
                               </div>
                             )}
                           </div>

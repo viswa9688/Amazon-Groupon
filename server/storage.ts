@@ -4,6 +4,7 @@ import {
   categories,
   discountTiers,
   orders,
+  orderItems,
   userAddresses,
   cartItems,
   userGroups,
@@ -26,6 +27,8 @@ import {
   type InsertDiscountTier,
   type Order,
   type InsertOrder,
+  type OrderItem,
+  type InsertOrderItem,
   type CartItem,
   type InsertCartItem,
   type UserGroup,
@@ -105,8 +108,11 @@ export interface IStorage {
 
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
+  createOrderWithItems(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   getOrder(orderId: number): Promise<Order | undefined>;
+  getOrderWithItems(orderId: number): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] }) | undefined>;
   getUserOrders(userId: string): Promise<Order[]>;
+  getUserOrdersWithItems(userId: string): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] })[]>;
   getSellerOrders(sellerId: string): Promise<Order[]>;
   updateOrderStatus(orderId: number, status: string): Promise<Order>;
   
@@ -617,11 +623,46 @@ export class DatabaseStorage implements IStorage {
     return newOrder;
   }
 
+  async createOrderWithItems(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
+    // Create the order first
+    const [newOrder] = await db.insert(orders).values(order).returning();
+    
+    // Create order items
+    const orderItemsToInsert = items.map(item => ({
+      ...item,
+      orderId: newOrder.id
+    }));
+    
+    await db.insert(orderItems).values(orderItemsToInsert);
+    
+    return newOrder;
+  }
+
   async getOrder(orderId: number): Promise<Order | undefined> {
     const [order] = await db
       .select()
       .from(orders)
       .where(eq(orders.id, orderId));
+    return order;
+  }
+
+  async getOrderWithItems(orderId: number): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] }) | undefined> {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+              },
+            },
+          },
+        },
+      },
+    });
     return order;
   }
 
@@ -633,11 +674,32 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(orders.createdAt));
   }
 
+  async getUserOrdersWithItems(userId: string): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] })[]> {
+    return await db.query.orders.findMany({
+      where: eq(orders.userId, userId),
+      with: {
+        items: {
+          with: {
+            product: {
+              with: {
+                seller: true,
+                category: true,
+                discountTiers: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [desc(orders.createdAt)],
+    });
+  }
+
   async getSellerOrders(sellerId: string): Promise<Order[]> {
     return await db
       .select()
       .from(orders)
-      .innerJoin(products, eq(orders.productId, products.id))
+      .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+      .innerJoin(products, eq(orderItems.productId, products.id))
       .where(eq(products.sellerId, sellerId))
       .orderBy(desc(orders.createdAt))
       .then(results => results.map(result => result.orders));
@@ -1002,7 +1064,8 @@ export class DatabaseStorage implements IStorage {
           finalPrice: orders.finalPrice,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(eq(products.sellerId, sellerId));
       
       console.log(`Found ${allOrdersResult.length} total orders for seller ${sellerId}:`, allOrdersResult);
@@ -1014,7 +1077,8 @@ export class DatabaseStorage implements IStorage {
           totalOrders: sql<number>`COUNT(*)`,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
           or(eq(orders.status, "completed"), eq(orders.status, "delivered"))
@@ -1038,8 +1102,9 @@ export class DatabaseStorage implements IStorage {
           orderCount: sql<number>`COUNT(${orders.id})`,
         })
         .from(products)
+        .leftJoin(orderItems, eq(products.id, orderItems.productId))
         .leftJoin(orders, and(
-          eq(orders.productId, products.id),
+          eq(orders.id, orderItems.orderId),
           or(eq(orders.status, "completed"), eq(orders.status, "delivered"))
         ))
         .where(eq(products.sellerId, sellerId))
@@ -1061,7 +1126,8 @@ export class DatabaseStorage implements IStorage {
           totalCustomers: sql<number>`COUNT(DISTINCT ${orders.userId})`,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(eq(products.sellerId, sellerId));
 
       const totalCustomers = customerResult[0]?.totalCustomers || 0;
@@ -1074,7 +1140,8 @@ export class DatabaseStorage implements IStorage {
         .from(sql`(
           SELECT ${orders.userId} as user_id, MIN(${orders.createdAt}) as first_order_date
           FROM ${orders}
-          INNER JOIN ${products} ON ${orders.productId} = ${products.id}
+          INNER JOIN ${orderItems} ON ${orders.id} = ${orderItems.orderId}
+          INNER JOIN ${products} ON ${orderItems.productId} = ${products.id}
           WHERE ${products.sellerId} = ${sellerId}
           GROUP BY ${orders.userId}
         ) first_orders`)
@@ -1093,7 +1160,8 @@ export class DatabaseStorage implements IStorage {
           count: sql<number>`COUNT(*)`,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(eq(products.sellerId, sellerId))
         .groupBy(orders.status);
 
@@ -1176,7 +1244,8 @@ export class DatabaseStorage implements IStorage {
           totalOrders: sql<number>`COUNT(*)`,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
           or(eq(orders.status, "completed"), eq(orders.status, "delivered"))
@@ -1190,7 +1259,8 @@ export class DatabaseStorage implements IStorage {
           potentialRevenue: sql<number>`COALESCE(SUM(CAST(${orders.finalPrice} as DECIMAL)), 0)`,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
           sql`${orders.status} NOT IN ('completed', 'delivered')`
@@ -1207,7 +1277,8 @@ export class DatabaseStorage implements IStorage {
           previousRevenue: sql<number>`COALESCE(SUM(CAST(${orders.finalPrice} as DECIMAL)), 0)`,
         })
         .from(orders)
-        .innerJoin(products, eq(orders.productId, products.id))
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
           or(eq(orders.status, "completed"), eq(orders.status, "delivered")),
@@ -1612,7 +1683,20 @@ export class DatabaseStorage implements IStorage {
 
   async isUserInUserGroup(userGroupId: number, userId: string): Promise<boolean> {
     try {
-      // Check if user is approved in the collection participants table
+      // First check if user is the owner of the group
+      const [userGroup] = await db
+        .select()
+        .from(userGroups)
+        .where(and(
+          eq(userGroups.id, userGroupId),
+          eq(userGroups.userId, userId)
+        ));
+
+      if (userGroup) {
+        return true; // User is the owner
+      }
+
+      // Then check if user is approved in the participants table
       const [participant] = await db
         .select()
         .from(userGroupParticipants)

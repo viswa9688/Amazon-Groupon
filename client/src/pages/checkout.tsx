@@ -28,7 +28,7 @@ const CheckoutForm = ({
   productId?: number; 
   type: string; 
   userGroupId?: number; 
-  selectedAddressId?: number;
+  selectedAddressId?: number; 
   groupData?: any;
   selectedAddress?: any;
 }) => {
@@ -77,30 +77,64 @@ const CheckoutForm = ({
           console.log("Order creation handled by webhook"); // This is fine, webhook will create it
         }
       } else if (type === 'group' && userGroupId && groupData) {
-        // For group payments, create order records as backup (in case webhook fails)
+        // For group payments, create a single order with multiple items as backup (in case webhook fails)
         try {
-          console.log("Creating backup orders for group payment...");
+          console.log("Creating backup order with multiple items for group payment...");
           
-          // Create order for each item in the group
+          // Calculate total price for all items
+          let totalOrderPrice = 0;
+          const orderItems = [];
+          
           for (const item of groupData.items) {
             // Calculate discounted price using the same method as user-group page
             const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
             const discountedPrice = parseFloat(discountPrice.toString());
+            const itemTotal = discountedPrice * item.quantity;
+            totalOrderPrice += itemTotal;
             
-            await apiRequest("POST", "/api/orders", {
+            orderItems.push({
               productId: item.product.id,
               quantity: item.quantity,
               unitPrice: discountedPrice.toFixed(2),
-              totalPrice: (discountedPrice * item.quantity).toFixed(2),
-              finalPrice: (discountedPrice * item.quantity).toFixed(2),
-              status: "completed",
-              type: "group",
-              shippingAddress: selectedAddress ? 
-                `${selectedAddress.fullName}, ${selectedAddress.addressLine}, ${selectedAddress.city}, ${selectedAddress.state || ''} ${selectedAddress.pincode}, ${selectedAddress.country || 'US'}` :
-                "International Shipping Address"
+              totalPrice: itemTotal.toFixed(2)
             });
           }
-          console.log("Backup orders created successfully for group payment");
+          
+          // Create single order with multiple items
+          await apiRequest("POST", "/api/orders/group", {
+            totalPrice: totalOrderPrice.toFixed(2),
+            finalPrice: totalOrderPrice.toFixed(2),
+            status: "completed",
+            type: "group",
+            addressId: selectedAddressId,
+            items: orderItems
+          });
+          
+          // Create group payment records for tracking payment status
+          for (const item of groupData.items) {
+            const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+            const discountedPrice = parseFloat(discountPrice.toString());
+            
+            console.log("Creating group payment for item:", {
+              userGroupId,
+              productId: item.product.id,
+              amount: (discountedPrice * item.quantity).toFixed(2),
+              quantity: item.quantity,
+              unitPrice: discountedPrice.toFixed(2)
+            });
+            
+            await apiRequest("POST", "/api/group-payments", {
+              userGroupId: userGroupId,
+              productId: item.product.id,
+              amount: (discountedPrice * item.quantity).toFixed(2),
+              currency: "usd",
+              status: "succeeded",
+              quantity: item.quantity,
+              unitPrice: discountedPrice.toFixed(2)
+            });
+          }
+          
+          console.log("Backup order and payment records created successfully for group payment");
         } catch (orderError) {
           console.log("Order creation handled by webhook or failed:", orderError); // This is fine, webhook will create it
         }
@@ -449,6 +483,8 @@ export default function Checkout() {
         const data = await response.json();
         console.log("Group payment intent created:", data);
         setClientSecret(data.clientSecret);
+        
+        // Set the amount from server response
         setAmount(data.amount);
         
         // Calculate original amount for display
@@ -697,17 +733,17 @@ export default function Checkout() {
                 {/* Show address selection requirement for group payments */}
                 {isGroupPayment && !selectedAddressId ? (
                   <div className="space-y-4">
-                    <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border-2 border-orange-200 dark:border-orange-800 text-center">
-                      <div className="w-16 h-16 bg-orange-100 dark:bg-orange-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                      <h3 className="font-semibold text-lg text-orange-800 dark:text-orange-200 mb-2">Address Required</h3>
+                  <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border-2 border-orange-200 dark:border-orange-800 text-center">
+                    <div className="w-16 h-16 bg-orange-100 dark:bg-orange-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-lg text-orange-800 dark:text-orange-200 mb-2">Address Required</h3>
                       <p className="text-orange-700 dark:text-orange-300 mb-4">
-                        Please select a delivery address above to continue with your secure group purchase.
-                      </p>
+                      Please select a delivery address above to continue with your secure group purchase.
+                    </p>
                     </div>
                     
                     {/* Show checkout button with disabled state */}

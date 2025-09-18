@@ -240,10 +240,7 @@ export const userGroupParticipants = pgTable("user_group_participants", {
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
-  productId: integer("product_id").notNull().references(() => products.id),
   addressId: integer("address_id").references(() => userAddresses.id), // Reference to user address
-  quantity: integer("quantity").notNull().default(1),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   finalPrice: decimal("final_price", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: text("shipping_address"), // Fallback for legacy orders
@@ -251,6 +248,17 @@ export const orders = pgTable("orders", {
   type: varchar("type", { length: 20 }).default("group"), // group, individual
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Order items - individual products within an order
+export const orderItems = pgTable("order_items", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Group payments - tracks individual user payments within groups  
@@ -303,10 +311,15 @@ export const serviceProviderStaffRelations = relations(serviceProviderStaff, ({ 
 
 
 
-export const ordersRelations = relations(orders, ({ one }) => ({
+export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
-  product: one(products, { fields: [orders.productId], references: [products.id] }),
   address: one(userAddresses, { fields: [orders.addressId], references: [userAddresses.id] }),
+  items: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+  product: one(products, { fields: [orderItems.productId], references: [products.id] }),
 }));
 
 export const discountTiersRelations = relations(discountTiers, ({ one }) => ({
@@ -393,6 +406,11 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   updatedAt: true,
 });
 
+export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({
   id: true,
   addedAt: true,
@@ -451,6 +469,8 @@ export type DiscountTier = typeof discountTiers.$inferSelect;
 export type InsertDiscountTier = z.infer<typeof insertDiscountTierSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type UserAddress = typeof userAddresses.$inferSelect;
 export type InsertUserAddress = z.infer<typeof insertUserAddressSchema>;
 export type CartItem = typeof cartItems.$inferSelect;

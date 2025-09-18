@@ -23,6 +23,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-07-30.basil",
 });
 
+// Simple in-memory cache for group pricing to prevent amount fluctuation
+const groupPricingCache = new Map<string, { amount: number; originalAmount: number; potentialSavings: number; totalMembers: number; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Admin authentication middleware using database
 const isAdminAuthenticated = async (req: any, res: any, next: any) => {
   const { userId, password } = req.body;
@@ -356,6 +360,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Group purchase route - creates single order with multiple items
+  app.post('/api/orders/group', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { totalPrice, finalPrice, status, type, addressId, items } = req.body;
+      
+      console.log("Creating group order with data:", {
+        userId,
+        totalPrice,
+        finalPrice,
+        status,
+        type,
+        addressId,
+        itemsCount: items?.length
+      });
+      
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        console.log("Missing or invalid items:", items);
+        return res.status(400).json({ message: "Order items are required" });
+      }
+      
+      // Get address details if addressId is provided
+      let shippingAddress = "International Shipping Address";
+      if (addressId) {
+        const addresses = await storage.getUserAddresses(userId);
+        const address = addresses.find(addr => addr.id === addressId);
+        if (address) {
+          shippingAddress = `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`;
+        }
+      }
+      
+      const orderData = {
+        userId,
+        addressId: addressId || null,
+        totalPrice,
+        finalPrice,
+        shippingAddress,
+        status: status || "completed",
+        type: type || "group"
+      };
+      
+      console.log("Order data:", orderData);
+      console.log("Items data:", items);
+      
+      // Create single order with multiple items
+      const order = await storage.createOrderWithItems(orderData, items);
+      console.log("Group order with items created successfully:", order.id);
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating group order:", error);
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      res.status(400).json({ message: "Failed to create group order", error: error.message });
+    }
+  });
+
+  // Get payment status for all members in a group
+  app.get('/api/user-groups/:id/payment-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+
+      // Get all group payments for this group
+      const groupPayments = await storage.getGroupPaymentsByGroup(groupId);
+      
+      // Get group details to get all members
+      const userGroup = await storage.getUserGroup(groupId);
+      if (!userGroup) {
+        return res.status(404).json({ message: "User group not found" });
+      }
+
+      // Create a map of user payment status
+      const paymentStatus = new Map();
+      
+      // Initialize all members as not paid
+      const allMembers = [
+        { userId: userGroup.userId, isOwner: true },
+        ...(userGroup.participants || []).filter(p => p.status === 'approved').map(p => ({ userId: p.userId, isOwner: false }))
+      ];
+      
+      allMembers.forEach(member => {
+        paymentStatus.set(member.userId, {
+          hasPaid: false,
+          isOwner: member.isOwner,
+          paymentDetails: null
+        });
+      });
+
+      // Update payment status for users who have paid
+      groupPayments.forEach(payment => {
+        if (payment.status === 'succeeded') {
+          paymentStatus.set(payment.userId, {
+            hasPaid: true,
+            isOwner: payment.userId === userGroup.userId,
+            paymentDetails: {
+              amount: payment.amount,
+              status: payment.status,
+              createdAt: payment.createdAt
+            }
+          });
+        }
+      });
+
+      // Convert to array format
+      const result = Array.from(paymentStatus.entries()).map(([userId, status]) => ({
+        userId,
+        ...status
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching group payment status:", error);
+      res.status(500).json({ message: "Failed to fetch payment status" });
+    }
+  });
+
+  // Create group payment record
+  app.post('/api/group-payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { userGroupId, productId, amount, currency, status, quantity, unitPrice } = req.body;
+      
+      console.log("Creating group payment with data:", {
+        userId,
+        userGroupId,
+        productId,
+        amount,
+        currency,
+        status,
+        quantity,
+        unitPrice
+      });
+      
+      if (!userGroupId || !productId || !amount) {
+        console.log("Missing required fields:", { userGroupId, productId, amount });
+        return res.status(400).json({ message: "userGroupId, productId, and amount are required" });
+      }
+
+      // Convert userGroupId to number if it's a string
+      const groupId = typeof userGroupId === 'string' ? parseInt(userGroupId) : userGroupId;
+      if (isNaN(groupId)) {
+        console.log("Invalid userGroupId:", userGroupId);
+        return res.status(400).json({ message: "Invalid userGroupId format" });
+      }
+
+      // Check if user is part of this group
+      const isInGroup = await storage.isUserInUserGroup(groupId, userId);
+      console.log("User in group check:", { userId, groupId, isInGroup });
+      if (!isInGroup) {
+        return res.status(403).json({ message: "User must be a participant in this group" });
+      }
+
+      const groupPaymentData = {
+        userId,
+        userGroupId: groupId,
+        productId,
+        amount,
+        currency: currency || "usd",
+        status: status || "succeeded",
+        quantity: quantity || 1,
+        unitPrice: unitPrice || amount
+      };
+      
+      const groupPayment = await storage.createGroupPayment(groupPaymentData);
+      res.status(201).json(groupPayment);
+    } catch (error) {
+      console.error("Error creating group payment:", error);
+      res.status(400).json({ message: "Failed to create group payment" });
+    }
+  });
+
   // User Address Management
   app.get('/api/addresses', isAuthenticated, async (req: any, res) => {
     try {
@@ -480,11 +657,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const orders = await storage.getUserOrders(userId);
+      console.log("Fetching orders for user:", userId);
+      
+      // Use the new method to get orders with items
+      const orders = await storage.getUserOrdersWithItems(userId);
+      console.log("Orders fetched successfully:", orders.length);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      res.status(500).json({ message: "Failed to fetch orders" });
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ message: "Failed to fetch orders", error: error.message });
     }
   });
 
@@ -1766,8 +1949,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               break;
             }
 
-            // Create order for each item in the group purchase (for the beneficiary)
-            // Each member gets the full discounted price for all items
+            // Create a single order with multiple items for the group purchase (for the beneficiary)
+            let totalOrderPrice = 0;
+            const orderItems = [];
+            
             for (const item of userGroup.items) {
               // Calculate the discounted price for this specific item
               let discountedPrice = parseFloat(item.product.originalPrice);
@@ -1780,22 +1965,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
               }
               
-              const orderData = {
-                userId: beneficiaryId, // Order belongs to the beneficiary
+              const itemTotal = discountedPrice * item.quantity;
+              totalOrderPrice += itemTotal;
+              
+              orderItems.push({
                 productId: item.product.id,
                 quantity: item.quantity,
-                unitPrice: discountedPrice.toFixed(2), // Full discounted price per unit
-                totalPrice: (discountedPrice * item.quantity).toFixed(2), // Total for this item
-                finalPrice: (discountedPrice * item.quantity).toFixed(2), // Final price for this item
-                status: "completed" as const,
-                type: "group" as const,
-                shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
-              };
-
-              const newOrder = await storage.createOrder(orderData);
-              console.log(`Group order created for beneficiary ${beneficiaryId}:`, newOrder.id);
+                unitPrice: discountedPrice.toFixed(2),
+                totalPrice: itemTotal.toFixed(2)
+              });
             }
+            
+            const orderData = {
+              userId: beneficiaryId, // Order belongs to the beneficiary
+              addressId: addressId,
+              totalPrice: totalOrderPrice.toFixed(2),
+              finalPrice: totalOrderPrice.toFixed(2),
+              status: "completed" as const,
+              type: "group" as const,
+              shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
+            };
 
+            const newOrder = await storage.createOrderWithItems(orderData, orderItems);
+            console.log(`Group order with ${orderItems.length} items created for beneficiary ${beneficiaryId}:`, newOrder.id);
+
+            // Create group payment records for each item to track payment status
+            for (const item of userGroup.items) {
+              // Calculate the discounted price for this specific item
+              let discountedPrice = parseFloat(item.product.originalPrice);
+              if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+                const totalMembers = parseInt(paymentIntent.metadata.totalMembers);
+                const applicableTiers = item.product.discountTiers.filter(tier => totalMembers >= tier.participantCount);
+                if (applicableTiers.length > 0) {
+                  const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
+                  discountedPrice = parseFloat(bestTier.finalPrice);
+                }
+              }
+              
+              const groupPaymentData = {
+                userId: beneficiaryId,
+                userGroupId: userGroupId,
+                productId: item.product.id,
+                stripePaymentIntentId: paymentIntent.id,
+                amount: (discountedPrice * item.quantity).toFixed(2),
+                currency: "usd",
+                status: "succeeded",
+                quantity: item.quantity,
+                unitPrice: discountedPrice.toFixed(2)
+              };
+              
+              await storage.createGroupPayment(groupPaymentData);
+            }
+            
+            console.log(`Group payment records created for beneficiary ${beneficiaryId}`);
             console.log(`Group purchase payment processed: ${payerId} paid for ${beneficiaryId}`);
             
           } else {
@@ -1924,48 +2146,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Get current participant count for correct discount tier calculation
-      const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
-      const totalMembers = approvedCount + 1; // +1 for the owner
+      // Check cache first to prevent amount fluctuation
+      const cacheKey = `group-${userGroupId}`;
+      const cached = groupPricingCache.get(cacheKey);
+      const now = Date.now();
       
-      console.log(`Server - Group ${userGroupId}: Approved count: ${approvedCount}, Total members: ${totalMembers}`);
+      let popularGroupValue = 0;
+      let totalDiscountedAmount = 0;
+      let memberAmount = 0;
+      let potentialSavings = 0;
+      let totalMembers = 0;
+      
+      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        // Use cached values
+        popularGroupValue = cached.originalAmount;
+        totalDiscountedAmount = cached.originalAmount - cached.potentialSavings;
+        memberAmount = cached.amount;
+        potentialSavings = cached.potentialSavings;
+        totalMembers = cached.totalMembers || 5; // Default to 5 if not cached
+        console.log(`Server - Using cached pricing for group ${userGroupId}: Amount: $${memberAmount.toFixed(2)}`);
+      } else {
+        // Calculate fresh pricing
+        const approvedCount = await storage.getUserGroupParticipantCount(userGroupId);
+        totalMembers = approvedCount + 1; // +1 for the owner
+        
+        // Ensure we have a minimum of 5 members for group pricing (as per the UI logic)
+        const effectiveMemberCount = Math.max(totalMembers, 5);
+        
+        console.log(`Server - Group ${userGroupId}: Approved count: ${approvedCount}, Total members: ${totalMembers}, Effective count: ${effectiveMemberCount}`);
 
-      // Calculate total amount with correct discount tiers
-      let popularGroupValue = 0; // Original total without discount
-      let totalDiscountedAmount = 0; // Total with discount applied
-      
-      console.log(`Server - Processing ${groupItems.length} items for group ${userGroupId}`);
-      
-      for (const item of groupItems) {
-        console.log(`Server - Item: ${item.product.name}, Discount Tiers:`, item.product.discountTiers);
-        const originalPrice = parseFloat(item.product.originalPrice.toString());
-        popularGroupValue += originalPrice * item.quantity;
+        // Calculate total amount with correct discount tiers
+        console.log(`Server - Processing ${groupItems.length} items for group ${userGroupId}`);
         
-        let discountPrice = originalPrice;
-        
-        // Find correct discount tier based on current member count - pick the highest applicable tier
-        if (item.product.discountTiers && item.product.discountTiers.length > 0) {
-          const applicableTiers = item.product.discountTiers.filter(tier => totalMembers >= tier.participantCount);
-          if (applicableTiers.length > 0) {
-            // Sort by participantCount descending and take the first (highest applicable tier)
-            const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
-            discountPrice = parseFloat(bestTier.finalPrice.toString());
-            console.log(`Server - Item: ${item.product.name}, Original: $${originalPrice}, Discounted: $${discountPrice}, Tier: ${bestTier.participantCount} participants, Total Members: ${totalMembers}`);
+        for (const item of groupItems) {
+          console.log(`Server - Item: ${item.product.name}, Discount Tiers:`, item.product.discountTiers);
+          const originalPrice = parseFloat(item.product.originalPrice.toString());
+          popularGroupValue += originalPrice * item.quantity;
+          
+          let discountPrice = originalPrice;
+          
+          // Find correct discount tier based on effective member count - pick the highest applicable tier
+          if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+            const applicableTiers = item.product.discountTiers.filter(tier => effectiveMemberCount >= tier.participantCount);
+            if (applicableTiers.length > 0) {
+              // Sort by participantCount descending and take the first (highest applicable tier)
+              const bestTier = applicableTiers.sort((a, b) => b.participantCount - a.participantCount)[0];
+              discountPrice = parseFloat(bestTier.finalPrice.toString());
+              console.log(`Server - Item: ${item.product.name}, Original: $${originalPrice}, Discounted: $${discountPrice}, Tier: ${bestTier.participantCount} participants, Effective Members: ${effectiveMemberCount}`);
+            } else {
+              console.log(`Server - Item: ${item.product.name}, No applicable discount tiers for ${effectiveMemberCount} members`);
+            }
           } else {
-            console.log(`Server - Item: ${item.product.name}, No applicable discount tiers for ${totalMembers} members`);
+            console.log(`Server - Item: ${item.product.name}, No discount tiers available`);
           }
-        } else {
-          console.log(`Server - Item: ${item.product.name}, No discount tiers available`);
+          
+          totalDiscountedAmount += discountPrice * item.quantity;
         }
-        
-        totalDiscountedAmount += discountPrice * item.quantity;
-      }
 
-      // Calculate final amount using formula: Popular Group Value - Potential Savings
-      const potentialSavings = popularGroupValue - totalDiscountedAmount;
-      const memberAmount = popularGroupValue - potentialSavings; // This equals totalDiscountedAmount
-      
-      console.log(`Server - Final calculations: Popular Group Value: $${popularGroupValue.toFixed(2)}, Total Discounted: $${totalDiscountedAmount.toFixed(2)}, Potential Savings: $${potentialSavings.toFixed(2)}, Member Amount: $${memberAmount.toFixed(2)}`);
+        // Calculate final amount using formula: Popular Group Value - Potential Savings
+        potentialSavings = popularGroupValue - totalDiscountedAmount;
+        memberAmount = popularGroupValue - potentialSavings; // This equals totalDiscountedAmount
+        
+        // Cache the calculated values
+        groupPricingCache.set(cacheKey, {
+          amount: memberAmount,
+          originalAmount: popularGroupValue,
+          potentialSavings: potentialSavings,
+          totalMembers: totalMembers,
+          timestamp: now
+        });
+        
+        console.log(`Server - Final calculations: Popular Group Value: $${popularGroupValue.toFixed(2)}, Total Discounted: $${totalDiscountedAmount.toFixed(2)}, Potential Savings: $${potentialSavings.toFixed(2)}, Member Amount: $${memberAmount.toFixed(2)}`);
+      }
 
       // Get address for shipping
       const addresses = await storage.getUserAddresses(userId);

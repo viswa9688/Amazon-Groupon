@@ -163,22 +163,40 @@ export default function Orders() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-start gap-3 flex-1">
                       {getStatusIcon(order.status || "pending")}
-                      <div>
-                        <p className="font-medium text-foreground">
-                          Quantity: {order.quantity}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Unit Price: ${order.unitPrice} • Total: ${order.totalPrice}
-                        </p>
+                      <div className="flex-1">
+                        {order.items && order.items.length > 0 ? (
+                          <div className="space-y-2">
+                            <p className="font-medium text-foreground">
+                              {order.items.length} item{order.items.length > 1 ? 's' : ''} in this order
+                            </p>
+                            <div className="space-y-1">
+                              {order.items.map((item: any, index: number) => (
+                                <div key={index} className="text-sm text-muted-foreground">
+                                  <span className="font-medium">{item.product?.name || `Product ${item.productId}`}</span>
+                                  <span className="ml-2">Qty: {item.quantity} × ${item.unitPrice}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-medium text-foreground">
+                              Quantity: {order.quantity || 1}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Unit Price: ${order.unitPrice || '0.00'} • Total: ${order.totalPrice || '0.00'}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="text-right space-y-2">
+                    <div className="text-right space-y-2 ml-4">
                       <p className="text-lg font-semibold text-foreground" data-testid={`text-total-${order.id}`}>
-                        ${order.totalPrice}
+                        ${order.finalPrice || order.totalPrice}
                       </p>
                       {order.type === "group" && order.status === "pending" && (
                         <p className="text-xs text-muted-foreground">
