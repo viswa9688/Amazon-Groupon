@@ -14,6 +14,7 @@ import {
   serviceProviders,
   serviceProviderStaff,
   adminCredentials,
+  sellerNotifications,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
@@ -46,6 +47,8 @@ import {
   type ServiceProviderStaff,
   type InsertServiceProviderStaff,
   type AdminCredentials,
+  type SellerNotification,
+  type InsertSellerNotification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
@@ -221,6 +224,14 @@ export interface IStorage {
       percentage: number;
     }>;
   }>;
+  
+  // Seller notification operations
+  createSellerNotification(notification: InsertSellerNotification): Promise<SellerNotification>;
+  getSellerNotifications(sellerId: string, limit?: number): Promise<SellerNotification[]>;
+  getUnreadSellerNotificationCount(sellerId: string): Promise<number>;
+  markNotificationAsRead(notificationId: number): Promise<SellerNotification>;
+  markAllNotificationsAsRead(sellerId: string): Promise<void>;
+  deleteNotification(notificationId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2053,6 +2064,67 @@ export class DatabaseStorage implements IStorage {
       console.error("Error getting participant status:", error);
       return null;
     }
+  }
+
+  // Seller notification operations
+  async createSellerNotification(notification: InsertSellerNotification): Promise<SellerNotification> {
+    const [newNotification] = await db
+      .insert(sellerNotifications)
+      .values(notification)
+      .returning();
+    return newNotification;
+  }
+
+  async getSellerNotifications(sellerId: string, limit: number = 50): Promise<SellerNotification[]> {
+    return await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.sellerId, sellerId))
+      .orderBy(desc(sellerNotifications.createdAt))
+      .limit(limit);
+  }
+
+  async getUnreadSellerNotificationCount(sellerId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(sellerNotifications)
+      .where(and(
+        eq(sellerNotifications.sellerId, sellerId),
+        eq(sellerNotifications.isRead, false)
+      ));
+    return result.count;
+  }
+
+  async markNotificationAsRead(notificationId: number): Promise<SellerNotification> {
+    const [updatedNotification] = await db
+      .update(sellerNotifications)
+      .set({ 
+        isRead: true, 
+        readAt: new Date() 
+      })
+      .where(eq(sellerNotifications.id, notificationId))
+      .returning();
+    return updatedNotification;
+  }
+
+  async markAllNotificationsAsRead(sellerId: string): Promise<void> {
+    await db
+      .update(sellerNotifications)
+      .set({ 
+        isRead: true, 
+        readAt: new Date() 
+      })
+      .where(and(
+        eq(sellerNotifications.sellerId, sellerId),
+        eq(sellerNotifications.isRead, false)
+      ));
+  }
+
+  async deleteNotification(notificationId: number): Promise<boolean> {
+    const result = await db
+      .delete(sellerNotifications)
+      .where(eq(sellerNotifications.id, notificationId));
+    return result.rowCount > 0;
   }
 }
 

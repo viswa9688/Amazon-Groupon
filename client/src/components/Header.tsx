@@ -19,6 +19,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import PhoneAuthModal from "./PhoneAuthModal";
+import SellerNotifications from "./SellerNotifications";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
@@ -258,16 +259,22 @@ export default function Header() {
                       </div>
                     </div>
                   </div>
-                  {user?.isSeller && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => (window.location.href = "/seller")}
-                      data-testid="button-seller-dashboard"
-                    >
-                      <Store className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Button>
+                  {/* Debug: Show notifications for all authenticated users */}
+                  {isAuthenticated && (
+                    <>
+                      <SellerNotifications />
+                      {user?.isSeller && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => (window.location.href = "/seller")}
+                          data-testid="button-seller-dashboard"
+                        >
+                          <Store className="w-4 h-4 mr-2" />
+                          Dashboard
+                        </Button>
+                      )}
+                    </>
                   )}
                   <Button
                     variant="ghost"

@@ -280,6 +280,20 @@ export const groupPayments = pgTable("group_payments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Seller notifications table
+export const sellerNotifications = pgTable("seller_notifications", {
+  id: serial("id").primaryKey(),
+  sellerId: varchar("seller_id").notNull().references(() => users.id),
+  type: varchar("type", { length: 50 }).notNull(), // new_order, order_status_change, payment_received, low_stock, etc.
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  data: jsonb("data"), // Additional data like orderId, productId, etc.
+  isRead: boolean("is_read").default(false),
+  priority: varchar("priority", { length: 20 }).default("normal"), // low, normal, high, urgent
+  createdAt: timestamp("created_at").defaultNow(),
+  readAt: timestamp("read_at"),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   products: many(products),
@@ -288,6 +302,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   cartItems: many(cartItems),
   userGroups: many(userGroups),
   groupPayments: many(groupPayments),
+  sellerNotifications: many(sellerNotifications),
 }));
 
 export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
@@ -361,6 +376,10 @@ export const groupPaymentsRelations = relations(groupPayments, ({ one }) => ({
   user: one(users, { fields: [groupPayments.userId], references: [users.id] }),
   userGroup: one(userGroups, { fields: [groupPayments.userGroupId], references: [userGroups.id] }),
   product: one(products, { fields: [groupPayments.productId], references: [products.id] }),
+}));
+
+export const sellerNotificationsRelations = relations(sellerNotifications, ({ one }) => ({
+  seller: one(users, { fields: [sellerNotifications.sellerId], references: [users.id] }),
 }));
 
 // Insert schemas
@@ -444,6 +463,12 @@ export const insertGroupPaymentSchema = createInsertSchema(groupPayments).omit({
   updatedAt: true,
 });
 
+export const insertSellerNotificationSchema = createInsertSchema(sellerNotifications).omit({
+  id: true,
+  createdAt: true,
+  readAt: true,
+});
+
 // Admin credentials schema
 export const insertAdminCredentialsSchema = createInsertSchema(adminCredentials).omit({
   id: true,
@@ -487,6 +512,8 @@ export type UserGroupParticipant = typeof userGroupParticipants.$inferSelect;
 export type InsertUserGroupParticipant = z.infer<typeof insertUserGroupParticipantSchema>;
 export type GroupPayment = typeof groupPayments.$inferSelect;
 export type InsertGroupPayment = z.infer<typeof insertGroupPaymentSchema>;
+export type SellerNotification = typeof sellerNotifications.$inferSelect;
+export type InsertSellerNotification = z.infer<typeof insertSellerNotificationSchema>;
 export type AdminCredentials = typeof adminCredentials.$inferSelect;
 export type InsertAdminCredentials = z.infer<typeof insertAdminCredentialsSchema>;
 

@@ -316,6 +316,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
       });
       const order = await storage.createOrder(orderData);
+      
+      // Create notification for seller about new order
+      if (order.productId) {
+        const product = await storage.getProduct(order.productId);
+        if (product && product.sellerId) {
+          await storage.createSellerNotification({
+            sellerId: product.sellerId,
+            type: "new_order",
+            title: "New Order Received",
+            message: `You have received a new order for "${product.name}" (Order #${order.id})`,
+            data: { orderId: order.id, productId: order.productId },
+            priority: "normal"
+          });
+        }
+      }
+      
       res.status(201).json(order);
     } catch (error) {
       console.error("Error creating order:", error);
@@ -407,6 +423,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create single order with multiple items
       const order = await storage.createOrderWithItems(orderData, items);
       console.log("Group order with items created successfully:", order.id);
+      
+      // Create notifications for sellers about new orders
+      const sellerNotifications = new Map();
+      for (const item of items) {
+        const product = await storage.getProduct(item.productId);
+        if (product && product.sellerId) {
+          const sellerId = product.sellerId;
+          if (!sellerNotifications.has(sellerId)) {
+            sellerNotifications.set(sellerId, []);
+          }
+          sellerNotifications.get(sellerId).push(product.name);
+        }
+      }
+      
+      // Create one notification per seller with all their products
+      for (const [sellerId, productNames] of sellerNotifications) {
+        await storage.createSellerNotification({
+          sellerId,
+          type: "new_order",
+          title: "New Group Order Received",
+          message: `You have received a new group order for: ${productNames.join(", ")} (Order #${order.id})`,
+          data: { orderId: order.id, productIds: items.filter(item => {
+            const product = items.find(i => i.productId === item.productId);
+            return product && product.sellerId === sellerId;
+          }).map(item => item.productId) },
+          priority: "normal"
+        });
+      }
+      
       res.status(201).json(order);
     } catch (error) {
       console.error("Error creating group order:", error);
@@ -1749,6 +1794,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seller notification routes
+  app.get('/api/seller/notifications', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const { limit } = req.query;
+      
+      const notifications = await storage.getSellerNotifications(sellerId, limit ? parseInt(limit) : 50);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching seller notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get('/api/seller/notifications/unread-count', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const count = await storage.getUnreadSellerNotificationCount(sellerId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  app.patch('/api/seller/notifications/:notificationId/read', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const notificationId = parseInt(req.params.notificationId);
+      
+      if (isNaN(notificationId)) {
+        return res.status(400).json({ message: "Invalid notification ID" });
+      }
+
+      // Verify the notification belongs to this seller
+      const notifications = await storage.getSellerNotifications(sellerId, 1000);
+      const notification = notifications.find(n => n.id === notificationId);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      const updatedNotification = await storage.markNotificationAsRead(notificationId);
+      res.json(updatedNotification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch('/api/seller/notifications/mark-all-read', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      await storage.markAllNotificationsAsRead(sellerId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.delete('/api/seller/notifications/:notificationId', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const notificationId = parseInt(req.params.notificationId);
+      
+      if (isNaN(notificationId)) {
+        return res.status(400).json({ message: "Invalid notification ID" });
+      }
+
+      // Verify the notification belongs to this seller
+      const notifications = await storage.getSellerNotifications(sellerId, 1000);
+      const notification = notifications.find(n => n.id === notificationId);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      const deleted = await storage.deleteNotification(notificationId);
+      if (deleted) {
+        res.json({ message: "Notification deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete notification" });
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  // Test notification endpoint (for development/testing)
+  app.post('/api/seller/notifications/test', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const { type = "test", title = "Test Notification", message = "This is a test notification" } = req.body;
+      
+      const notification = await storage.createSellerNotification({
+        sellerId,
+        type,
+        title,
+        message,
+        data: { test: true },
+        priority: "normal"
+      });
+      
+      res.json(notification);
+    } catch (error) {
+      console.error("Error creating test notification:", error);
+      res.status(500).json({ message: "Failed to create test notification" });
+    }
+  });
+
   app.patch('/api/seller/orders/:orderId/status', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
@@ -1798,6 +1955,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update the order status
       const updatedOrder = await storage.updateOrderStatus(orderId, status);
+      
+      // Create notification for customer about order status change
+      if (updatedOrder.userId) {
+        const user = await storage.getUser(updatedOrder.userId);
+        if (user) {
+          await storage.createSellerNotification({
+            sellerId: updatedOrder.userId, // For customer notifications, we use userId as sellerId
+            type: "order_status_change",
+            title: "Order Status Updated",
+            message: `Your order #${orderId} status has been updated to: ${status}`,
+            data: { orderId: orderId, status: status },
+            priority: "normal"
+          });
+        }
+      }
+      
       res.json(updatedOrder);
     } catch (error) {
       console.error("Error updating order status:", error);
@@ -2045,6 +2218,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             const newOrder = await storage.createOrderWithItems(orderData, orderItems);
             console.log(`Group order with ${orderItems.length} items created for beneficiary ${beneficiaryId}:`, newOrder.id);
+            
+            // Create notifications for sellers about payment received
+            const sellerNotifications = new Map();
+            for (const item of orderItems) {
+              const product = await storage.getProduct(item.productId);
+              if (product && product.sellerId) {
+                const sellerId = product.sellerId;
+                if (!sellerNotifications.has(sellerId)) {
+                  sellerNotifications.set(sellerId, []);
+                }
+                sellerNotifications.get(sellerId).push({
+                  name: product.name,
+                  amount: item.totalPrice
+                });
+              }
+            }
+            
+            // Create one notification per seller with payment details
+            for (const [sellerId, products] of sellerNotifications) {
+              const totalAmount = products.reduce((sum, product) => sum + parseFloat(product.amount), 0);
+              await storage.createSellerNotification({
+                sellerId,
+                type: "payment_received",
+                title: "Payment Received",
+                message: `Payment of $${totalAmount.toFixed(2)} received for: ${products.map(p => p.name).join(", ")} (Order #${newOrder.id})`,
+                data: { orderId: newOrder.id, amount: totalAmount, productIds: products.map(p => p.productId) },
+                priority: "high"
+              });
+            }
 
             // Create group payment records for each item to track payment status
             for (const item of userGroup.items) {
