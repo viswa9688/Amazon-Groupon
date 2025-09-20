@@ -139,6 +139,7 @@ const CheckoutForm = ({
             addressId: selectedAddressId,
             payerId: payerId,
             beneficiaryId: beneficiaryId,
+            userGroupId: userGroupId,
             items: orderItems
           });
           

@@ -724,7 +724,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUserOrdersWithItems(userId: string): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] })[]> {
     return await db.query.orders.findMany({
-      where: eq(orders.userId, userId),
+      where: or(
+        eq(orders.userId, userId), // Orders where user is the beneficiary
+        eq(orders.payerId, userId) // Orders where user is the payer
+      ),
       with: {
         items: {
           with: {

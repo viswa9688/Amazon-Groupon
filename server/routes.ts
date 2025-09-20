@@ -433,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders/group', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { totalPrice, finalPrice, status, type, addressId, items, payerId, beneficiaryId } = req.body;
+      const { totalPrice, finalPrice, status, type, addressId, items, payerId, beneficiaryId, userGroupId } = req.body;
       
       console.log("Creating group order with data:", {
         userId,
@@ -444,6 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         addressId,
         payerId,
         beneficiaryId,
+        userGroupId,
         itemsCount: items?.length
       });
       
@@ -499,6 +500,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create single order with multiple items
       const order = await storage.createOrderWithItems(orderData, items);
       console.log("Group order with items created successfully:", order.id);
+      
+      // Create group payment record for payment status tracking
+      if (userGroupId) {
+        for (const item of items) {
+          const groupPaymentData = {
+            userId: finalUserId, // Who receives the order (beneficiary)
+            payerId: finalPayerId, // Who made the payment
+            userGroupId: userGroupId,
+            productId: item.productId,
+            amount: item.totalPrice,
+            currency: "usd",
+            status: "succeeded",
+            quantity: item.quantity,
+            unitPrice: item.unitPrice
+          };
+          
+          const groupPayment = await storage.createGroupPayment(groupPaymentData);
+          console.log("Group payment record created:", groupPayment.id, "for user:", finalUserId, "paid by:", finalPayerId);
+        }
+      }
       
       // Create notifications for sellers about new orders
       const sellerNotifications = new Map();
