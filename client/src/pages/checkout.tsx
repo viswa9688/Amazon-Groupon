@@ -1,12 +1,13 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { useEffect, useState, useRef } from 'react';
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation, useRoute } from "wouter";
 import AddressManager from "@/components/AddressManager";
+import { useAuth } from "@/hooks/useAuth";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
@@ -22,7 +23,8 @@ const CheckoutForm = ({
   userGroupId, 
   selectedAddressId,
   groupData,
-  selectedAddress
+  selectedAddress,
+  memberDetails
 }: { 
   amount: number; 
   productId?: number; 
@@ -31,10 +33,12 @@ const CheckoutForm = ({
   selectedAddressId?: number; 
   groupData?: any;
   selectedAddress?: any;
+  memberDetails?: any;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [, navigate] = useLocation();
 
@@ -100,6 +104,32 @@ const CheckoutForm = ({
             });
           }
           
+          // Determine payer and beneficiary IDs
+          const payerId = user?.id; // Current authenticated user (who is making the payment)
+          const beneficiaryId = memberDetails?.userId; // Member being paid for
+          
+          // Validate that we have both IDs
+          if (!payerId) {
+            throw new Error("Payer ID is required");
+          }
+          
+          if (!beneficiaryId) {
+            throw new Error("Beneficiary ID is required");
+          }
+          
+          // Ensure payer and beneficiary are different
+          if (payerId === beneficiaryId) {
+            console.warn("Payer and beneficiary are the same - this might be a self-payment");
+          }
+          
+          console.log("Creating group order with payer/beneficiary:", {
+            payerId,
+            beneficiaryId,
+            memberDetails,
+            currentUser: user?.id,
+            isSelfPayment: payerId === beneficiaryId
+          });
+          
           // Create single order with multiple items
           await apiRequest("POST", "/api/orders/group", {
             totalPrice: totalOrderPrice.toFixed(2),
@@ -107,34 +137,13 @@ const CheckoutForm = ({
             status: "completed",
             type: "group",
             addressId: selectedAddressId,
+            payerId: payerId,
+            beneficiaryId: beneficiaryId,
             items: orderItems
           });
           
-          // Create group payment records for tracking payment status
-          for (const item of groupData.items) {
-            const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-            const discountedPrice = parseFloat(discountPrice.toString());
-            
-            console.log("Creating group payment for item:", {
-              userGroupId,
-              productId: item.product.id,
-              amount: (discountedPrice * item.quantity).toFixed(2),
-              quantity: item.quantity,
-              unitPrice: discountedPrice.toFixed(2)
-            });
-            
-            await apiRequest("POST", "/api/group-payments", {
-              userGroupId: userGroupId,
-              productId: item.product.id,
-              amount: (discountedPrice * item.quantity).toFixed(2),
-              currency: "usd",
-              status: "succeeded",
-              quantity: item.quantity,
-              unitPrice: discountedPrice.toFixed(2)
-            });
-          }
-          
-          console.log("Backup order and payment records created successfully for group payment");
+          // Group payment records will be created by the Stripe webhook
+          console.log("Payment successful - webhook will create group payment records");
         } catch (orderError) {
           console.log("Order creation handled by webhook or failed:", orderError); // This is fine, webhook will create it
         }
@@ -144,6 +153,29 @@ const CheckoutForm = ({
         title: "Payment Successful",
         description: "Thank you for your purchase!",
       });
+      
+      // Invalidate payment status queries to refresh the UI
+      if (userGroupId) {
+        // Clear all payment-related caches first
+        queryClient.removeQueries({ queryKey: [`/api/user-groups/${userGroupId}/payment-status`] });
+        queryClient.removeQueries({ queryKey: ["/api/user-groups", userGroupId] });
+        
+        // Invalidate specific queries
+        queryClient.invalidateQueries({ queryKey: [`/api/user-groups/${userGroupId}/payment-status`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/user-groups", userGroupId] });
+        
+        // Also invalidate all user-groups queries to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] });
+        
+        // Force refetch the payment status immediately
+        queryClient.refetchQueries({ queryKey: [`/api/user-groups/${userGroupId}/payment-status`] });
+        
+        // Add a small delay to ensure the server has processed the payment
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: [`/api/user-groups/${userGroupId}/payment-status`] });
+        }, 2000);
+      }
+      
       // Use a small delay to ensure toast shows before navigation
       setTimeout(() => {
         navigate("/orders");
@@ -169,6 +201,7 @@ const CheckoutForm = ({
 };
 
 export default function Checkout() {
+  const { user } = useAuth();
   const [clientSecret, setClientSecret] = useState("");
   const [match, params] = useRoute("/checkout/:productId/:type");
   const [location] = useLocation();
@@ -294,14 +327,10 @@ export default function Checkout() {
               
               // Get member details if specified
               if (memberId) {
-                try {
-                  const memberResponse = await apiRequest("GET", `/api/auth/user`);
-                  const member = await memberResponse.json();
-                  setMemberDetails(member);
-                  console.log("Member details:", member);
-                } catch (error) {
-                  console.log("Could not fetch member details");
-                }
+                // Create member details object with the memberId
+                // This ensures we have the correct beneficiary ID
+                setMemberDetails({ userId: memberId });
+                console.log("Set member details for memberId:", memberId);
               }
               
               // Get participant count for pricing calculations
@@ -466,15 +495,12 @@ export default function Checkout() {
 
   // Create group payment intent when address is selected
   useEffect(() => {
-    if (!isGroupPayment || !userGroupId || !selectedAddressId) return;
+    if (!isGroupPayment || !userGroupId || !selectedAddressId || !user?.id) {
+      return;
+    }
 
     const createGroupPaymentIntent = async () => {
       try {
-        console.log("Creating group payment intent with:", {
-          isGroupPayment,
-          userGroupId,
-          selectedAddressId
-        });
         setIsLoadingPayment(true);
         
         // Get selected address details
@@ -489,18 +515,44 @@ export default function Checkout() {
           return match ? match[1] : null;
         })();
         
-        const response = await apiRequest("POST", "/api/group-payment-intent", {
+        // Get the first product from group data for payment intent
+        const firstProduct = groupData?.items?.[0]?.product;
+        if (!firstProduct) {
+          throw new Error("No products found in group data");
+        }
+        
+        // Determine payer and beneficiary IDs
+        const payerId = user?.id; // Current authenticated user
+        const beneficiaryId = memberId || user?.id; // Member being paid for, or self if not specified
+        
+        
+        // Check if user is authenticated
+        if (!user?.id) {
+          throw new Error("User not authenticated. Cannot create payment intent.");
+        }
+        
+        const response = await apiRequest("POST", "/api/create-group-payment-intent", {
           userGroupId,
+          productId: firstProduct.id,
+          amount: amount,
           addressId: selectedAddressId,
-          memberId: memberId, // Pass the specific member ID for payment
+          payerId: payerId,
+          beneficiaryId: beneficiaryId,
+          memberId: memberId, // Keep for backward compatibility
         });
+        
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Payment intent creation failed:", errorData);
+          throw new Error(`Payment intent creation failed: ${errorData.message || 'Unknown error'}`);
+        }
+        
         const data = await response.json();
-        console.log("Group payment intent created:", data);
         setClientSecret(data.clientSecret);
         
         // DO NOT update the amount - it should remain consistent
         // The amount was already calculated during initial payment setup
-        console.log("Payment intent created with consistent amount:", amount);
         
         // Only calculate original amount if not already set
         if (groupData && groupData.items && !originalAmount) {
@@ -518,7 +570,7 @@ export default function Checkout() {
     };
 
     createGroupPaymentIntent();
-  }, [isGroupPayment, userGroupId, selectedAddressId]);
+  }, [isGroupPayment, userGroupId, selectedAddressId, user?.id]);
 
   if (isLoading) {
     return (
@@ -804,6 +856,7 @@ export default function Checkout() {
                         selectedAddressId={selectedAddressId || undefined}
                         groupData={groupData}
                         selectedAddress={selectedAddress}
+                        memberDetails={memberDetails}
                       />
                     </Elements>
                   </div>

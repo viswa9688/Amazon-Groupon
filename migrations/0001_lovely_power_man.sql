@@ -1,0 +1,2 @@
+ALTER TABLE "group_payments" ADD COLUMN "payer_id" varchar NOT NULL;--> statement-breakpoint
+ALTER TABLE "group_payments" ADD CONSTRAINT "group_payments_payer_id_users_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;

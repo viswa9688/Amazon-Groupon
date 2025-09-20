@@ -167,6 +167,57 @@ export const serviceProviderStaff = pgTable("service_provider_staff", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Grocery Product Details (for Groceries category)
+export const groceryProducts = pgTable("grocery_products", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().unique().references(() => products.id),
+  
+  // Basic Product Information
+  productTitle: varchar("product_title", { length: 255 }),
+  productDescription: text("product_description"),
+  brand: varchar("brand", { length: 100 }),
+  
+  // Product Identification
+  skuId: varchar("sku_id", { length: 50 }),
+  skuCode: varchar("sku_code", { length: 50 }),
+  gtin: varchar("gtin", { length: 20 }),
+  barcodeSymbology: varchar("barcode_symbology", { length: 20 }),
+  
+  // Product Specifications
+  uom: varchar("uom", { length: 20 }), // Unit of measure (kg, g, lb, oz, etc.)
+  netContentValue: decimal("net_content_value", { precision: 10, scale: 3 }),
+  netContentUom: varchar("net_content_uom", { length: 20 }),
+  isVariableWeight: boolean("is_variable_weight").default(false),
+  pluCode: varchar("plu_code", { length: 20 }),
+  
+  // Product Attributes
+  dietaryTags: text("dietary_tags"), // JSON array of dietary tags
+  allergens: text("allergens"), // JSON array of allergens
+  countryOfOrigin: varchar("country_of_origin", { length: 100 }),
+  temperatureZone: varchar("temperature_zone", { length: 20 }), // ambient, refrigerated, frozen
+  shelfLifeDays: integer("shelf_life_days"),
+  storageInstructions: text("storage_instructions"),
+  substitutable: boolean("substitutable").default(true),
+  
+  // Physical Properties
+  grossWeightG: decimal("gross_weight_g", { precision: 10, scale: 2 }),
+  
+  // Pricing Information
+  listPriceCents: integer("list_price_cents"),
+  salePriceCents: integer("sale_price_cents"),
+  effectiveFrom: timestamp("effective_from"),
+  effectiveTo: timestamp("effective_to"),
+  taxClass: varchar("tax_class", { length: 50 }),
+  
+  // Inventory Management
+  inventoryOnHand: integer("inventory_on_hand").default(0),
+  inventoryReserved: integer("inventory_reserved").default(0),
+  inventoryStatus: varchar("inventory_status", { length: 20 }).default("in_stock"), // in_stock, out_of_stock, discontinued
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Discount tiers for group buying
 export const discountTiers = pgTable("discount_tiers", {
   id: serial("id").primaryKey(),
@@ -239,7 +290,8 @@ export const userGroupParticipants = pgTable("user_group_participants", {
 // Orders
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id), // Beneficiary (who receives the order)
+  payerId: varchar("payer_id").references(() => users.id), // Payer (who made the payment)
   productId: integer("product_id").references(() => products.id), // For backward compatibility
   addressId: integer("address_id").references(() => userAddresses.id), // Reference to user address
   quantity: integer("quantity").default(1), // For backward compatibility
@@ -267,7 +319,8 @@ export const orderItems = pgTable("order_items", {
 // Group payments - tracks individual user payments within groups  
 export const groupPayments = pgTable("group_payments", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id), // Beneficiary (who the payment is for)
+  payerId: varchar("payer_id").references(() => users.id), // Payer (who made the payment)
   userGroupId: integer("user_group_id").notNull().references(() => userGroups.id),
   productId: integer("product_id").notNull().references(() => products.id),
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }).unique(),
@@ -315,6 +368,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   discountTiers: many(discountTiers),
   orders: many(orders),
   serviceProvider: one(serviceProviders, { fields: [products.id], references: [serviceProviders.productId] }),
+  groceryProduct: one(groceryProducts, { fields: [products.id], references: [groceryProducts.productId] }),
   groupPayments: many(groupPayments),
 }));
 
@@ -327,10 +381,15 @@ export const serviceProviderStaffRelations = relations(serviceProviderStaff, ({ 
   serviceProvider: one(serviceProviders, { fields: [serviceProviderStaff.serviceProviderId], references: [serviceProviders.id] }),
 }));
 
+export const groceryProductsRelations = relations(groceryProducts, ({ one }) => ({
+  product: one(products, { fields: [groceryProducts.productId], references: [products.id] }),
+}));
+
 
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
-  user: one(users, { fields: [orders.userId], references: [users.id] }),
+  user: one(users, { fields: [orders.userId], references: [users.id] }), // Beneficiary
+  payer: one(users, { fields: [orders.payerId], references: [users.id] }), // Payer
   product: one(products, { fields: [orders.productId], references: [products.id] }),
   address: one(userAddresses, { fields: [orders.addressId], references: [userAddresses.id] }),
   items: many(orderItems),
@@ -373,7 +432,8 @@ export const userGroupParticipantsRelations = relations(userGroupParticipants, (
 }));
 
 export const groupPaymentsRelations = relations(groupPayments, ({ one }) => ({
-  user: one(users, { fields: [groupPayments.userId], references: [users.id] }),
+  user: one(users, { fields: [groupPayments.userId], references: [users.id] }), // Beneficiary
+  payer: one(users, { fields: [groupPayments.payerId], references: [users.id] }), // Payer
   userGroup: one(userGroups, { fields: [groupPayments.userGroupId], references: [userGroups.id] }),
   product: one(products, { fields: [groupPayments.productId], references: [products.id] }),
 }));
@@ -409,6 +469,12 @@ export const insertServiceProviderSchema = createInsertSchema(serviceProviders).
 export const insertServiceProviderStaffSchema = createInsertSchema(serviceProviderStaff).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertGroceryProductSchema = createInsertSchema(groceryProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertDiscountTierSchema = createInsertSchema(discountTiers).omit({
@@ -494,6 +560,8 @@ export type ServiceProvider = typeof serviceProviders.$inferSelect;
 export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
 export type ServiceProviderStaff = typeof serviceProviderStaff.$inferSelect;
 export type InsertServiceProviderStaff = z.infer<typeof insertServiceProviderStaffSchema>;
+export type GroceryProduct = typeof groceryProducts.$inferSelect;
+export type InsertGroceryProduct = z.infer<typeof insertGroceryProductSchema>;
 export type DiscountTier = typeof discountTiers.$inferSelect;
 export type InsertDiscountTier = z.infer<typeof insertDiscountTierSchema>;
 export type Order = typeof orders.$inferSelect;
@@ -523,6 +591,7 @@ export type ProductWithDetails = Product & {
   category: Category | null;
   discountTiers: DiscountTier[];
   serviceProvider?: ServiceProvider & { staff?: ServiceProviderStaff[] };
+  groceryProduct?: GroceryProduct;
 };
 
 

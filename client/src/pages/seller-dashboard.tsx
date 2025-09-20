@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
@@ -181,8 +182,53 @@ const serviceProviderSchema = z.object({
   highlightedTestimonials: z.any().optional(),
 });
 
+// Grocery-specific fields
+const groceryProductSchema = z.object({
+  // Basic Product Information
+  productTitle: z.string().optional(),
+  productDescription: z.string().optional(),
+  brand: z.string().optional(),
+  
+  // Product Identification
+  skuId: z.string().optional(),
+  skuCode: z.string().optional(),
+  gtin: z.string().optional(),
+  barcodeSymbology: z.string().optional(),
+  
+  // Product Specifications
+  uom: z.string().optional(), // Unit of measure
+  netContentValue: z.string().optional(),
+  netContentUom: z.string().optional(),
+  isVariableWeight: z.boolean().default(false),
+  pluCode: z.string().optional(),
+  
+  // Product Attributes
+  dietaryTags: z.string().optional(), // JSON string of dietary tags
+  allergens: z.string().optional(), // JSON string of allergens
+  countryOfOrigin: z.string().optional(),
+  temperatureZone: z.string().optional(),
+  shelfLifeDays: z.string().optional(),
+  storageInstructions: z.string().optional(),
+  substitutable: z.boolean().default(true),
+  
+  // Physical Properties
+  grossWeightG: z.string().optional(),
+  
+  // Pricing Information
+  listPriceCents: z.string().optional(),
+  salePriceCents: z.string().optional(),
+  effectiveFrom: z.date().optional(),
+  effectiveTo: z.date().optional(),
+  taxClass: z.string().optional(),
+  
+  // Inventory Management
+  inventoryOnHand: z.string().optional(),
+  inventoryReserved: z.string().optional(),
+  inventoryStatus: z.string().default("in_stock"),
+});
+
 // Combined form schema
-const productFormSchema = baseProductSchema.merge(serviceProviderSchema);
+const productFormSchema = baseProductSchema.merge(serviceProviderSchema).merge(groceryProductSchema);
 
 type ProductFormData = z.infer<typeof productFormSchema>;
 
@@ -274,6 +320,10 @@ export default function SellerDashboard() {
       advanceBookingDays: "7",
       rescheduleAllowed: true,
       liabilityWaiverRequired: false,
+      // Grocery defaults
+      isVariableWeight: false,
+      substitutable: true,
+      inventoryStatus: "in_stock",
     },
   });
 
@@ -298,6 +348,10 @@ export default function SellerDashboard() {
   // Check for service category - grocery shops should show product fields, service shops should show service fields
   const isServiceCategory =
     selectedCategoryId === "2" && selectedShop?.shopType === "services";
+  
+  // Check for grocery category
+  const isGroceryCategory =
+    selectedCategoryId === "1" && selectedShop?.shopType === "groceries";
 
   // Edit product form
   const editForm = useForm<ProductFormData>({
@@ -364,6 +418,40 @@ export default function SellerDashboard() {
           rescheduleAllowed: data.rescheduleAllowed,
           insurancePolicyNumber: data.insurancePolicyNumber,
           liabilityWaiverRequired: data.liabilityWaiverRequired,
+        };
+      }
+
+      // Add grocery-specific data if Groceries category
+      if (data.categoryId === "1") {
+        productData.groceryProduct = {
+          productTitle: data.productTitle,
+          productDescription: data.productDescription,
+          brand: data.brand,
+          skuId: data.skuId,
+          skuCode: data.skuCode,
+          gtin: data.gtin,
+          barcodeSymbology: data.barcodeSymbology,
+          uom: data.uom,
+          netContentValue: data.netContentValue ? parseFloat(data.netContentValue) : undefined,
+          netContentUom: data.netContentUom,
+          isVariableWeight: data.isVariableWeight,
+          pluCode: data.pluCode,
+          dietaryTags: data.dietaryTags,
+          allergens: data.allergens,
+          countryOfOrigin: data.countryOfOrigin,
+          temperatureZone: data.temperatureZone,
+          shelfLifeDays: data.shelfLifeDays ? parseInt(data.shelfLifeDays) : undefined,
+          storageInstructions: data.storageInstructions,
+          substitutable: data.substitutable,
+          grossWeightG: data.grossWeightG ? parseFloat(data.grossWeightG) : undefined,
+          listPriceCents: data.listPriceCents ? parseInt(data.listPriceCents) : undefined,
+          salePriceCents: data.salePriceCents ? parseInt(data.salePriceCents) : undefined,
+          effectiveFrom: data.effectiveFrom?.toISOString() || undefined,
+          effectiveTo: data.effectiveTo?.toISOString() || undefined,
+          taxClass: data.taxClass,
+          inventoryOnHand: data.inventoryOnHand ? parseInt(data.inventoryOnHand) : undefined,
+          inventoryReserved: data.inventoryReserved ? parseInt(data.inventoryReserved) : undefined,
+          inventoryStatus: data.inventoryStatus,
         };
       }
 
@@ -2074,6 +2162,335 @@ export default function SellerDashboard() {
                             </FormItem>
                           )}
                         />
+
+                        {/* Grocery-Specific Fields */}
+                        {isGroceryCategory && (
+                          <>
+                            <div className="space-y-4 border-t pt-4">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Package className="w-5 h-5" />
+                                Grocery Product Details
+                              </h3>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="brand"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Brand</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="e.g. Coca-Cola, Nestle"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="countryOfOrigin"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Country of Origin</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="e.g. India, USA"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="skuCode"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>SKU Code</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="SKU-123456"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="gtin"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>GTIN/Barcode</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="1234567890123"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="uom"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Unit of Measure</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="kg, g, lbs, oz"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="netContentValue"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Net Content Value</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          step="0.001"
+                                          placeholder="500"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="netContentUom"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Net Content Unit</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="g, ml, kg"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="temperatureZone"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Temperature Zone</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select temperature zone" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="ambient">Ambient</SelectItem>
+                                          <SelectItem value="refrigerated">Refrigerated</SelectItem>
+                                          <SelectItem value="frozen">Frozen</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="shelfLifeDays"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Shelf Life (Days)</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          placeholder="30"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="space-y-4">
+                                <FormField
+                                  control={form.control}
+                                  name="dietaryTags"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Dietary Tags (comma-separated)</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="vegan, gluten-free, organic, halal"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Enter dietary tags separated by commas
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="allergens"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Allergens (comma-separated)</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="nuts, dairy, eggs, soy"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Enter allergens separated by commas
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="storageInstructions"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Storage Instructions</FormLabel>
+                                      <FormControl>
+                                        <Textarea
+                                          placeholder="Store in a cool, dry place. Keep refrigerated after opening."
+                                          rows={3}
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name="inventoryOnHand"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Inventory On Hand</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          placeholder="100"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="inventoryStatus"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Inventory Status</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select status" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="in_stock">In Stock</SelectItem>
+                                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                                          <SelectItem value="discontinued">Discontinued</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="flex items-center space-x-4">
+                                <FormField
+                                  control={form.control}
+                                  name="isVariableWeight"
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                      <div className="space-y-1 leading-none">
+                                        <FormLabel>Variable Weight Product</FormLabel>
+                                        <FormDescription>
+                                          Check if this product is sold by weight
+                                        </FormDescription>
+                                      </div>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="substitutable"
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                      <div className="space-y-1 leading-none">
+                                        <FormLabel>Substitutable</FormLabel>
+                                        <FormDescription>
+                                          Allow substitutions for this product
+                                        </FormDescription>
+                                      </div>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
 
                         <div className="flex justify-end space-x-4">
                           <Button

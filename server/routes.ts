@@ -2,11 +2,16 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupPhoneAuth, isAuthenticated, isSellerAuthenticated } from "./phoneAuth";
+import { sql, eq } from "drizzle-orm";
+import { db } from "./db";
+import { orders } from "@shared/schema";
 import { seedDatabase } from "./seed";
 import Stripe from "stripe";
+import { notificationService } from "./notificationService";
 import {
   insertProductSchema,
   insertServiceProviderSchema,
+  insertGroceryProductSchema,
   insertCategorySchema,
   insertDiscountTierSchema,
   insertOrderSchema,
@@ -111,6 +116,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Update existing orders where payer_id is null (one-time migration)
+  app.post('/api/admin/update-existing-orders', async (req: any, res) => {
+    try {
+      // One-time migration to update existing orders
+      console.log(`Running one-time migration to update existing orders`);
+      
+      // Use the storage layer to update orders
+      // First, get all orders where payer_id is null
+      const ordersToUpdate = await db.select().from(orders).where(sql`payer_id IS NULL`);
+      
+      console.log(`Found ${ordersToUpdate.length} orders to update`);
+
+      // Update each order
+      let updatedCount = 0;
+      for (const order of ordersToUpdate) {
+        await db.update(orders)
+          .set({ payerId: order.userId })
+          .where(sql`id = ${order.id}`);
+        updatedCount++;
+      }
+
+      console.log(`Updated ${updatedCount} orders`);
+
+      // Get sample of updated orders for verification
+      const updatedOrders = await db.select({
+        id: orders.id,
+        userId: orders.userId,
+        payerId: orders.payerId,
+        status: orders.status,
+        type: orders.type,
+        createdAt: orders.createdAt
+      })
+      .from(orders)
+      .where(sql`payer_id IS NOT NULL`)
+      .orderBy(sql`created_at DESC`)
+      .limit(10);
+
+      res.json({
+        message: `Successfully updated ${updatedCount} orders`,
+        updatedOrders: updatedOrders
+      });
+    } catch (error) {
+      console.error('Error updating existing orders:', error);
+      res.status(500).json({ message: 'Failed to update orders', error: error.message });
     }
   });
   
@@ -314,6 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderData = insertOrderSchema.parse({
         ...req.body,
         userId,
+        payerId: userId, // For direct orders, user pays for themselves
       });
       const order = await storage.createOrder(orderData);
       
@@ -380,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders/group', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { totalPrice, finalPrice, status, type, addressId, items } = req.body;
+      const { totalPrice, finalPrice, status, type, addressId, items, payerId, beneficiaryId } = req.body;
       
       console.log("Creating group order with data:", {
         userId,
@@ -389,8 +442,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status,
         type,
         addressId,
+        payerId,
+        beneficiaryId,
         itemsCount: items?.length
       });
+      
+      // Validate payer and beneficiary IDs
+      if (!payerId) {
+        return res.status(400).json({ message: "Payer ID is required" });
+      }
+      
+      if (!beneficiaryId) {
+        return res.status(400).json({ message: "Beneficiary ID is required" });
+      }
+      
+      // Log if payer and beneficiary are the same
+      if (payerId === beneficiaryId) {
+        console.log("Self-payment detected: payer and beneficiary are the same");
+      } else {
+        console.log("Cross-payment detected: payer and beneficiary are different");
+      }
       
       if (!items || !Array.isArray(items) || items.length === 0) {
         console.log("Missing or invalid items:", items);
@@ -407,8 +478,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Use beneficiaryId as userId (who receives the order) and payerId as payerId (who made the payment)
+      const finalUserId = beneficiaryId || userId; // Who receives the order
+      const finalPayerId = payerId || userId; // Who made the payment
+      
       const orderData = {
-        userId,
+        userId: finalUserId,
+        payerId: finalPayerId,
         addressId: addressId || null,
         totalPrice,
         finalPrice,
@@ -520,18 +596,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update payment status for users who have paid
       console.log("Processing group payments:", groupPayments.length);
       groupPayments.forEach(payment => {
-        console.log("Payment:", { userId: payment.userId, status: payment.status, amount: payment.amount });
+        console.log("Payment:", { 
+          userId: payment.userId, 
+          payerId: payment.payerId,
+          status: payment.status, 
+          amount: payment.amount 
+        });
         if (payment.status === 'succeeded') {
+          // The beneficiary (userId) should show as paid, regardless of who made the payment
           paymentStatus.set(payment.userId, {
             hasPaid: true,
             isOwner: payment.userId === userGroup.userId,
             paymentDetails: {
               amount: payment.amount,
               status: payment.status,
-              createdAt: payment.createdAt
+              createdAt: payment.createdAt,
+              paidBy: payment.payerId, // Track who actually made the payment
+              paidFor: payment.userId  // Track who the payment was for
             }
           });
-          console.log("Marked user as paid:", payment.userId);
+          console.log("Marked user as paid:", payment.userId, "paid by:", payment.payerId);
         }
       });
 
@@ -541,7 +625,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...status
       }));
 
-      console.log("Final payment status result:", result);
       res.json(result);
     } catch (error) {
       console.error("Error fetching group payment status:", error);
@@ -551,14 +634,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Create group payment record
   app.post('/api/group-payments', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const { userGroupId, productId, amount, currency, status, quantity, unitPrice } = req.body;
+      
+      const { userGroupId, productId, amount, currency, status, quantity, unitPrice, payerId, beneficiaryId } = req.body;
       
       console.log("Creating group payment with data:", {
-        userId,
+        payerId,
+        beneficiaryId,
         userGroupId,
         productId,
         amount,
@@ -568,9 +653,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unitPrice
       });
       
-      if (!userGroupId || !productId || !amount) {
-        console.log("Missing required fields:", { userGroupId, productId, amount });
-        return res.status(400).json({ message: "userGroupId, productId, and amount are required" });
+      if (!userGroupId || !productId || !amount || !payerId || !beneficiaryId) {
+        console.log("Missing required fields:", { userGroupId, productId, amount, payerId, beneficiaryId });
+        return res.status(400).json({ 
+          message: "userGroupId, productId, amount, payerId, and beneficiaryId are all required" 
+        });
       }
 
       // Convert userGroupId to number if it's a string
@@ -580,15 +667,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid userGroupId format" });
       }
 
-      // Check if user is part of this group
-      const isInGroup = await storage.isUserInUserGroup(groupId, userId);
-      console.log("User in group check:", { userId, groupId, isInGroup });
-      if (!isInGroup) {
-        return res.status(403).json({ message: "User must be a participant in this group" });
+      // Validate that the authenticated user is the payer
+      const authenticatedUserId = req.user.claims.sub;
+      if (authenticatedUserId !== payerId) {
+        return res.status(403).json({ 
+          message: "You can only create payments for yourself. Use your own user ID as payerId." 
+        });
       }
 
+      // Check if payer is part of this group
+      const isPayerInGroup = await storage.isUserInUserGroup(groupId, payerId);
+      console.log("Payer in group check:", { payerId, groupId, isPayerInGroup });
+      if (!isPayerInGroup) {
+        return res.status(403).json({ message: "Payer must be a participant in this group" });
+      }
+
+      // Check if beneficiary is part of this group
+      const isBeneficiaryInGroup = await storage.isUserInUserGroup(groupId, beneficiaryId);
+      console.log("Beneficiary in group check:", { beneficiaryId, groupId, isBeneficiaryInGroup });
+      if (!isBeneficiaryInGroup) {
+        return res.status(403).json({ message: "Beneficiary must be a participant in this group" });
+      }
+      
       const groupPaymentData = {
-        userId,
+        userId: beneficiaryId, // Who the payment is for (beneficiary)
+        payerId: payerId, // Who made the payment
         userGroupId: groupId,
         productId,
         amount,
@@ -1191,6 +1294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const success = await storage.joinUserGroup(userGroupId, userId);
       if (success) {
+        // Send notification to group owner about the join request
+        await notificationService.notifyGroupJoinRequest(userId, userGroupId);
+        
         res.status(201).json({ message: "Request sent! The collection owner will review your request to join." });
       } else {
         res.status(400).json({ message: "Failed to send request" });
@@ -1370,6 +1476,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const success = await storage.approveParticipant(userGroupId, participantId);
       if (success) {
+        // Check if group is now full (5 members) and send notification
+        const newApprovedCount = await storage.getUserGroupParticipantCount(userGroupId);
+        if (newApprovedCount >= 5) {
+          await notificationService.notifyGroupFilled(userGroupId);
+        }
+        
         res.json({ message: "Participant approved successfully" });
       } else {
         res.status(400).json({ message: "Failed to approve participant" });
@@ -1528,7 +1640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/seller/products', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.body.shopId || req.user.claims.sub; // Use shopId if provided, otherwise use user's ID
-      const { discountPrice, serviceProvider, shopId, ...productFields } = req.body;
+      const { discountPrice, serviceProvider, groceryProduct, shopId, ...productFields } = req.body;
       const productData = {
         ...productFields,
         sellerId,
@@ -1591,6 +1703,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
+      }
+
+      // Create grocery product record if this is a grocery product (category 1)
+      if (productData.categoryId === 1 && groceryProduct) {
+        const groceryProductData = {
+          productId: product.id!,
+          productTitle: groceryProduct.productTitle,
+          productDescription: groceryProduct.productDescription,
+          brand: groceryProduct.brand,
+          skuId: groceryProduct.skuId,
+          skuCode: groceryProduct.skuCode,
+          gtin: groceryProduct.gtin,
+          barcodeSymbology: groceryProduct.barcodeSymbology,
+          uom: groceryProduct.uom,
+          netContentValue: groceryProduct.netContentValue ? groceryProduct.netContentValue.toString() : null,
+          netContentUom: groceryProduct.netContentUom,
+          isVariableWeight: groceryProduct.isVariableWeight || false,
+          pluCode: groceryProduct.pluCode,
+          dietaryTags: groceryProduct.dietaryTags,
+          allergens: groceryProduct.allergens,
+          countryOfOrigin: groceryProduct.countryOfOrigin,
+          temperatureZone: groceryProduct.temperatureZone,
+          shelfLifeDays: groceryProduct.shelfLifeDays ? parseInt(groceryProduct.shelfLifeDays) : null,
+          storageInstructions: groceryProduct.storageInstructions,
+          substitutable: groceryProduct.substitutable ?? true,
+          grossWeightG: groceryProduct.grossWeightG ? groceryProduct.grossWeightG.toString() : null,
+          listPriceCents: groceryProduct.listPriceCents ? parseInt(groceryProduct.listPriceCents) : null,
+          salePriceCents: groceryProduct.salePriceCents ? parseInt(groceryProduct.salePriceCents) : null,
+          effectiveFrom: groceryProduct.effectiveFrom ? new Date(groceryProduct.effectiveFrom) : null,
+          effectiveTo: groceryProduct.effectiveTo ? new Date(groceryProduct.effectiveTo) : null,
+          taxClass: groceryProduct.taxClass,
+          inventoryOnHand: groceryProduct.inventoryOnHand ? parseInt(groceryProduct.inventoryOnHand) : 0,
+          inventoryReserved: groceryProduct.inventoryReserved ? parseInt(groceryProduct.inventoryReserved) : 0,
+          inventoryStatus: groceryProduct.inventoryStatus || "in_stock",
+        };
+        
+        // Validate grocery product data
+        const validatedGroceryProductData = insertGroceryProductSchema.parse(groceryProductData);
+        await storage.createGroceryProduct(validatedGroceryProductData);
       }
       
       // Always create discount tiers for group purchases
@@ -1794,24 +1945,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Seller notification routes
-  app.get('/api/seller/notifications', isSellerAuthenticated, async (req: any, res) => {
+  // Seller notification routes (accessible to all authenticated users)
+  app.get('/api/seller/notifications', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { limit } = req.query;
       
-      const notifications = await storage.getSellerNotifications(sellerId, limit ? parseInt(limit) : 50);
+      const notifications = await storage.getSellerNotifications(userId, limit ? parseInt(limit) : 50);
       res.json(notifications);
     } catch (error) {
-      console.error("Error fetching seller notifications:", error);
+      console.error("Error fetching notifications:", error);
       res.status(500).json({ message: "Failed to fetch notifications" });
     }
   });
 
-  app.get('/api/seller/notifications/unread-count', isSellerAuthenticated, async (req: any, res) => {
+  app.get('/api/seller/notifications/unread-count', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
-      const count = await storage.getUnreadSellerNotificationCount(sellerId);
+      const userId = req.user.claims.sub;
+      const count = await storage.getUnreadSellerNotificationCount(userId);
       res.json({ count });
     } catch (error) {
       console.error("Error fetching unread notification count:", error);
@@ -1819,17 +1970,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/seller/notifications/:notificationId/read', isSellerAuthenticated, async (req: any, res) => {
+  app.patch('/api/seller/notifications/:notificationId/read', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const notificationId = parseInt(req.params.notificationId);
       
       if (isNaN(notificationId)) {
         return res.status(400).json({ message: "Invalid notification ID" });
       }
 
-      // Verify the notification belongs to this seller
-      const notifications = await storage.getSellerNotifications(sellerId, 1000);
+      // Verify the notification belongs to this user
+      const notifications = await storage.getSellerNotifications(userId, 1000);
       const notification = notifications.find(n => n.id === notificationId);
       
       if (!notification) {
@@ -1844,10 +1995,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/seller/notifications/mark-all-read', isSellerAuthenticated, async (req: any, res) => {
+  app.patch('/api/seller/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
-      await storage.markAllNotificationsAsRead(sellerId);
+      const userId = req.user.claims.sub;
+      await storage.markAllNotificationsAsRead(userId);
       res.json({ message: "All notifications marked as read" });
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
@@ -1855,17 +2006,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/seller/notifications/:notificationId', isSellerAuthenticated, async (req: any, res) => {
+  app.delete('/api/seller/notifications/:notificationId', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const notificationId = parseInt(req.params.notificationId);
       
       if (isNaN(notificationId)) {
         return res.status(400).json({ message: "Invalid notification ID" });
       }
 
-      // Verify the notification belongs to this seller
-      const notifications = await storage.getSellerNotifications(sellerId, 1000);
+      // Verify the notification belongs to this user
+      const notifications = await storage.getSellerNotifications(userId, 1000);
       const notification = notifications.find(n => n.id === notificationId);
       
       if (!notification) {
@@ -1885,13 +2036,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test notification endpoint (for development/testing)
-  app.post('/api/seller/notifications/test', isSellerAuthenticated, async (req: any, res) => {
+  app.post('/api/seller/notifications/test', isAuthenticated, async (req: any, res) => {
     try {
-      const sellerId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { type = "test", title = "Test Notification", message = "This is a test notification" } = req.body;
       
       const notification = await storage.createSellerNotification({
-        sellerId,
+        sellerId: userId,
         type,
         title,
         message,
@@ -1903,6 +2054,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating test notification:", error);
       res.status(500).json({ message: "Failed to create test notification" });
+    }
+  });
+
+  // Process expired notifications (S5 & S6) - should be called periodically
+  app.post('/api/notifications/process-expired', async (req: any, res) => {
+    try {
+      await notificationService.processExpiredNotifications();
+      res.json({ message: "Expired notifications processed successfully" });
+    } catch (error) {
+      console.error("Error processing expired notifications:", error);
+      res.status(500).json({ message: "Failed to process expired notifications" });
     }
   });
 
@@ -1970,6 +2132,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
+
+      // If status is "delivered", send delivery notification
+      if (status === "delivered" && updatedOrder.userId) {
+        // Find the group for this order to send delivery notification
+        const groupPayments = await storage.getGroupPaymentsByUser(updatedOrder.userId);
+        
+        // Check if order has items (new structure)
+        if (order.items && order.items.length > 0) {
+          for (const item of order.items) {
+            const relevantPayment = groupPayments.find(payment => 
+              payment.productId === item.productId && 
+              payment.status === "succeeded"
+            );
+            
+            if (relevantPayment) {
+              await notificationService.notifyProductDelivered(
+                updatedOrder.userId, 
+                relevantPayment.userGroupId, 
+                item.productId
+              );
+            }
+          }
+        }
+        // Fallback: check if order has direct productId (old structure)
+        else if (order.productId) {
+          const relevantPayment = groupPayments.find(payment => 
+            payment.productId === order.productId && 
+            payment.status === "succeeded"
+          );
+          
+          if (relevantPayment) {
+            await notificationService.notifyProductDelivered(
+              updatedOrder.userId, 
+              relevantPayment.userGroupId, 
+              order.productId
+            );
+          }
+        }
+      }
       
       res.json(updatedOrder);
     } catch (error) {
@@ -1982,10 +2183,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Group-specific payment intent creation
   app.post("/api/create-group-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
-      const { userGroupId, productId, amount, currency = "usd" } = req.body;
       
-      if (!userGroupId || !productId || !amount || amount <= 0) {
-        return res.status(400).json({ message: "userGroupId, productId, and valid amount are required" });
+      const { userGroupId, productId, amount, currency = "usd", addressId, memberId, payerId, beneficiaryId } = req.body;
+      
+      if (!userGroupId || !productId || !amount || amount <= 0 || !addressId) {
+        return res.status(400).json({ message: "userGroupId, productId, amount, and addressId are required" });
       }
 
       // Check if user is already part of this group
@@ -1994,10 +2196,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "User must be a participant in this group to make payments" });
       }
 
-      // Check if user has already paid for this product in this group
-      const alreadyPaid = await storage.hasUserPaidForProduct(req.user.claims.sub, userGroupId, productId);
+      // Use payerId and beneficiaryId from request body, with fallbacks
+      const finalPayerId = payerId || req.user.claims.sub;
+      const finalBeneficiaryId = beneficiaryId || memberId || req.user.claims.sub;
+      
+      // Check if this beneficiary has already paid for this product in this group
+      const alreadyPaid = await storage.hasUserPaidForProduct(finalBeneficiaryId, userGroupId, productId);
       if (alreadyPaid) {
-        return res.status(400).json({ message: "You have already paid for this product in this group" });
+        return res.status(400).json({ message: "This user has already paid for this product in this group" });
       }
 
       // Get product details for description
@@ -2038,16 +2244,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         },
         metadata: {
-          userId: req.user.claims.sub,
+          payerId: finalPayerId,
+          beneficiaryId: finalBeneficiaryId,
           userGroupId: userGroupId.toString(),
           productId: productId.toString(),
-          type: "group"
+          addressId: addressId.toString(),
+          type: "group_member"
         }
       });
 
       // Create group payment record
       const groupPayment = await storage.createGroupPayment({
-        userId: req.user.claims.sub,
+        userId: finalBeneficiaryId, // Who receives the order
+        payerId: finalPayerId, // Who makes the payment
         userGroupId,
         productId,
         unitPrice: amount.toString(),
@@ -2160,7 +2369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const addressId = parseInt(paymentIntent.metadata.addressId);
             
             if (!payerId || !beneficiaryId || !userGroupId || !addressId) {
-              console.error("Missing required group payment metadata");
+              console.error("Missing required group payment metadata:", { payerId, beneficiaryId, userGroupId, addressId });
               break;
             }
 
@@ -2208,13 +2417,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             const orderData = {
               userId: beneficiaryId, // Order belongs to the beneficiary
+              payerId: payerId, // Who made the payment
               addressId: addressId,
               totalPrice: totalOrderPrice.toFixed(2),
               finalPrice: totalOrderPrice.toFixed(2),
                 status: "completed" as const,
                 type: "group" as const,
                 shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
-              };
+            };
+            
+            console.log("Creating order with data:", JSON.stringify(orderData, null, 2));
 
             const newOrder = await storage.createOrderWithItems(orderData, orderItems);
             console.log(`Group order with ${orderItems.length} items created for beneficiary ${beneficiaryId}:`, newOrder.id);
@@ -2262,7 +2474,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               const groupPaymentData = {
-                userId: beneficiaryId,
+                userId: beneficiaryId, // Who the payment is for
+                payerId: payerId, // Who made the payment
                 userGroupId: userGroupId,
                 productId: item.product.id,
                 stripePaymentIntentId: paymentIntent.id,
@@ -2273,7 +2486,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 unitPrice: discountedPrice.toFixed(2)
               };
               
-              await storage.createGroupPayment(groupPaymentData);
+              const groupPayment = await storage.createGroupPayment(groupPaymentData);
+              
+              // Send payment notifications
+              await notificationService.notifyPaymentMade(groupPayment.id);
             }
             
             console.log(`Group payment records created for beneficiary ${beneficiaryId}`);
@@ -2299,6 +2515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Create order record for individual purchase
             const orderData = {
               userId,
+              payerId: userId, // For individual purchases, user pays for themselves
               productId,
               quantity: 1, // Default quantity
               unitPrice: amount.toString(),

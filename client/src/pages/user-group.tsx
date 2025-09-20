@@ -39,7 +39,8 @@ import {
   Clock,
   AlertTriangle,
   CreditCard,
-  CheckCircle
+  CheckCircle,
+  RefreshCw
 } from "lucide-react";
 import type { UserGroupWithDetails, ProductWithDetails, UserGroupParticipant, User } from "@shared/schema";
 
@@ -91,10 +92,18 @@ export default function UserGroupPage() {
   });
 
   // Get payment status for all members
-  const { data: paymentStatus, isLoading: paymentStatusLoading } = useQuery<any[]>({
-    queryKey: ["/api/user-groups", groupId, "payment-status"],
+  const { data: paymentStatus, isLoading: paymentStatusLoading, refetch: refetchPaymentStatus } = useQuery<any[]>({
+    queryKey: [`/api/user-groups/${groupId}/payment-status`],
     enabled: isAuthenticated && !!groupId,
     retry: false,
+    refetchInterval: 3000, // Refetch every 3 seconds to keep payment status updated
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Refetch when component mounts
+    staleTime: 0, // Always consider data stale to ensure fresh fetches
+    cacheTime: 0, // Don't cache the data to ensure fresh fetches
+    onSuccess: (data) => {
+      // Payment status updated successfully
+    },
     onError: (error) => {
       console.log("Payment status query error:", error);
     }
@@ -141,6 +150,16 @@ export default function UserGroupPage() {
   const isLocked = lockedStatus?.isLocked || false;
 
   const isApprovedParticipant = participationStatus?.isApproved || false;
+
+  // Force refetch payment status when component mounts or groupId changes
+  useEffect(() => {
+    if (groupId && isAuthenticated) {
+      console.log("Component mounted, refetching payment status for group:", groupId);
+      // Clear cache first, then refetch
+      queryClient.removeQueries({ queryKey: [`/api/user-groups/${groupId}/payment-status`] });
+      refetchPaymentStatus();
+    }
+  }, [groupId, isAuthenticated, refetchPaymentStatus, queryClient]);
 
   // Create combined members list (owner + approved participants)
   const allMembers = useMemo(() => {
@@ -1043,6 +1062,36 @@ export default function UserGroupPage() {
           {(isOwner || participationStatus?.isApproved) && (
             <TabsContent value="members">
                 <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                  {/* Payment Status Refresh Button */}
+                  <div className="flex justify-between items-center p-4 border-b">
+                    <h3 className="text-lg font-semibold">Group Members</h3>
+                    <div className="flex items-center space-x-2">
+                      {/* Payment status summary */}
+                      {paymentStatus && (
+                        <span className="text-xs text-gray-500">
+                          {paymentStatus.filter(p => p.hasPaid).length}/{paymentStatus.length} paid
+                          {paymentStatusLoading && " (refreshing...)"}
+                        </span>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Clear cache first
+                          queryClient.removeQueries({ queryKey: [`/api/user-groups/${groupId}/payment-status`] });
+                          queryClient.removeQueries({ queryKey: ["/api/user-groups", groupId] });
+                          // Then refetch
+                          refetchPaymentStatus();
+                          // Also refetch the group data
+                          queryClient.refetchQueries({ queryKey: ["/api/user-groups", groupId] });
+                        }}
+                        disabled={paymentStatusLoading}
+                      >
+                        <RefreshCw className={`w-4 h-4 mr-1 ${paymentStatusLoading ? 'animate-spin' : ''}`} />
+                        {paymentStatusLoading ? "Refreshing..." : "Refresh Status"}
+                      </Button>
+                    </div>
+                  </div>
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -1110,6 +1159,7 @@ export default function UserGroupPage() {
                                   // Check if this member has paid
                                   const memberPaymentStatus = paymentStatus?.find(p => p.userId === member.userId);
                                   const hasPaid = memberPaymentStatus?.hasPaid || false;
+                                  
                                   
                                   if (hasPaid) {
                                     return (
@@ -1283,6 +1333,7 @@ export default function UserGroupPage() {
                                 // Check if this participant has paid
                                 const participantPaymentStatus = paymentStatus?.find(p => p.userId === participant.userId);
                                 const hasPaid = participantPaymentStatus?.hasPaid || false;
+                                
 
                                 if (hasPaid) {
                                   return (

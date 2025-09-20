@@ -15,22 +15,17 @@ export async function seedDatabase() {
   try {
     // Check if data already exists
     const existingCategories = await db.select().from(categories).limit(1);
-    const existingCollections = await db.select().from(userGroups).limit(1);
+    const existingProducts = await db.select().from(products).limit(1);
     
-    if (existingCategories.length > 0 && existingCollections.length > 0) {
+    if (existingCategories.length > 0 && existingProducts.length > 0) {
       console.log("Database already seeded, skipping...");
       return;
     }
 
     // Seed categories (handle duplicates)
     const categoryData = [
-      { name: "Electronics", slug: "electronics", icon: "Laptop" },
-      { name: "Fashion", slug: "fashion", icon: "Shirt" },
-      { name: "Home & Garden", slug: "home-garden", icon: "Home" },
-      { name: "Sports & Fitness", slug: "sports-fitness", icon: "Dumbbell" },
-      { name: "Gaming", slug: "gaming", icon: "Gamepad" },
-      { name: "Baby & Kids", slug: "baby-kids", icon: "Baby" },
-      { name: "Books", slug: "books", icon: "Book" },
+      { name: "Groceries", slug: "groceries", icon: "ShoppingCart" },
+      { name: "Services", slug: "services", icon: "Briefcase" },
     ];
 
     let insertedCategories;
@@ -73,61 +68,61 @@ export async function seedDatabase() {
     const productData = [
       {
         sellerId: sampleSeller[0]?.id || "sample-seller-123",
-        categoryId: insertedCategories[0].id,
-        name: "Premium Wireless Headphones",
-        description: "High-quality wireless headphones with noise cancellation and premium sound quality. Perfect for music lovers and professionals.",
-        imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        originalPrice: "199.99",
+        categoryId: insertedCategories[0].id, // Groceries
+        name: "Organic Fresh Vegetables Bundle",
+        description: "Fresh organic vegetables including carrots, broccoli, spinach, and bell peppers. Perfect for healthy cooking and meal prep.",
+        imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "29.99",
         minimumParticipants: 10,
         maximumParticipants: 100,
       },
       {
         sellerId: sampleSeller[0]?.id || "sample-seller-123",
-        categoryId: insertedCategories[3].id,
-        name: "Smart Fitness Tracker",
-        description: "Advanced fitness tracker with heart rate monitoring, GPS, and 7-day battery life. Track your health and fitness goals.",
-        imageUrl: "https://images.unsplash.com/photo-1544117519-31a4b719223d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Services
+        name: "Professional House Cleaning Service",
+        description: "Complete house cleaning service including kitchen, bathrooms, living areas, and bedrooms. Professional cleaners with eco-friendly products.",
+        imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
         originalPrice: "149.99",
+        minimumParticipants: 5,
+        maximumParticipants: 20,
+      },
+      {
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
+        categoryId: insertedCategories[0].id, // Groceries
+        name: "Premium Coffee Beans Selection",
+        description: "High-quality coffee beans from different regions. Perfect for coffee enthusiasts who want to try various flavors and brewing methods.",
+        imageUrl: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "39.99",
         minimumParticipants: 15,
-        maximumParticipants: 200,
-      },
-      {
-        sellerId: sampleSeller[0]?.id || "sample-seller-123",
-        categoryId: insertedCategories[0].id,
-        name: "Portable Bluetooth Speaker",
-        description: "Waterproof portable speaker with 360-degree sound and 12-hour battery life. Perfect for outdoor adventures.",
-        imageUrl: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        originalPrice: "89.99",
-        minimumParticipants: 20,
-        maximumParticipants: 300,
-      },
-      {
-        sellerId: sampleSeller[0]?.id || "sample-seller-123",
-        categoryId: insertedCategories[1].id,
-        name: "Premium Cotton T-Shirt Set",
-        description: "Set of 3 premium cotton t-shirts in different colors. Comfortable, durable, and stylish for everyday wear.",
-        imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        originalPrice: "79.99",
-        minimumParticipants: 25,
-        maximumParticipants: 250,
-      },
-      {
-        sellerId: sampleSeller[0]?.id || "sample-seller-123",
-        categoryId: insertedCategories[4].id,
-        name: "Wireless Gaming Mouse",
-        description: "High-precision wireless gaming mouse with customizable RGB lighting and ultra-fast response time.",
-        imageUrl: "https://images.unsplash.com/photo-1527814050087-3793815479db?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        originalPrice: "69.99",
-        minimumParticipants: 30,
         maximumParticipants: 150,
       },
       {
         sellerId: sampleSeller[0]?.id || "sample-seller-123",
-        categoryId: insertedCategories[2].id,
-        name: "Smart Plant Monitoring System",
-        description: "Monitor your plants' health with smart sensors that track moisture, light, and temperature. Includes mobile app.",
-        imageUrl: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        originalPrice: "59.99",
+        categoryId: insertedCategories[1].id, // Services
+        name: "Personal Training Session",
+        description: "One-on-one personal training session with certified fitness instructor. Customized workout plan and nutrition guidance.",
+        imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "79.99",
+        minimumParticipants: 1,
+        maximumParticipants: 10,
+      },
+      {
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Services
+        name: "Home Tutoring Service",
+        description: "Professional tutoring service for students. Subjects include math, science, and language arts. Experienced educators.",
+        imageUrl: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "69.99",
+        minimumParticipants: 5,
+        maximumParticipants: 20,
+      },
+      {
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
+        categoryId: insertedCategories[0].id, // Groceries
+        name: "Artisan Bread Selection",
+        description: "Fresh artisan breads including sourdough, whole grain, and specialty loaves. Baked daily with premium ingredients.",
+        imageUrl: "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "19.99",
         minimumParticipants: 20,
         maximumParticipants: 100,
       },
@@ -214,7 +209,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[2].id, // Home & Garden
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Home & Garden
         name: "Smart Home Security Camera",
         description: "1080p HD security camera with night vision, motion detection, and smartphone app control.",
         imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -224,7 +219,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[2].id, // Home & Garden
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Home & Garden
         name: "Ceramic Non-Stick Cookware Set",
         description: "10-piece ceramic non-stick cookware set with heat-resistant handles and dishwasher-safe design.",
         imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -234,7 +229,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[2].id, // Home & Garden
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Home & Garden
         name: "LED String Lights",
         description: "50ft waterproof LED string lights with remote control and 8 lighting modes for outdoor decoration.",
         imageUrl: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -244,7 +239,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[2].id, // Home & Garden
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Home & Garden
         name: "Bamboo Cutting Board Set",
         description: "Set of 3 eco-friendly bamboo cutting boards in different sizes with built-in compartments.",
         imageUrl: "https://images.unsplash.com/photo-1594736797933-d0401ba669ba?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -254,7 +249,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[3].id, // Sports & Fitness
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Sports & Fitness
         name: "Adjustable Dumbbell Set",
         description: "Space-saving adjustable dumbbell set with weight range from 5-50 lbs per dumbbell.",
         imageUrl: "https://images.unsplash.com/photo-1571019613914-85f342c6a11e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -264,7 +259,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[3].id, // Sports & Fitness
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Sports & Fitness
         name: "Yoga Mat with Carrying Strap",
         description: "Extra-thick yoga mat with non-slip surface and alignment lines. Includes carrying strap.",
         imageUrl: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -274,7 +269,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[3].id, // Sports & Fitness
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Sports & Fitness
         name: "Resistance Bands Set",
         description: "Complete resistance bands set with 5 different resistance levels, handles, and door anchor.",
         imageUrl: "https://images.unsplash.com/photo-1571019613914-85f342c6a11e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -284,7 +279,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[3].id, // Sports & Fitness
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Sports & Fitness
         name: "Premium Protein Shaker Bottle",
         description: "BPA-free protein shaker bottle with mixing ball and measurement marks. Leak-proof design.",
         imageUrl: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -294,7 +289,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Books or fallback
         name: "Personal Development Book Bundle",
         description: "Collection of 5 bestselling personal development books including productivity and mindfulness guides.",
         imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -304,7 +299,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Books or fallback
         name: "Business Strategy Masterclass Book",
         description: "Comprehensive business strategy guide with case studies from successful entrepreneurs and companies.",
         imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -314,7 +309,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Books or fallback
         name: "Cookbook Collection - Healthy Meals",
         description: "Set of 3 cookbooks featuring healthy recipes, meal prep ideas, and nutrition guides for families.",
         imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
@@ -324,7 +319,7 @@ export async function seedDatabase() {
       },
       {
         sellerId: johnSeller[0]?.id || "john-seller-456",
-        categoryId: insertedCategories[5]?.id || insertedCategories[0].id, // Books or fallback
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Books or fallback
         name: "Children's Educational Book Set",
         description: "Interactive educational book set for children ages 3-8 with colorful illustrations and learning activities.",
         imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",

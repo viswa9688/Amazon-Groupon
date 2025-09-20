@@ -13,6 +13,7 @@ import {
   groupPayments,
   serviceProviders,
   serviceProviderStaff,
+  groceryProducts,
   adminCredentials,
   sellerNotifications,
   type User,
@@ -46,6 +47,8 @@ import {
   type InsertServiceProvider,
   type ServiceProviderStaff,
   type InsertServiceProviderStaff,
+  type GroceryProduct,
+  type InsertGroceryProduct,
   type AdminCredentials,
   type SellerNotification,
   type InsertSellerNotification,
@@ -96,6 +99,12 @@ export interface IStorage {
   createServiceProviderStaff(staff: InsertServiceProviderStaff): Promise<ServiceProviderStaff>;
   getServiceProviderStaff(serviceProviderId: number): Promise<ServiceProviderStaff[]>;
   deleteServiceProviderStaff(serviceProviderId: number): Promise<void>;
+
+  // Grocery Product operations
+  createGroceryProduct(groceryProduct: InsertGroceryProduct): Promise<GroceryProduct>;
+  getGroceryProductByProductId(productId: number): Promise<GroceryProduct | undefined>;
+  updateGroceryProduct(productId: number, groceryProduct: Partial<InsertGroceryProduct>): Promise<GroceryProduct>;
+  deleteGroceryProductByProductId(productId: number): Promise<void>;
 
   // Discount tier operations
   createDiscountTier(tier: InsertDiscountTier): Promise<DiscountTier>;
@@ -232,6 +241,10 @@ export interface IStorage {
   markNotificationAsRead(notificationId: number): Promise<SellerNotification>;
   markAllNotificationsAsRead(sellerId: string): Promise<void>;
   deleteNotification(notificationId: number): Promise<boolean>;
+  
+  // Group participant operations
+  hasParticipantRequest(userGroupId: number, userId: string): Promise<boolean>;
+  getParticipantStatus(userGroupId: number, userId: string): Promise<string | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -551,6 +564,30 @@ export class DatabaseStorage implements IStorage {
     await db.delete(serviceProviderStaff).where(eq(serviceProviderStaff.serviceProviderId, serviceProviderId));
   }
 
+  // Grocery Product operations
+  async createGroceryProduct(groceryProduct: InsertGroceryProduct): Promise<GroceryProduct> {
+    const [newGroceryProduct] = await db.insert(groceryProducts).values(groceryProduct).returning();
+    return newGroceryProduct;
+  }
+
+  async getGroceryProductByProductId(productId: number): Promise<GroceryProduct | undefined> {
+    const [groceryProduct] = await db.select()
+      .from(groceryProducts)
+      .where(eq(groceryProducts.productId, productId));
+    return groceryProduct;
+  }
+
+  async updateGroceryProduct(productId: number, groceryProduct: Partial<InsertGroceryProduct>): Promise<GroceryProduct> {
+    const [updatedGroceryProduct] = await db.update(groceryProducts)
+      .set(groceryProduct)
+      .where(eq(groceryProducts.productId, productId))
+      .returning();
+    return updatedGroceryProduct;
+  }
+
+  async deleteGroceryProductByProductId(productId: number): Promise<void> {
+    await db.delete(groceryProducts).where(eq(groceryProducts.productId, productId));
+  }
 
   // User address operations
   async getUserAddresses(userId: string): Promise<UserAddress[]> {

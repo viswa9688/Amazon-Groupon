@@ -69,6 +69,13 @@ export default function ProductDetails() {
     enabled: !!id && isAuthenticated && !!groupPurchase,
   });
 
+  // Get payment status for the group (if it's a group purchase)
+  const { data: paymentStatus } = useQuery<any[]>({
+    queryKey: [`/api/user-groups/${groupPurchase?.userGroupId}/payment-status`],
+    enabled: !!groupPurchase?.userGroupId && isAuthenticated,
+    retry: false,
+  });
+
   const isLoading = productLoading || groupLoading;
 
   // Check user addresses before joining
@@ -277,6 +284,10 @@ export default function ProductDetails() {
   // Get the product data from either individual product or group purchase
   const product = individualProduct || groupPurchase?.product;
   const isUserParticipant = participation?.isParticipating || false;
+  
+  // Check if the current user has already paid for this product
+  const userPaymentStatus = paymentStatus?.find(p => p.userId === user?.id);
+  const hasUserPaid = userPaymentStatus?.hasPaid || false;
   const isGroupPurchase = !!groupPurchase;
 
   // Early return if no product found
@@ -562,22 +573,43 @@ export default function ProductDetails() {
                 </div>
               ) : isGroupPurchase && isUserParticipant ? (
                 <div className="space-y-4">
-                  <div className="text-center p-4 bg-accent/10 rounded-lg">
-                    <p className="text-accent font-semibold">✓ You're part of this group!</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Check your orders to track the purchase progress.
-                    </p>
-                  </div>
+                  {hasUserPaid ? (
+                    <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-green-700 font-semibold">✓ Payment Complete!</p>
+                      <p className="text-sm text-green-600 mt-1">
+                        You've already paid for this group purchase. Check your orders to track progress.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center p-4 bg-accent/10 rounded-lg">
+                      <p className="text-accent font-semibold">✓ You're part of this group!</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Complete your payment to secure your spot in this group purchase.
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="space-y-3">
-                    <Button 
-                      size="lg" 
-                      className="w-full bg-primary hover:bg-primary/90"
-                      onClick={() => navigate(`/checkout/${groupPurchase?.productId}/group`)}
-                      data-testid="button-pay-group"
-                    >
-                      Pay for Group Purchase - ${displayPrice}
-                    </Button>
+                    {hasUserPaid ? (
+                      <Button 
+                        size="lg" 
+                        variant="outline"
+                        className="w-full border-green-200 text-green-600 hover:bg-green-50"
+                        onClick={() => navigate("/orders")}
+                        data-testid="button-view-orders"
+                      >
+                        View Your Orders
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="lg" 
+                        className="w-full bg-primary hover:bg-primary/90"
+                        onClick={() => navigate(`/checkout/${groupPurchase?.productId}/group`)}
+                        data-testid="button-pay-group"
+                      >
+                        Pay for Group Purchase - ${displayPrice}
+                      </Button>
+                    )}
                     
                     <Button 
                       size="lg" 
