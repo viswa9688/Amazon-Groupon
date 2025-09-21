@@ -520,34 +520,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("Group payment record created:", groupPayment.id, "for user:", finalUserId, "paid by:", finalPayerId);
         }
       }
-      
-      // Create notifications for sellers about new orders
-      const sellerNotifications = new Map();
-      for (const item of items) {
-        const product = await storage.getProduct(item.productId);
-        if (product && product.sellerId) {
-          const sellerId = product.sellerId;
-          if (!sellerNotifications.has(sellerId)) {
-            sellerNotifications.set(sellerId, []);
-          }
-          sellerNotifications.get(sellerId).push(product.name);
-        }
+
+      // Scenario 3: Notify all group members when order is created
+      if (userGroupId) {
+        await notificationService.notifyOrderCreatedForGroupMembers(order.id, userGroupId);
       }
-      
-      // Create one notification per seller with all their products
-      for (const [sellerId, productNames] of sellerNotifications) {
-        await storage.createSellerNotification({
-          sellerId,
-          type: "new_order",
-          title: "New Group Order Received",
-          message: `You have received a new group order for: ${productNames.join(", ")} (Order #${order.id})`,
-          data: { orderId: order.id, productIds: items.filter(item => {
-            const product = items.find(i => i.productId === item.productId);
-            return product && product.sellerId === sellerId;
-          }).map(item => item.productId) },
-          priority: "normal"
-        });
-      }
+
+      // Scenario 5: Notify sellers about new order
+      await notificationService.notifySellerOrderCreated(order.id);
       
       res.status(201).json(order);
     } catch (error) {
@@ -1497,11 +1477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const success = await storage.approveParticipant(userGroupId, participantId);
       if (success) {
-        // Check if group is now full (5 members) and send notification
-        const newApprovedCount = await storage.getUserGroupParticipantCount(userGroupId);
-        if (newApprovedCount >= 5) {
-          await notificationService.notifyGroupFilled(userGroupId);
-        }
+        // Send notification to the member that their request was accepted
+        await notificationService.notifyMemberRequestAccepted(participantId, userGroupId);
         
         res.json({ message: "Participant approved successfully" });
       } else {
@@ -2056,27 +2033,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test notification endpoint (for development/testing)
-  app.post('/api/seller/notifications/test', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { type = "test", title = "Test Notification", message = "This is a test notification" } = req.body;
-      
-      const notification = await storage.createSellerNotification({
-        sellerId: userId,
-        type,
-        title,
-        message,
-        data: { test: true },
-        priority: "normal"
-      });
-      
-      res.json(notification);
-    } catch (error) {
-      console.error("Error creating test notification:", error);
-      res.status(500).json({ message: "Failed to create test notification" });
-    }
-  });
 
   // Process expired notifications (S5 & S6) - should be called periodically
   app.post('/api/notifications/process-expired', async (req: any, res) => {
@@ -2139,59 +2095,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update the order status
       const updatedOrder = await storage.updateOrderStatus(orderId, status);
       
-      // Create notification for customer about order status change
+      // Scenario 4: Notify the specific member when order status is changed
       if (updatedOrder.userId) {
-        const user = await storage.getUser(updatedOrder.userId);
-        if (user) {
-          await storage.createSellerNotification({
-            sellerId: updatedOrder.userId, // For customer notifications, we use userId as sellerId
-            type: "order_status_change",
-            title: "Order Status Updated",
-            message: `Your order #${orderId} status has been updated to: ${status}`,
-            data: { orderId: orderId, status: status },
-            priority: "normal"
-          });
-        }
+        await notificationService.notifyOrderStatusChanged(updatedOrder.userId, orderId, status);
       }
 
-      // If status is "delivered", send delivery notification
-      if (status === "delivered" && updatedOrder.userId) {
-        // Find the group for this order to send delivery notification
-        const groupPayments = await storage.getGroupPaymentsByUser(updatedOrder.userId);
-        
-        // Check if order has items (new structure)
-        if (order.items && order.items.length > 0) {
-          for (const item of order.items) {
-            const relevantPayment = groupPayments.find(payment => 
-              payment.productId === item.productId && 
-              payment.status === "succeeded"
-            );
-            
-            if (relevantPayment) {
-              await notificationService.notifyProductDelivered(
-                updatedOrder.userId, 
-                relevantPayment.userGroupId, 
-                item.productId
-              );
-            }
-          }
-        }
-        // Fallback: check if order has direct productId (old structure)
-        else if (order.productId) {
-          const relevantPayment = groupPayments.find(payment => 
-            payment.productId === order.productId && 
-            payment.status === "succeeded"
-          );
-          
-          if (relevantPayment) {
-            await notificationService.notifyProductDelivered(
-              updatedOrder.userId, 
-              relevantPayment.userGroupId, 
-              order.productId
-            );
-          }
-        }
-      }
       
       res.json(updatedOrder);
     } catch (error) {

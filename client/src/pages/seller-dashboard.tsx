@@ -589,31 +589,6 @@ export default function SellerDashboard() {
     },
   });
 
-  // Test notification mutation
-  const testNotificationMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/seller/notifications/test", {
-        type: "test",
-        title: "Test Notification",
-        message: "This is a test notification to verify the notification system is working correctly."
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/notifications/unread-count"] });
-      toast({
-        title: "Test Notification Sent",
-        description: "A test notification has been created successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create test notification",
-        variant: "destructive",
-      });
-    },
-  });
 
   const onSubmit = (data: ProductFormData) => {
     addProductMutation.mutate(data);
@@ -826,14 +801,6 @@ export default function SellerDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <SellerNotifications />
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => testNotificationMutation.mutate()}
-              disabled={testNotificationMutation.isPending}
-            >
-              Test Notification
-            </Button>
             <Button variant="outline" asChild>
               <Link href="/seller/analytics">
                 <BarChart3 className="w-4 h-4 mr-2" />

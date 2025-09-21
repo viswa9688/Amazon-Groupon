@@ -1,19 +1,18 @@
 # Notification System Implementation
 
-This document describes the comprehensive notification system implemented for the Amazon-Groupon application, covering all 6 scenarios (S1-S6) as requested.
+This document describes the comprehensive notification system implemented for the Amazon-Groupon application, covering all 5 scenarios as requested.
 
 ## Overview
 
-The notification system provides real-time notifications for various events in the group purchasing workflow, including join requests, group status changes, payments, deliveries, and deadline expirations.
+The notification system provides real-time notifications for various events in the group purchasing workflow, including join requests, member approvals, order creation, status updates, and seller notifications.
 
 ## Architecture
 
 ### Components
 
 1. **NotificationService** (`server/notificationService.ts`) - Core service handling all notification logic
-2. **Database Integration** - Uses existing `sellerNotifications` table for both seller and user notifications
+2. **Database Integration** - Uses existing `sellerNotifications` table for all notifications
 3. **Route Integration** - Integrated into existing API routes for seamless operation
-4. **Cron Jobs** (`server/cronJobs.ts`) - For processing expired notifications
 
 ### Database Schema
 
@@ -31,9 +30,9 @@ The system uses the existing `sellerNotifications` table with the following stru
 
 ## Notification Scenarios
 
-### S1: User Request to Join Group
+### Scenario 1: Member Requests to Join Group
 
-**Trigger**: When a user requests to join a group
+**Trigger**: When a member requests to join a group
 **Recipients**: Group owner
 **Implementation**: 
 - Integrated into `/api/user-groups/:id/join` route
@@ -45,77 +44,61 @@ The system uses the existing `sellerNotifications` table with the following stru
 - Message: Includes requester name, group name, and product details
 - Priority: `normal`
 
-### S2: Group Filled
+### Scenario 2: Owner Accepts Member Request
 
-**Trigger**: When a group reaches maximum capacity (5 members)
-**Recipients**: Group owner
+**Trigger**: When the group owner accepts a member's join request
+**Recipients**: The member whose request was accepted
 **Implementation**:
 - Integrated into `/api/user-groups/:id/approve/:participantId` route
 - Checks participant count after approval
 
 **Notification Details**:
-- Type: `group_filled`
-- Title: "Group is Full! 🎉"
-- Message: Includes group name, product details, and participant count
-- Priority: `high`
+- Type: `request_accepted`
+- Title: "Request Accepted! 🎉"
+- Message: Includes group name, product details, and confirmation
+- Priority: `normal`
 
-### S3: Payment Made
+### Scenario 3: Payment Done and Order Created
 
-**Trigger**: When a payment is successfully processed
-**Recipients**: Both the payer and group owner
+**Trigger**: When payment is completed and order is created
+**Recipients**: All members in the group
 **Implementation**:
-- Integrated into Stripe webhook handler
-- Sends notifications after group payment records are created
+- Integrated into `/api/orders/group` route
+- Sends notifications to all approved group members
 
 **Notification Details**:
-- Type: `payment_completed` (for payer), `payment_received` (for owner)
-- Title: "Payment Successful! ✅" / "Payment Received 💰"
-- Message: Includes payment amount, product details, and group context
+- Type: `order_created`
+- Title: "Order Created! 📦"
+- Message: Includes group name, product details, and payment confirmation
 - Priority: `normal`
-- **Shipping Status Update**: Automatically updates to "Payment Completed"
 
-### S4: Product Delivered
+### Scenario 4: Order Status Changed
 
-**Trigger**: When order status is updated to "delivered"
-**Recipients**: User who received the product
+**Trigger**: When order status is updated
+**Recipients**: The specific member whose order status changed
 **Implementation**:
 - Integrated into `/api/seller/orders/:orderId/status` route
-- Triggers when status is set to "delivered"
+- Triggers when any order status is updated
 
 **Notification Details**:
-- Type: `product_delivered`
-- Title: "Package Delivered! 📦"
-- Message: Includes product name and group context
+- Type: `order_status_change`
+- Title: "Order Status Updated" with appropriate emoji
+- Message: Includes status-specific message and product details
 - Priority: `normal`
-- **Shipping Status Update**: Automatically updates to "Delivered"
 
-### S5: Discount Timeline Expired
+### Scenario 5: Order Created (Seller Perspective)
 
-**Trigger**: When discount period ends
-**Recipients**: All group participants
+**Trigger**: When an order is created for seller's products
+**Recipients**: The seller(s) whose products are in the order
 **Implementation**:
-- Processed via cron job (`/api/notifications/process-expired`)
-- Checks `offerValidTill` field on groups
+- Integrated into `/api/orders/group` route
+- Sends notifications to all sellers with products in the order
 
 **Notification Details**:
-- Type: `discount_expired`
-- Title: "Discount Period Ended ⏰"
-- Message: Includes group name, product details, and urgency
+- Type: `new_order`
+- Title: "New Order Received! 🛒"
+- Message: Includes product names and order total
 - Priority: `high`
-
-### S6: Payment Deadline Expired
-
-**Trigger**: When payment deadline passes (7 days after discount expires)
-**Recipients**: Users who haven't paid
-**Implementation**:
-- Processed via cron job (`/api/notifications/process-expired`)
-- Identifies unpaid participants
-
-**Notification Details**:
-- Type: `payment_deadline_expired`
-- Title: "Payment Deadline Passed ⚠️"
-- Message: Includes group context and next steps
-- Priority: `urgent`
 
 ## API Endpoints
 
@@ -153,14 +136,11 @@ Status values:
 
 | Type | Description | Priority | Recipients |
 |------|-------------|----------|------------|
-| `group_join_request` | User wants to join group | normal | Group owner |
-| `group_filled` | Group reached capacity | high | Group owner |
-| `payment_completed` | Payment successful | normal | Payer |
-| `payment_received` | Payment received | normal | Group owner |
-| `product_delivered` | Product delivered | normal | User |
-| `discount_expired` | Discount period ended | high | All participants |
-| `payment_deadline_expired` | Payment deadline passed | urgent | Unpaid users |
-| `order_status_change` | Order status updated | normal | User |
+| `group_join_request` | Member wants to join group | normal | Group owner |
+| `request_accepted` | Member request accepted | normal | Member |
+| `order_created` | Order created for group | normal | All group members |
+| `order_status_change` | Order status updated | normal | Specific member |
+| `new_order` | New order received | high | Seller(s) |
 
 ## Setup and Configuration
 

@@ -164,30 +164,6 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
   };
 
   // Test notification mutation
-  const testNotificationMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/seller/notifications/test", {
-        type: "test",
-        title: "Test Notification",
-        message: "This is a test notification to verify the notification system is working correctly."
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/notifications/unread-count"] });
-      toast({
-        title: "Test Notification Sent",
-        description: "A test notification has been created successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create test notification",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Debug: Show component for all authenticated users for testing
   if (!isAuthenticated) {
@@ -222,14 +198,6 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
           <DialogTitle className="flex items-center justify-between">
             <span>Notifications</span>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => testNotificationMutation.mutate()}
-                disabled={testNotificationMutation.isPending}
-              >
-                Test
-              </Button>
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
