@@ -2045,6 +2045,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send daily group owner reminder (cron job endpoint)
+  app.post('/api/notifications/group-owner-reminder', async (req: any, res) => {
+    try {
+      console.log("Sending daily group owner reminder...");
+      await notificationService.notifyGroupOwnersIncompleteGroups();
+      res.json({ message: "Group owner reminder sent successfully" });
+    } catch (error) {
+      console.error("Error sending group owner reminder:", error);
+      res.status(500).json({ message: "Failed to send group owner reminder" });
+    }
+  });
+
   app.patch('/api/seller/orders/:orderId/status', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;

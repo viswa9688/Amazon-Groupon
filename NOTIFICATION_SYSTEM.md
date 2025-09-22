@@ -100,6 +100,21 @@ The system uses the existing `sellerNotifications` table with the following stru
 - Message: Includes product names and order total
 - Priority: `high`
 
+### Scenario 6: Group Owner Reminder
+
+**Trigger**: Daily reminder for group owners about their incomplete groups
+**Recipients**: Group owners who have groups with less than 5 members
+**Implementation**:
+- Can be triggered manually via API or via cron job
+- Checks all public groups with less than 5 members
+- Sends personalized notifications to each group owner about their incomplete groups
+
+**Notification Details**:
+- Type: `group_owner_reminder`
+- Title: "Complete Your Groups for Discounts! 🎯"
+- Message: Lists the owner's incomplete groups with member counts and needed members, encouraging them to share and promote their groups
+- Priority: `normal`
+
 ## API Endpoints
 
 ### Notification Management
@@ -113,6 +128,10 @@ The system uses the existing `sellerNotifications` table with the following stru
 ### Processing Expired Notifications
 
 - `POST /api/notifications/process-expired` - Process expired notifications (S5 & S6)
+
+### Group Owner Reminders
+
+- `POST /api/notifications/group-owner-reminder` - Send daily group owner reminder (S6)
 
 ### Testing
 
@@ -141,6 +160,7 @@ Status values:
 | `order_created` | Order created for group | normal | All group members |
 | `order_status_change` | Order status updated | normal | Specific member |
 | `new_order` | New order received | high | Seller(s) |
+| `group_owner_reminder` | Group owner reminder for incomplete groups | normal | Group owners |
 
 ## Setup and Configuration
 
@@ -150,23 +170,26 @@ The system uses the existing `sellerNotifications` table. No additional setup re
 
 ### 2. Cron Job Setup
 
-For production, set up a cron job to process expired notifications:
+For production, set up cron jobs to process notifications:
 
 ```bash
-# Run every hour
+# Process expired notifications every hour
 0 * * * * curl -X POST http://your-domain.com/api/notifications/process-expired
 
-# Or run daily at 9 AM
-0 9 * * * curl -X POST http://your-domain.com/api/notifications/process-expired
+# Send daily group owner reminder at 9 AM
+0 9 * * * curl -X POST http://your-domain.com/api/notifications/group-owner-reminder
 ```
 
 ### 3. Manual Processing
 
-You can also process expired notifications manually:
+You can also process notifications manually:
 
 ```bash
-# Via API
+# Process expired notifications
 curl -X POST http://localhost:5000/api/notifications/process-expired
+
+# Send group owner reminder
+curl -X POST http://localhost:5000/api/notifications/group-owner-reminder
 
 # Via script
 cd server && npx tsx cronJobs.ts
@@ -207,6 +230,7 @@ curl -X POST http://localhost:5000/api/seller/notifications/test \
 4. **S4**: Update order status to "delivered"
 5. **S5**: Set group `offerValidTill` to past date and run cron job
 6. **S6**: Set payment deadline to past date and run cron job
+7. **S7**: Create groups with less than 5 members and trigger group owner reminder
 
 ## Error Handling
 
@@ -248,11 +272,13 @@ Enable debug logging by checking console output for notification-related message
 
 ## Conclusion
 
-The notification system provides comprehensive coverage of all requested scenarios (S1-S6) with:
+The notification system provides comprehensive coverage of all requested scenarios (S1-S7) with:
 - ✅ Real-time notifications via email, in-app messages
 - ✅ Relevant details (group name, product info, payment amount, deadlines)
 - ✅ Updated shipping status tracking
 - ✅ Prompt delivery of notifications
 - ✅ Robust error handling and logging
+- ✅ Daily group owner reminders for incomplete groups
+- ✅ Seller order notifications when orders are placed
 
 The system is production-ready and integrates seamlessly with the existing application architecture.

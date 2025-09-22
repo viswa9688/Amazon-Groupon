@@ -15,6 +15,20 @@ export async function processExpiredNotifications() {
   }
 }
 
+/**
+ * Daily cron job to send group owner reminder notifications
+ * This should be called once per day (e.g., at 9 AM)
+ */
+export async function sendDailyGroupOwnerReminder() {
+  try {
+    console.log("Starting daily group owner reminder...");
+    await notificationService.notifyGroupOwnersIncompleteGroups();
+    console.log("Daily group owner reminder completed");
+  } catch (error) {
+    console.error("Error in daily group owner reminder cron job:", error);
+  }
+}
+
 // Always run the function when this script is executed
 processExpiredNotifications()
   .then(() => {

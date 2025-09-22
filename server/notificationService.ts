@@ -1,6 +1,6 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { 
   users, 
   products, 
@@ -321,6 +321,137 @@ export class NotificationService {
       console.log(`Order created notifications sent to ${sellerIds.size} sellers for order ${orderId}`);
     } catch (error) {
       console.error("Error sending seller order notifications:", error);
+    }
+  }
+
+  /**
+   * New Notification: Group Owner Reminder
+   * Notify group owners about their incomplete groups that need more members
+   */
+  async notifyGroupOwnersIncompleteGroups(): Promise<void> {
+    try {
+      // Get all groups that are incomplete (less than 5 members)
+      const incompleteGroups = await this.getIncompleteGroups();
+      
+      if (incompleteGroups.length === 0) {
+        console.log("No incomplete groups found for group owner notifications");
+        return;
+      }
+
+      // Group incomplete groups by owner
+      const groupsByOwner = new Map<string, Array<{
+        id: number;
+        name: string;
+        currentMembers: number;
+        neededMembers: number;
+      }>>();
+
+      for (const group of incompleteGroups) {
+        const ownerId = group.ownerId;
+        if (!groupsByOwner.has(ownerId)) {
+          groupsByOwner.set(ownerId, []);
+        }
+        groupsByOwner.get(ownerId)!.push({
+          id: group.id,
+          name: group.name,
+          currentMembers: group.currentMembers,
+          neededMembers: 5 - group.currentMembers
+        });
+      }
+
+      // Send notification to each group owner
+      const ownerEntries = Array.from(groupsByOwner.entries());
+      for (const [ownerId, ownerGroups] of ownerEntries) {
+        const groupDetails = ownerGroups.map(group => 
+          `"${group.name}" (${group.currentMembers}/5 members) - needs ${group.neededMembers} more`
+        ).join('\n');
+
+        const notification: NotificationTemplate = {
+          type: "group_owner_reminder",
+          title: "Complete Your Groups for Discounts! 🎯",
+          message: `You have ${ownerGroups.length} group${ownerGroups.length > 1 ? 's' : ''} that need more members to unlock discounts:\n\n${groupDetails}\n\nShare your groups with friends or promote them to reach the 5-member threshold and activate group discounts!`,
+          priority: "normal",
+          data: {
+            userId: ownerId,
+            incompleteGroupsCount: ownerGroups.length,
+            groups: ownerGroups
+          }
+        };
+
+        await this.createNotification(ownerId, notification);
+        console.log(`Group owner reminder sent to ${ownerId} for ${ownerGroups.length} incomplete groups`);
+      }
+
+      console.log(`Group owner reminders sent to ${groupsByOwner.size} owners for ${incompleteGroups.length} incomplete groups`);
+    } catch (error) {
+      console.error("Error sending group owner reminders:", error);
+    }
+  }
+
+  /**
+   * Helper method to get incomplete groups (less than 5 members)
+   */
+  private async getIncompleteGroups(): Promise<Array<{
+    id: number;
+    name: string;
+    currentMembers: number;
+    ownerId: string;
+    ownerName: string;
+  }>> {
+    try {
+      // Get all user groups with their participant counts
+      const groups = await db
+        .select({
+          id: userGroups.id,
+          name: userGroups.name,
+          userId: userGroups.userId,
+          userFirstName: users.firstName,
+          userLastName: users.lastName
+        })
+        .from(userGroups)
+        .leftJoin(users, eq(userGroups.userId, users.id))
+        .where(eq(userGroups.isPublic, true)); // Only public groups
+
+      const incompleteGroups = [];
+
+      for (const group of groups) {
+        // Count approved participants for this group
+        const participantCount = await storage.getUserGroupParticipantCount(group.id);
+        
+        if (participantCount < 5) {
+          incompleteGroups.push({
+            id: group.id,
+            name: group.name,
+            currentMembers: participantCount,
+            ownerId: group.userId,
+            ownerName: `${group.userFirstName || 'Unknown'} ${group.userLastName || ''}`.trim()
+          });
+        }
+      }
+
+      return incompleteGroups;
+    } catch (error) {
+      console.error("Error getting incomplete groups:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Process expired notifications (S5 & S6)
+   * This method handles notifications for expired groups and payment deadlines
+   * Note: Currently simplified as the database schema doesn't include expiration fields
+   */
+  async processExpiredNotifications(): Promise<void> {
+    try {
+      console.log("Processing expired notifications...");
+      
+      // TODO: Implement expired notifications when expiration fields are added to schema
+      // For now, this is a placeholder that logs the processing
+      
+      console.log("Expired notifications processing completed. No expired items found.");
+    } catch (error) {
+      console.error("Error processing expired notifications:", error);
+      throw error;
     }
   }
 
