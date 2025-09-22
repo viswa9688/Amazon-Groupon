@@ -8,6 +8,7 @@ import { orders } from "@shared/schema";
 import { seedDatabase } from "./seed";
 import Stripe from "stripe";
 import { notificationService } from "./notificationService";
+import { notificationBroadcaster } from "./notificationBroadcaster";
 import {
   insertProductSchema,
   insertServiceProviderSchema,
@@ -2054,6 +2055,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending group owner reminder:", error);
       res.status(500).json({ message: "Failed to send group owner reminder" });
+    }
+  });
+
+  // Real-time notifications via Server-Sent Events (SSE)
+  app.get('/api/notifications/stream', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      console.log(`Setting up real-time notifications for user: ${userId}`);
+      
+      // Add client to the broadcaster
+      notificationBroadcaster.addClient(userId, req, res);
+      
+      // Keep the connection alive with periodic heartbeats
+      const heartbeat = setInterval(() => {
+        try {
+          res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: Date.now() })}\n\n`);
+        } catch (error) {
+          clearInterval(heartbeat);
+        }
+      }, 30000); // Send heartbeat every 30 seconds
+
+      // Clean up on disconnect
+      req.on('close', () => {
+        clearInterval(heartbeat);
+        console.log(`Real-time notifications disconnected for user: ${userId}`);
+      });
+
+    } catch (error) {
+      console.error("Error setting up real-time notifications:", error);
+      res.status(500).json({ message: "Failed to setup real-time notifications" });
     }
   });
 

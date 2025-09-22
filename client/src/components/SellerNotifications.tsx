@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,19 +39,22 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Initialize real-time notifications
+  const { isConnected, connectionError, reconnect } = useRealtimeNotifications();
 
-  // Fetch notifications - Debug: Enable for all authenticated users
+  // Fetch notifications - Real-time updates via SSE, no polling needed
   const { data: notifications = [], isLoading } = useQuery<SellerNotification[]>({
     queryKey: ["/api/seller/notifications"],
     enabled: isAuthenticated, // Debug: Removed user?.isSeller check
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    // No refetchInterval - real-time updates via SSE
   });
 
-  // Fetch unread count - Debug: Enable for all authenticated users
+  // Fetch unread count - Real-time updates via SSE, no polling needed
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/seller/notifications/unread-count"],
     enabled: isAuthenticated, // Debug: Removed user?.isSeller check
-    refetchInterval: 30000,
+    // No refetchInterval - real-time updates via SSE
   });
 
   const unreadCount = unreadData?.count || 0;
@@ -131,6 +135,8 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
         return <AlertCircle className={`${iconClass} text-orange-600`} />;
       case "urgent":
         return <XCircle className={`${iconClass} text-red-600`} />;
+      case "group_owner_reminder":
+        return <BellRing className={`${iconClass} text-purple-600`} />;
       default:
         return <Info className={`${iconClass} text-gray-600`} />;
     }
@@ -196,8 +202,27 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
       <DialogContent className="max-w-md max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Notifications</span>
             <div className="flex items-center gap-2">
+              <span>Notifications</span>
+              {/* Real-time connection status */}
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className="text-xs text-muted-foreground">
+                  {isConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {connectionError && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={reconnect}
+                  className="text-xs"
+                >
+                  Reconnect
+                </Button>
+              )}
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
@@ -220,8 +245,10 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
             <p>User ID: {user?.id}</p>
             <p>Is Seller: {user?.isSeller ? 'Yes' : 'No'}</p>
             <p>Authenticated: {isAuthenticated ? 'Yes' : 'No'}</p>
+            <p>Real-time: {isConnected ? 'Connected' : 'Disconnected'}</p>
             <p>Notifications Count: {notifications.length}</p>
             <p>Unread Count: {unreadCount}</p>
+            {connectionError && <p className="text-red-600">Error: {connectionError}</p>}
           </div>
           
           {isLoading ? (

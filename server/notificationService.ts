@@ -11,6 +11,7 @@ import {
   orderItems,
   sellerNotifications 
 } from "@shared/schema";
+import { notificationBroadcaster } from "./notificationBroadcaster";
 
 export interface NotificationData {
   userId?: string;
@@ -460,7 +461,8 @@ export class NotificationService {
    * Uses the existing sellerNotifications table for all notifications
    */
   private async createNotification(userId: string, notification: NotificationTemplate): Promise<void> {
-    await storage.createSellerNotification({
+    // Create the notification in the database
+    const createdNotification = await storage.createSellerNotification({
       sellerId: userId, // Using userId as sellerId for all notifications
       type: notification.type,
       title: notification.title,
@@ -468,6 +470,24 @@ export class NotificationService {
       data: notification.data,
       priority: notification.priority
     });
+
+    // Broadcast the notification in real-time to connected clients
+    notificationBroadcaster.broadcastToUser(userId, {
+      type: 'new_notification',
+      data: {
+        id: createdNotification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        priority: notification.priority,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        data: notification.data
+      },
+      userId: userId
+    });
+
+    console.log(`Real-time notification sent to user ${userId}: ${notification.title}`);
   }
 }
 
