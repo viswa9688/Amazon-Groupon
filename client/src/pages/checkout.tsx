@@ -90,9 +90,21 @@ const CheckoutForm = ({
           let totalOrderPrice = 0;
           const orderItems = [];
           
+          // Check minimum order value requirement ($50 excluding delivery)
+          const MINIMUM_ORDER_VALUE = 50.00;
+          const orderValueExcludingDelivery = groupData.items.reduce((sum, item) => {
+            return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
+          }, 0);
+          
           for (const item of groupData.items) {
             // Calculate discounted price using the same method as user-group page
-            const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+            let discountPrice = item.product.originalPrice;
+            
+            // Only apply discounts if minimum order value is met
+            if (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) {
+              discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+            }
+            
             const discountedPrice = parseFloat(discountPrice.toString());
             const itemTotal = discountedPrice * item.quantity;
             totalOrderPrice += itemTotal;
@@ -384,12 +396,22 @@ export default function Checkout() {
                 }
               }
               
+              // Check minimum order value requirement ($50 excluding delivery)
+              const MINIMUM_ORDER_VALUE = 50.00;
+              const orderValueExcludingDelivery = totalOriginalAmount; // This is the total before delivery
+              
               // Calculate potential savings using the EXACT same method as user-group page
-              const potentialSavingsFromGroup = userGroupDetails.items?.reduce((sum: number, item: any) => {
-                const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-                const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
-                return sum + savings;
-              }, 0) || 0;
+              let potentialSavingsFromGroup = 0;
+              if (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) {
+                potentialSavingsFromGroup = userGroupDetails.items?.reduce((sum: number, item: any) => {
+                  const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+                  const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
+                  return sum + savings;
+                }, 0) || 0;
+                console.log(`Client - Minimum order value met ($${orderValueExcludingDelivery.toFixed(2)} >= $${MINIMUM_ORDER_VALUE}), applying group discounts`);
+              } else {
+                console.log(`Client - Minimum order value not met ($${orderValueExcludingDelivery.toFixed(2)} < $${MINIMUM_ORDER_VALUE}), no group discounts applied`);
+              }
               
               // Calculate amounts based on the formula: Popular Group Value - Potential Savings
               const popularGroupValue = totalOriginalAmount; // This is the "Popular Group Value"

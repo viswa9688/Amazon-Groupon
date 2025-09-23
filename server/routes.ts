@@ -2512,10 +2512,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let totalOrderPrice = 0;
             const orderItems = [];
             
+            // Check minimum order value requirement ($50 excluding delivery)
+            const MINIMUM_ORDER_VALUE = 50.00;
+            const orderValueExcludingDelivery = userGroup.items.reduce((sum, item) => {
+              return sum + (parseFloat(item.product.originalPrice) * item.quantity);
+            }, 0);
+            
             for (const item of userGroup.items) {
               // Calculate the discounted price for this specific item
               let discountedPrice = parseFloat(item.product.originalPrice);
-              if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+              
+              // Only apply discounts if minimum order value is met
+              if (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE && item.product.discountTiers && item.product.discountTiers.length > 0) {
                 const totalMembers = parseInt(paymentIntent.metadata.totalMembers);
                 const applicableTiers = item.product.discountTiers.filter(tier => totalMembers >= tier.participantCount);
                 if (applicableTiers.length > 0) {
@@ -2584,7 +2592,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             for (const item of userGroup.items) {
               // Calculate the discounted price for this specific item
               let discountedPrice = parseFloat(item.product.originalPrice);
-              if (item.product.discountTiers && item.product.discountTiers.length > 0) {
+              
+              // Only apply discounts if minimum order value is met (reuse the same calculation from above)
+              if (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE && item.product.discountTiers && item.product.discountTiers.length > 0) {
                 const totalMembers = parseInt(paymentIntent.metadata.totalMembers);
                 const applicableTiers = item.product.discountTiers.filter(tier => totalMembers >= tier.participantCount);
                 if (applicableTiers.length > 0) {
@@ -2843,9 +2853,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalDiscountedAmount += discountPrice * item.quantity;
         }
 
-        // Calculate final amount using formula: Popular Group Value - Potential Savings
-        potentialSavings = popularGroupValue - totalDiscountedAmount;
-        memberAmount = popularGroupValue - potentialSavings; // This equals totalDiscountedAmount
+        // Check minimum order value requirement ($50 excluding delivery)
+        const MINIMUM_ORDER_VALUE = 50.00;
+        const orderValueExcludingDelivery = popularGroupValue; // This is the total before delivery
+        
+        // Only apply discounts if minimum order value is met
+        if (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) {
+          // Calculate final amount using formula: Popular Group Value - Potential Savings
+          potentialSavings = popularGroupValue - totalDiscountedAmount;
+          memberAmount = popularGroupValue - potentialSavings; // This equals totalDiscountedAmount
+          console.log(`Server - Minimum order value met ($${orderValueExcludingDelivery.toFixed(2)} >= $${MINIMUM_ORDER_VALUE}), applying group discounts`);
+        } else {
+          // No discounts applied - use original prices
+          potentialSavings = 0;
+          memberAmount = popularGroupValue; // No discount, pay full original amount
+          console.log(`Server - Minimum order value not met ($${orderValueExcludingDelivery.toFixed(2)} < $${MINIMUM_ORDER_VALUE}), no group discounts applied`);
+        }
         
         // Cache the calculated values
         groupPricingCache.set(cacheKey, {

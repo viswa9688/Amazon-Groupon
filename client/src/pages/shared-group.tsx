@@ -129,11 +129,17 @@ export default function SharedGroupPage() {
     return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
   }, 0) || 0;
   
-  const potentialSavings = sharedGroup.items?.reduce((sum, item) => {
-    const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-    const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
-    return sum + savings;
-  }, 0) || 0;
+  // Check minimum order value requirement ($50 excluding delivery)
+  const MINIMUM_ORDER_VALUE = 50.00;
+  const orderValueExcludingDelivery = totalValue;
+  
+  const potentialSavings = (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) 
+    ? sharedGroup.items?.reduce((sum, item) => {
+        const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+        const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
+        return sum + savings;
+      }, 0) || 0
+    : 0;
 
   // Use popular group-level participant count
   const collectionParticipants = sharedGroup.participantCount || 0;
@@ -419,6 +425,31 @@ export default function SharedGroupPage() {
                 
                 <div className="text-center text-xs text-muted-foreground">
                   {collectionProgress.toFixed(0)}% complete
+                </div>
+                
+                {/* Minimum Order Value Requirement */}
+                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-foreground">
+                      ${orderValueExcludingDelivery.toFixed(2)} / $50.00
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE 
+                        ? "✅ Minimum order value met" 
+                        : `$${(MINIMUM_ORDER_VALUE - orderValueExcludingDelivery).toFixed(2)} more needed for discounts`}
+                    </p>
+                  </div>
+                  
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE 
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                          : 'bg-gradient-to-r from-orange-500 to-yellow-500'
+                      }`}
+                      style={{ width: `${Math.min((orderValueExcludingDelivery / MINIMUM_ORDER_VALUE) * 100, 100)}%` }}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

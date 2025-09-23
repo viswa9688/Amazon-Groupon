@@ -451,11 +451,17 @@ export default function MyGroups() {
                     return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
                   }, 0) || 0;
                   
-                  const potentialSavings = userGroup.items?.reduce((sum, item) => {
-                    const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-                    const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
-                    return sum + savings;
-                  }, 0) || 0;
+                  // Check minimum order value requirement ($50 excluding delivery)
+                  const MINIMUM_ORDER_VALUE = 50.00;
+                  const orderValueExcludingDelivery = totalValue;
+                  
+                  const potentialSavings = (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) 
+                    ? userGroup.items?.reduce((sum, item) => {
+                        const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+                        const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
+                        return sum + savings;
+                      }, 0) || 0
+                    : 0;
                   
                   // Use collection-level participant count
                   const collectionParticipants = userGroup.participantCount || 0;
