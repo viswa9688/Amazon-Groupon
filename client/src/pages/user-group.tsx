@@ -165,11 +165,11 @@ export default function UserGroupPage() {
   const allMembers = useMemo(() => {
     if (!userGroup || !user) return [];
     
-    const members = [...approvedParticipants];
+    // Filter out the owner from approved participants to avoid double counting
+    const members = approvedParticipants.filter(p => p.userId !== userGroup.userId);
     
-    // Add owner if not already in approved participants
-    const ownerAlreadyIncluded = members.some(p => p.userId === userGroup.userId);
-    if (!ownerAlreadyIncluded && userGroup.userId) {
+    // Always add owner first (owner should never be in approved participants)
+    if (userGroup.userId) {
       // Create owner participant object with proper typing
       const ownerParticipant = {
         id: -1, // Placeholder ID for owner

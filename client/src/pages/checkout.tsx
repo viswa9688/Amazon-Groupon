@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation, useRoute } from "wouter";
 import AddressManager from "@/components/AddressManager";
+import DeliveryFeeDisplay from "@/components/DeliveryFeeDisplay";
 import { useAuth } from "@/hooks/useAuth";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
@@ -220,18 +221,39 @@ export default function Checkout() {
   const [totalMembers, setTotalMembers] = useState(1);
   const [originalAmount, setOriginalAmount] = useState(0);
   const [potentialSavings, setPotentialSavings] = useState(0);
+  const [deliveryFee, setDeliveryFee] = useState(0);
   const [amountLocked, setAmountLocked] = useState(false); // Prevent amount changes after initial calculation
   const initRef = useRef(false);
 
   // Safe setAmount function that respects the lock
-  const setAmountSafe = (newAmount: number) => {
-    if (!amountLocked) {
-      console.log("Setting amount (unlocked):", newAmount);
+  const setAmountSafe = (newAmount: number, forceUpdate: boolean = false) => {
+    if (!amountLocked || forceUpdate) {
+      console.log("Setting amount (unlocked or forced):", newAmount);
       setAmount(newAmount);
     } else {
       console.log("Amount change blocked - amount is locked. Current amount:", amount, "Attempted amount:", newAmount);
     }
   };
+
+  // Handle delivery fee updates and recalculate total
+  const handleDeliveryFeeUpdate = (fee: number) => {
+    setDeliveryFee(fee);
+    
+    // Only recalculate if we have the base values
+    if (originalAmount > 0) {
+      // Recalculate total amount including delivery fee
+      const baseAmount = originalAmount - potentialSavings;
+      const totalWithDelivery = baseAmount + fee;
+      
+      // Force update to allow delivery fee changes even when amount is locked
+      setAmountSafe(totalWithDelivery, true);
+    }
+  };
+
+  // Reset delivery fee when address changes
+  useEffect(() => {
+    setDeliveryFee(0);
+  }, [selectedAddressId]);
 
   // Parse URL and query parameters - use a function to ensure we get fresh values
   const getUrlParams = () => {
@@ -337,9 +359,12 @@ export default function Checkout() {
               // Get participant count for pricing calculations
               const approvedResponse = await apiRequest("GET", `/api/user-groups/${groupDataResponse.id}/approved`);
               const approved = await approvedResponse.json();
-              const totalMembersCount = approved.length + 1; // +1 for owner
+              // Filter out owner from approved participants to avoid double counting
+              const ownerId = groupDataResponse.userId;
+              const nonOwnerParticipants = approved.filter((p: any) => p.userId !== ownerId);
+              const totalMembersCount = nonOwnerParticipants.length + 1; // +1 for owner
               setTotalMembers(totalMembersCount);
-              console.log("Total members:", totalMembersCount);
+              console.log("Approved participants (excluding owner):", nonOwnerParticipants.length, "Total members (including owner):", totalMembersCount);
               
               // Calculate pricing using the EXACT same method as user-group page
               let totalOriginalAmount = 0;
@@ -730,13 +755,22 @@ export default function Checkout() {
                             <span className="font-medium">-${potentialSavings.toFixed(2)}</span>
                           </div>
                         )}
+                        {deliveryFee > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Delivery Fee:</span>
+                            <span className="font-medium">${deliveryFee.toFixed(2)}</span>
+                          </div>
+                        )}
                         <div className="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
                           <div className="flex justify-between">
                             <span className="font-bold text-lg text-gray-900 dark:text-white">Total Amount:</span>
                             <span className="font-bold text-2xl text-green-600">${amount.toFixed(2)}</span>
                           </div>
                           <div className="text-xs text-gray-500 mt-1 text-center">
-                            Formula: Popular Group Value - Potential Savings
+                            {deliveryFee > 0 
+                              ? "Formula: Popular Group Value - Potential Savings + Delivery Fee"
+                              : "Formula: Popular Group Value - Potential Savings"
+                            }
                           </div>
                         </div>
                       </div>
@@ -782,6 +816,15 @@ export default function Checkout() {
                 selectedAddressId={selectedAddressId}
                 onAddressSelect={setSelectedAddressId}
                 showSelection={true}
+              />
+            )}
+
+            {/* Delivery Fee Display */}
+            {isGroupPayment && (
+              <DeliveryFeeDisplay
+                addressId={selectedAddressId}
+                className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
+                onDeliveryFeeChange={handleDeliveryFeeUpdate}
               />
             )}
             

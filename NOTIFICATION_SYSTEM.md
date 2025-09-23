@@ -270,6 +270,42 @@ Potential improvements for the notification system:
 
 Enable debug logging by checking console output for notification-related messages.
 
+## Delivery System Integration
+
+The notification system is integrated with a delivery calculation system that uses the Google Distance Matrix API to calculate delivery charges based on distance and order total.
+
+### Environment Configuration
+
+**Required Environment Variable:**
+```bash
+GOOGLE_DISTANCE_MATRIX_API_KEY=your_google_api_key_here
+```
+
+**Setup Instructions:**
+1. Get a Google Cloud API key with Distance Matrix API enabled
+2. Add the key to your environment variables
+3. The system will automatically use the API key for distance calculations
+4. If the API key is not configured, the system falls back to estimated distances
+
+### Delivery Logic
+
+- **Free Delivery**: Distance ≤ 10km AND order total ≥ $50
+- **Distance-based Charges**: $2.5 per km for distances > 10km
+- **Minimum Order Charges**: 10% of shortfall or $5 minimum for orders < $50
+- **Fallback System**: Uses estimated 15km distance when Google API is unavailable or not configured
+
+### API Endpoints
+
+- `POST /api/delivery/calculate` - Calculate delivery for single seller
+- `POST /api/delivery/calculate-group` - Calculate delivery for multiple sellers
+
+### Integration with Orders
+
+Delivery charges are automatically calculated and included in order totals when:
+- User provides delivery address during checkout
+- Order contains items from sellers with complete shop addresses
+- User is authenticated (logged-in member)
+
 ## Conclusion
 
 The notification system provides comprehensive coverage of all requested scenarios (S1-S7) with:
@@ -280,5 +316,7 @@ The notification system provides comprehensive coverage of all requested scenari
 - ✅ Robust error handling and logging
 - ✅ Daily group owner reminders for incomplete groups
 - ✅ Seller order notifications when orders are placed
+- ✅ Dynamic delivery charge calculation based on distance and order total
+- ✅ Google Distance Matrix API integration with fallback system
 
-The system is production-ready and integrates seamlessly with the existing application architecture.
+The system is production-ready and integrates seamlessly with the existing application architecture, providing both comprehensive notifications and intelligent delivery pricing.

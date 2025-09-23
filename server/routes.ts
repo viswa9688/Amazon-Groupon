@@ -9,6 +9,7 @@ import { seedDatabase } from "./seed";
 import Stripe from "stripe";
 import { notificationService } from "./notificationService";
 import { notificationBroadcaster } from "./notificationBroadcaster";
+import { deliveryService } from "./deliveryService";
 import {
   insertProductSchema,
   insertServiceProviderSchema,
@@ -472,11 +473,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get address details if addressId is provided
       let shippingAddress = "International Shipping Address";
+      let buyerAddress = null;
       if (addressId) {
         const addresses = await storage.getUserAddresses(userId);
         const address = addresses.find(addr => addr.id === addressId);
         if (address) {
           shippingAddress = `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`;
+          buyerAddress = {
+            addressLine: address.addressLine,
+            city: address.city,
+            state: address.state || undefined,
+            country: address.country || 'US',
+            pincode: address.pincode
+          };
+        }
+      }
+      
+      // Calculate delivery charges if address is provided
+      let totalDeliveryCharge = 0;
+      let deliverySummary = null;
+      if (buyerAddress && items && items.length > 0) {
+        try {
+          deliverySummary = await deliveryService.getDeliverySummary(buyerAddress);
+          totalDeliveryCharge = deliverySummary.totalDeliveryCharge;
+          console.log(`Delivery charges calculated: $${totalDeliveryCharge}`);
+        } catch (error) {
+          console.error("Error calculating delivery charges:", error);
+          // Continue with order creation even if delivery calculation fails
         }
       }
       
@@ -484,12 +507,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const finalUserId = beneficiaryId || userId; // Who receives the order
       const finalPayerId = payerId || userId; // Who made the payment
       
+      // Calculate final price including delivery charges
+      const finalPriceWithDelivery = (finalPrice || totalPrice) + totalDeliveryCharge;
+      
       const orderData = {
         userId: finalUserId,
         payerId: finalPayerId,
         addressId: addressId || null,
         totalPrice,
-        finalPrice,
+        finalPrice: finalPriceWithDelivery,
         shippingAddress,
         status: status || "completed",
         type: type || "group"
@@ -530,7 +556,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Scenario 5: Notify sellers about new order
       await notificationService.notifySellerOrderCreated(order.id);
       
-      res.status(201).json(order);
+      // Return order with delivery information
+      const orderResponse = {
+        ...order,
+        deliveryCharges: {
+          totalDeliveryCharge,
+          deliverySummary,
+          hasDeliveryCharges: totalDeliveryCharge > 0
+        }
+      };
+      
+      res.status(201).json(orderResponse);
     } catch (error) {
       console.error("Error creating group order:", error);
       console.error("Error details:", error.message);
@@ -2058,6 +2094,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to check Google API key status (for debugging)
+  app.get('/api/test/google-api-status', async (req: any, res) => {
+    try {
+      const apiKey = process.env.GOOGLE_DISTANCE_MATRIX_API_KEY;
+      const status = {
+        apiKeyConfigured: !!apiKey,
+        apiKeyLength: apiKey ? apiKey.length : 0,
+        message: apiKey ? 'Google Distance Matrix API key is configured' : 'Google Distance Matrix API key is not configured'
+      };
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: 'Error checking API key status', error: error.message });
+    }
+  });
+
+  // Test endpoint to test Google Distance Matrix API (for debugging)
+  app.post('/api/test/google-distance', async (req: any, res) => {
+    try {
+      const { origin, destination } = req.body;
+      
+      if (!origin || !destination) {
+        return res.status(400).json({ message: 'Origin and destination are required' });
+      }
+
+      const apiKey = process.env.GOOGLE_DISTANCE_MATRIX_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: 'Google Distance Matrix API key not configured' });
+      }
+
+      const url = new URL('https://maps.googleapis.com/maps/api/distancematrix/json');
+      url.searchParams.append('origins', origin);
+      url.searchParams.append('destinations', destination);
+      url.searchParams.append('units', 'metric');
+      url.searchParams.append('mode', 'driving');
+      url.searchParams.append('key', apiKey);
+
+      console.log('Testing Google Distance Matrix API...');
+      console.log('Origin:', origin);
+      console.log('Destination:', destination);
+
+      const response = await fetch(url.toString());
+      const data = await response.json();
+
+      console.log('Google API Response Status:', data.status);
+
+      res.json({
+        status: data.status,
+        origin: origin,
+        destination: destination,
+        response: data,
+        success: data.status === 'OK'
+      });
+    } catch (error) {
+      console.error('Error testing Google Distance Matrix API:', error);
+      res.status(500).json({ message: 'Error testing Google API', error: error.message });
+    }
+  });
+
   // Real-time notifications via Server-Sent Events (SSE)
   app.get('/api/notifications/stream', isAuthenticated, async (req: any, res) => {
     try {
@@ -2085,6 +2179,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error setting up real-time notifications:", error);
       res.status(500).json({ message: "Failed to setup real-time notifications" });
+    }
+  });
+
+  // Delivery calculation endpoints
+  app.post('/api/delivery/calculate', isAuthenticated, async (req: any, res) => {
+    try {
+      const { sellerId, buyerAddress, orderTotal = 0 } = req.body;
+      
+      if (!sellerId || !buyerAddress) {
+        return res.status(400).json({ 
+          message: "Missing required fields: sellerId and buyerAddress" 
+        });
+      }
+
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(
+        sellerId, 
+        buyerAddress,
+        orderTotal
+      );
+
+      res.json(deliveryCalculation);
+    } catch (error) {
+      console.error("Error calculating delivery charges:", error);
+      res.status(500).json({ 
+        message: "Failed to calculate delivery charges",
+        error: error.message 
+      });
+    }
+  });
+
+  // Calculate delivery charges for group orders (multiple sellers)
+  app.post('/api/delivery/calculate-group', isAuthenticated, async (req: any, res) => {
+    try {
+      const { sellerIds, buyerAddress, orderTotal = 0 } = req.body;
+      
+      if (!sellerIds || !Array.isArray(sellerIds) || !buyerAddress) {
+        return res.status(400).json({ 
+          message: "Missing required fields: sellerIds (array) and buyerAddress" 
+        });
+      }
+
+      const deliverySummary = await deliveryService.getDeliverySummary(
+        sellerIds, 
+        buyerAddress,
+        orderTotal
+      );
+
+      res.json(deliverySummary);
+    } catch (error) {
+      console.error("Error calculating group delivery charges:", error);
+      res.status(500).json({ 
+        message: "Failed to calculate group delivery charges",
+        error: error.message 
+      });
     }
   });
 
@@ -2546,6 +2694,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting product:", error);
       res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // Delivery fee calculation endpoint
+  app.post("/api/delivery-fee", isAuthenticated, async (req: any, res) => {
+    try {
+      const { addressId } = req.body;
+      const userId = req.user.claims.sub;
+
+      if (!addressId) {
+        return res.status(400).json({ message: "addressId is required" });
+      }
+
+      // Get user address
+      const addresses = await storage.getUserAddresses(userId);
+      const address = addresses.find(addr => addr.id === addressId);
+      
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+
+      // Format address for delivery calculation
+      const buyerAddress = {
+        addressLine: address.addressLine,
+        city: address.city,
+        state: address.state || undefined,
+        country: address.country || 'US',
+        pincode: address.pincode
+      };
+
+      // Calculate delivery charges
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress);
+
+      res.json({
+        distance: deliveryCalculation.distance,
+        duration: deliveryCalculation.duration,
+        deliveryCharge: deliveryCalculation.deliveryCharge,
+        isFreeDelivery: deliveryCalculation.isFreeDelivery,
+        reason: deliveryCalculation.reason
+      });
+    } catch (error) {
+      console.error("Error calculating delivery fee:", error);
+      res.status(500).json({ message: "Failed to calculate delivery fee" });
     }
   });
 
