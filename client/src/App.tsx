@@ -24,6 +24,7 @@ import PersonalInfo from "@/pages/personal-info.tsx";
 import AdminSuper from "@/pages/admin-super";
 import SellerAnalytics from "@/pages/seller-analytics";
 import Cart from "@/pages/cart.tsx";
+import CartCheckout from "@/pages/cart-checkout";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -52,6 +53,9 @@ function Router() {
       
       <Route path="/cart">
         {() => <AuthGuard><Cart /></AuthGuard>}
+      </Route>
+      <Route path="/cart-checkout">
+        {() => <AuthGuard><CartCheckout /></AuthGuard>}
       </Route>
       <Route path="/my-groups">
         {() => <AuthGuard><MyGroups /></AuthGuard>}

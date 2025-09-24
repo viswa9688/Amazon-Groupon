@@ -239,6 +239,20 @@ export default function Cart() {
     clearCartMutation.mutate();
   };
 
+  const handleCheckout = () => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "Empty Cart",
+        description: "Please add items to your cart before checkout.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Redirect to multi-item cart checkout page
+    setLocation("/cart-checkout");
+  };
+
   const handleShowSuggestions = () => {
     if (cartItems.length === 0) {
       toast({
@@ -833,7 +847,13 @@ export default function Cart() {
                   Continue Shopping
                 </Button>
               </Link>
-              <Button className="w-full" size="lg" data-testid="button-checkout">
+              <Button 
+                className="w-full" 
+                size="lg" 
+                data-testid="button-checkout"
+                onClick={handleCheckout}
+                disabled={cartItems.length === 0}
+              >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Checkout Individual Items
               </Button>

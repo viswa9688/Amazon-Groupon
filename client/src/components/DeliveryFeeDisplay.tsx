@@ -141,13 +141,16 @@ export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFee
             </div>
             <div className="text-right">
               {isFreeDelivery ? (
-                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
-                  Free Delivery
-                </Badge>
+                <div>
+                  <p className="text-lg font-bold text-green-600">$0.00</p>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                    Free Delivery
+                  </Badge>
+                </div>
               ) : (
                 <div>
                   <p className="text-lg font-bold text-gray-900">${deliveryCharge ? deliveryCharge.toFixed(2) : '0.00'}</p>
-                  <p className="text-xs text-muted-foreground">${5} per km beyond 10km</p>
+                  <p className="text-xs text-muted-foreground">$5.99 per km beyond 10km</p>
                 </div>
               )}
             </div>
@@ -159,7 +162,7 @@ export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFee
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
               <strong>Delivery Policy:</strong> Free delivery for orders within 10km. 
-              Orders beyond 10km are charged $5 per additional kilometer.
+              Orders beyond 10km are charged $5.99 per additional kilometer.
             </p>
           </div>
         )}

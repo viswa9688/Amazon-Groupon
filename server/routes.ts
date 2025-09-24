@@ -902,9 +902,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      // Check if order belongs to user
-      if (order.userId !== userId) {
-        console.log("Access denied for user:", userId, "order belongs to:", order.userId);
+      // Check if order belongs to user or if user is the payer
+      // For group payments, both the beneficiary (order.userId) and payer (order.payerId) should have access
+      if (order.userId !== userId && order.payerId !== userId) {
+        console.log("Access denied for user:", userId, "order belongs to:", order.userId, "payer:", order.payerId);
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -956,7 +957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Product not found" });
       }
       
-      // Get existing cart items to check for category mixing
+      // Get existing cart items to check for category mixing and same item from different shops
       const existingCart = await storage.getUserCart(userId);
       if (existingCart.length > 0) {
         // Check if any existing cart item has a different category
@@ -971,6 +972,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             error: "We can't club services and groceries together. Please add them separately to cart.",
             categoryConflict: true,
             currentCategory: currentCategory
+          });
+        }
+
+        // Check if trying to add the same item from a different shop
+        const sameItemFromDifferentShop = existingCart.find(item => 
+          item.product.name.toLowerCase() === product.name.toLowerCase() && 
+          item.product.sellerId !== product.sellerId
+        );
+        
+        if (sameItemFromDifferentShop) {
+          const existingSeller = sameItemFromDifferentShop.product.seller;
+          const newSeller = product.seller;
+          return res.status(400).json({ 
+            message: "Same item from different shop",
+            error: `You already have "${product.name}" from ${existingSeller.firstName} ${existingSeller.lastName}. Cannot add the same item from ${newSeller.firstName} ${newSeller.lastName}.`,
+            sameItemConflict: true,
+            existingSeller: `${existingSeller.firstName} ${existingSeller.lastName}`,
+            newSeller: `${newSeller.firstName} ${newSeller.lastName}`
           });
         }
       }
@@ -2300,14 +2319,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stripe payment routes
+  // Multi-item individual payment intent creation (for cart checkout)
+  app.post("/api/create-multi-item-payment-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      const { addressId } = req.body;
+      const userId = req.user.claims.sub;
+
+      if (!addressId) {
+        return res.status(400).json({ message: "Address ID is required for individual payments" });
+      }
+
+      // Get user's cart items
+      const cartItems = await storage.getUserCart(userId);
+      if (cartItems.length === 0) {
+        return res.status(400).json({ message: "Cart is empty" });
+      }
+
+      // Get user address
+      const addresses = await storage.getUserAddresses(userId);
+      const address = addresses.find(addr => addr.id === addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      const buyerAddress = {
+        addressLine: address.addressLine,
+        city: address.city,
+        state: address.state || undefined,
+        country: address.country || 'US',
+        pincode: address.pincode
+      };
+
+      // Calculate delivery charges for the entire cart
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress);
+      const deliveryFee = deliveryCalculation.deliveryCharge;
+
+      // Calculate total product price
+      const productPrice = cartItems.reduce((total, item) => {
+        return total + (parseFloat(item.product.originalPrice) * item.quantity);
+      }, 0);
+
+      const totalAmount = productPrice + deliveryFee;
+
+      // Create Stripe customer
+      const customer = await stripe.customers.create({
+        name: address.fullName,
+        address: {
+          line1: address.addressLine,
+          city: address.city,
+          state: address.state || 'CA',
+          postal_code: address.pincode,
+          country: address.country || 'US'
+        }
+      });
+
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(totalAmount * 100), // Convert to cents
+        currency: "usd",
+        customer: customer.id,
+        description: `Multi-item purchase (${cartItems.length} items)${deliveryFee > 0 ? ` (includes $${deliveryFee.toFixed(2)} delivery fee)` : ''}`,
+        shipping: {
+          name: address.fullName,
+          address: {
+            line1: address.addressLine,
+            city: address.city,
+            state: address.state || 'CA',
+            postal_code: address.pincode,
+            country: address.country || 'US'
+          }
+        },
+        metadata: {
+          userId: userId,
+          type: "multi_item_individual",
+          addressId: addressId.toString(),
+          deliveryFee: deliveryFee.toString(),
+          originalAmount: productPrice.toString(),
+          itemCount: cartItems.length.toString(),
+          cartItemIds: cartItems.map(item => item.id).join(',')
+        }
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        deliveryFee,
+        productPrice,
+        totalAmount,
+        deliveryInfo: deliveryCalculation,
+        cartItems: cartItems.map(item => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            originalPrice: item.product.originalPrice,
+            imageUrl: item.product.imageUrl
+          }
+        }))
+      });
+    } catch (error: any) {
+      console.error("Error creating multi-item payment intent:", error);
+      res.status(500).json({ message: "Error creating multi-item payment intent: " + error.message });
+    }
+  });
+
+  // Individual payment intent endpoint with address and delivery fee support
+  app.post("/api/create-individual-payment-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      const { productId, addressId, quantity = 1 } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!productId) {
+        return res.status(400).json({ message: "Product ID is required" });
+      }
+
+      if (!addressId) {
+        return res.status(400).json({ message: "Address ID is required for individual payments" });
+      }
+
+      // Get product details
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Get user address
+      const addresses = await storage.getUserAddresses(userId);
+      const address = addresses.find(addr => addr.id === addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      // Calculate delivery fee
+      const buyerAddress = {
+        addressLine: address.addressLine,
+        city: address.city,
+        state: address.state || undefined,
+        country: address.country || 'US',
+        pincode: address.pincode
+      };
+
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress);
+      const deliveryFee = deliveryCalculation.deliveryCharge;
+
+      // Calculate total amount (product price + delivery fee)
+      const productPrice = parseFloat(product.originalPrice) * quantity;
+      const totalAmount = productPrice + deliveryFee;
+
+      // Create customer with billing address
+      const customer = await stripe.customers.create({
+        name: address.fullName,
+        address: {
+          line1: address.addressLine,
+          city: address.city,
+          state: address.state || "CA",
+          postal_code: address.pincode,
+          country: address.country || "US"
+        }
+      });
+
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(totalAmount * 100), // Convert to cents
+        currency: "usd",
+        customer: customer.id,
+        description: `${product.name}${deliveryFee > 0 ? ` (includes $${deliveryFee.toFixed(2)} delivery fee)` : ''}`,
+        shipping: {
+          name: address.fullName,
+          address: {
+            line1: address.addressLine,
+            city: address.city,
+            state: address.state || "CA",
+            postal_code: address.pincode,
+            country: address.country || "US"
+          }
+        },
+        metadata: {
+          userId: userId,
+          productId: productId.toString(),
+          type: "individual",
+          addressId: addressId.toString(),
+          deliveryFee: deliveryFee.toString(),
+          originalAmount: productPrice.toString(),
+          quantity: quantity.toString()
+        }
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        deliveryFee: deliveryFee,
+        productPrice: productPrice,
+        totalAmount: totalAmount,
+        deliveryInfo: {
+          distance: deliveryCalculation.distance,
+          duration: deliveryCalculation.duration,
+          isFreeDelivery: deliveryCalculation.isFreeDelivery,
+          reason: deliveryCalculation.reason
+        }
+      });
+    } catch (error: any) {
+      console.error("Error creating individual payment intent:", error);
+      res.status(500).json({ message: "Error creating individual payment intent: " + error.message });
+    }
+  });
+
   // Group-specific payment intent creation
   app.post("/api/create-group-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
+      console.log("Group payment intent request body:", req.body);
       
       const { userGroupId, productId, amount, currency = "usd", addressId, memberId, payerId, beneficiaryId } = req.body;
       
-      if (!userGroupId || !productId || !amount || amount <= 0 || !addressId) {
-        return res.status(400).json({ message: "userGroupId, productId, amount, and addressId are required" });
+      // Validate required parameters
+      if (!userGroupId) {
+        return res.status(400).json({ message: "userGroupId is required" });
+      }
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      if (!addressId) {
+        return res.status(400).json({ message: "addressId is required" });
+      }
+      
+      // For group purchases, productId is optional - we'll get it from the group if not provided
+      let finalProductId = productId;
+      if (!finalProductId) {
+        const userGroup = await storage.getUserGroup(userGroupId);
+        if (userGroup?.items?.length > 0) {
+          finalProductId = userGroup.items[0].product.id;
+        } else {
+          return res.status(400).json({ message: "No products found in group" });
+        }
       }
 
       // Check if user is already part of this group
@@ -2320,17 +2563,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const finalPayerId = payerId || req.user.claims.sub;
       const finalBeneficiaryId = beneficiaryId || memberId || req.user.claims.sub;
       
+      // For group purchases, we need to get the group details to calculate the total
+      const userGroup = await storage.getUserGroup(userGroupId);
+      if (!userGroup) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+
       // Check if this beneficiary has already paid for this product in this group
-      const alreadyPaid = await storage.hasUserPaidForProduct(finalBeneficiaryId, userGroupId, productId);
+      // For group purchases, we check if they've paid for the first product (representative of the group)
+      const alreadyPaid = await storage.hasUserPaidForProduct(finalBeneficiaryId, userGroupId, finalProductId);
       if (alreadyPaid) {
         return res.status(400).json({ message: "This user has already paid for this product in this group" });
       }
 
-      // Get product details for description
-      let productName = "Group Purchase Product";
+      // Get product details for description (use first product or a generic name)
+      let productName = "Group Purchase";
       try {
-        const product = await storage.getProduct(productId);
-        productName = product?.name || "Group Purchase Product";
+        const product = await storage.getProduct(finalProductId);
+        productName = product?.name || "Group Purchase";
       } catch (e) {
         console.log("Could not fetch product details for group payment intent");
       }
@@ -2367,7 +2617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           payerId: finalPayerId,
           beneficiaryId: finalBeneficiaryId,
           userGroupId: userGroupId.toString(),
-          productId: productId.toString(),
+          productId: finalProductId.toString(),
           addressId: addressId.toString(),
           type: "group_member"
         }
@@ -2397,7 +2647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
-      const { amount, currency = "usd", productId, type = "individual" } = req.body;
+      const { amount, currency = "usd", productId, type = "individual", addressId, deliveryFee = 0 } = req.body;
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Valid amount is required" });
@@ -2414,38 +2664,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Step 1: Create customer with billing address (required for Indian export transactions)
-      const customer = await stripe.customers.create({
+      // Get user address for individual payments
+      let customerAddress = {
+        line1: "Customer Address",
+        city: "Customer City",
+        state: "CA",
+        postal_code: "90210",
+        country: "US"
+      };
+
+      let shippingAddress = {
         name: "International Customer",
         address: {
-          line1: "Customer Address",
-          city: "Customer City",
+          line1: "Shipping Address",
+          city: "Shipping City",
           state: "CA",
           postal_code: "90210",
-          country: "US" // 2-letter ISO code required
+          country: "US"
         }
+      };
+
+      // For individual payments, use the provided address if available
+      if (type === "individual" && addressId) {
+        try {
+          const addresses = await storage.getUserAddresses(req.user.claims.sub);
+          const address = addresses.find(addr => addr.id === addressId);
+          
+          if (address) {
+            customerAddress = {
+              line1: address.addressLine,
+              city: address.city,
+              state: address.state || "CA",
+              postal_code: address.pincode,
+              country: address.country || "US"
+            };
+
+            shippingAddress = {
+              name: address.fullName,
+              address: {
+                line1: address.addressLine,
+                city: address.city,
+                state: address.state || "CA",
+                postal_code: address.pincode,
+                country: address.country || "US"
+              }
+            };
+          }
+        } catch (e) {
+          console.log("Could not fetch user address, using default address");
+        }
+      }
+
+      // Step 1: Create customer with billing address (required for Indian export transactions)
+      const customer = await stripe.customers.create({
+        name: shippingAddress.name,
+        address: customerAddress
       });
+
+      // Calculate total amount including delivery fee for individual payments
+      const totalAmount = type === "individual" ? amount + deliveryFee : amount;
 
       // Step 2: Create payment intent with shipping address (required for goods)
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
+        amount: Math.round(totalAmount * 100), // Convert to cents
         currency,
         customer: customer.id, // Link to customer with billing address
-        description: productName, // Clear product description required
-        shipping: {
-          name: "International Customer",
-          address: {
-            line1: "Shipping Address",
-            city: "Shipping City",
-            state: "CA",
-            postal_code: "90210",
-            country: "US" // 2-letter ISO code required for goods
-          }
-        },
+        description: type === "individual" ? `${productName}${deliveryFee > 0 ? ` (includes $${deliveryFee.toFixed(2)} delivery fee)` : ''}` : productName,
+        shipping: shippingAddress,
         metadata: {
           userId: req.user.claims.sub,
           productId: productId?.toString() || "",
           type,
+          addressId: addressId?.toString() || "",
+          deliveryFee: deliveryFee.toString(),
+          originalAmount: amount.toString()
         }
       });
       
@@ -2625,10 +2917,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`Group payment records created for beneficiary ${beneficiaryId}`);
             console.log(`Group purchase payment processed: ${payerId} paid for ${beneficiaryId}`);
             
+          } else if (type === "multi_item_individual") {
+            // Handle multi-item individual payments (cart checkout)
+            const userId = paymentIntent.metadata.userId;
+            const addressId = parseInt(paymentIntent.metadata.addressId);
+            const deliveryFee = parseFloat(paymentIntent.metadata.deliveryFee || "0");
+            const originalAmount = parseFloat(paymentIntent.metadata.originalAmount || amount.toString());
+            const cartItemIds = paymentIntent.metadata.cartItemIds?.split(',').map(id => parseInt(id)) || [];
+            
+            if (!userId || cartItemIds.length === 0) {
+              console.error("Missing required metadata for multi-item order creation");
+              break;
+            }
+
+            // Get cart items
+            const cartItems = await storage.getUserCart(userId);
+            const relevantCartItems = cartItems.filter(item => cartItemIds.includes(item.id));
+            
+            if (relevantCartItems.length === 0) {
+              console.error("No cart items found for multi-item order creation");
+              break;
+            }
+
+            // Get user address for shipping information
+            let shippingAddress = "International Shipping Address";
+            if (addressId) {
+              try {
+                const addresses = await storage.getUserAddresses(userId);
+                const address = addresses.find(addr => addr.id === addressId);
+                if (address) {
+                  shippingAddress = `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`;
+                }
+              } catch (e) {
+                console.log("Could not fetch address for shipping information");
+              }
+            }
+
+            // Create order record for multi-item individual purchase
+            const orderData = {
+              userId,
+              payerId: userId, // For individual purchases, user pays for themselves
+              addressId: addressId || null,
+              totalPrice: (originalAmount + deliveryFee).toString(),
+              finalPrice: (originalAmount + deliveryFee).toString(),
+              status: "completed" as const,
+              type: "individual" as const,
+              shippingAddress
+            };
+
+            // Create order items array for multi-item purchase
+            const orderItems = relevantCartItems.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: parseFloat(item.product.originalPrice).toString(),
+              totalPrice: (parseFloat(item.product.originalPrice) * item.quantity).toString()
+            }));
+
+            // Note: Delivery fee is included in the order's total price, not as a separate line item
+            // This prevents issues with product details display
+
+            const newOrder = await storage.createOrderWithItems(orderData, orderItems);
+            console.log("Multi-item individual order created successfully:", newOrder.id, "Items:", relevantCartItems.length, "Total:", orderData.finalPrice);
+
+            // Clear the cart items that were purchased
+            for (const cartItem of relevantCartItems) {
+              await storage.removeFromCart(cartItem.id);
+            }
+
+            // Create notifications for sellers about payment received
+            const sellerNotifications = new Map();
+            for (const item of relevantCartItems) {
+              if (item.product.sellerId) {
+                const sellerId = item.product.sellerId;
+                if (!sellerNotifications.has(sellerId)) {
+                  sellerNotifications.set(sellerId, []);
+                }
+                sellerNotifications.get(sellerId).push({
+                  name: item.product.name,
+                  amount: (parseFloat(item.product.originalPrice) * item.quantity).toFixed(2)
+                });
+              }
+            }
+            
+            // Create one notification per seller with payment details
+            for (const [sellerId, products] of sellerNotifications) {
+              const totalAmount = products.reduce((sum, product) => sum + parseFloat(product.amount), 0);
+              await storage.createSellerNotification({
+                sellerId,
+                type: "payment_received",
+                title: "Payment Received",
+                message: `Payment of $${totalAmount.toFixed(2)} received for: ${products.map(p => p.name).join(", ")} (Order #${newOrder.id})`,
+                data: { orderId: newOrder.id, amount: totalAmount, productIds: products.map(p => p.productId) },
+                priority: "high"
+              });
+            }
+
           } else {
-            // Handle individual payments (original logic)
+            // Handle individual payments with delivery fees and address information
             const userId = paymentIntent.metadata.userId;
             const productId = parseInt(paymentIntent.metadata.productId);
+            const addressId = parseInt(paymentIntent.metadata.addressId);
+            const deliveryFee = parseFloat(paymentIntent.metadata.deliveryFee || "0");
+            const originalAmount = parseFloat(paymentIntent.metadata.originalAmount || amount.toString());
             
             if (!userId || !productId) {
               console.error("Missing required metadata for individual order creation");
@@ -2642,22 +3032,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
               break;
             }
 
-            // Create order record for individual purchase
+            // Get user address for shipping information
+            let shippingAddress = "International Shipping Address";
+            if (addressId) {
+              try {
+                const addresses = await storage.getUserAddresses(userId);
+                const address = addresses.find(addr => addr.id === addressId);
+                if (address) {
+                  shippingAddress = `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`;
+                }
+              } catch (e) {
+                console.log("Could not fetch address for shipping information");
+              }
+            }
+
+            // Create order record for individual purchase with delivery fee
             const orderData = {
               userId,
               payerId: userId, // For individual purchases, user pays for themselves
-              productId,
-              quantity: 1, // Default quantity
-              unitPrice: amount.toString(),
-              totalPrice: amount.toString(),
-              finalPrice: amount.toString(),
+              addressId: addressId || null,
+              totalPrice: (originalAmount + deliveryFee).toString(),
+              finalPrice: (originalAmount + deliveryFee).toString(),
               status: "completed" as const,
               type: type as "individual" | "group",
-              shippingAddress: "International Shipping Address"
+              shippingAddress
             };
 
-            const newOrder = await storage.createOrder(orderData);
-            console.log("Individual order created successfully:", newOrder.id);
+            // Create order items array for individual purchase
+            const orderItems = [{
+              productId: productId,
+              quantity: 1,
+              unitPrice: originalAmount.toString(),
+              totalPrice: originalAmount.toString()
+            }];
+
+            // Note: Delivery fee is included in the order's total price, not as a separate line item
+            // This prevents issues with product details display
+
+            const newOrder = await storage.createOrderWithItems(orderData, orderItems);
+            console.log("Individual order created successfully with delivery fee:", newOrder.id, "Total:", orderData.finalPrice);
+
+            // Create notification for seller about payment received
+            if (product.sellerId) {
+              await storage.createSellerNotification({
+                sellerId: product.sellerId,
+                type: "payment_received",
+                title: "Payment Received",
+                message: `Payment of $${originalAmount.toFixed(2)} received for: ${product.name} (Order #${newOrder.id})`,
+                data: { orderId: newOrder.id, amount: originalAmount, productIds: [productId] },
+                priority: "high"
+              });
+            }
           }
 
         } catch (error) {

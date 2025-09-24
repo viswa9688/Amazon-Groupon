@@ -228,6 +228,13 @@ export default function ProductDetails() {
           description: "We can't club services and groceries together. Please add them separately to cart.",
           variant: "destructive",
         });
+      } else if (error?.sameItemConflict) {
+        // Handle same item from different shop error
+        toast({
+          title: "Same Item from Different Shop",
+          description: error?.error || "You already have this item from a different seller. Cannot add the same item from multiple shops.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",

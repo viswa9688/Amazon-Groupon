@@ -144,40 +144,64 @@ export default function OrderDetails() {
                   <div className="space-y-4">
                     {order.items.map((item: any, index: number) => (
                       <div key={index} className="flex gap-4 p-4 border rounded-lg">
-                        <img
-                          src={item.product?.imageUrl || `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop`}
-                          alt={item.product?.name || 'Product'}
-                          className="w-24 h-24 object-cover rounded-lg"
-                          data-testid={`img-product-${index}`}
-                        />
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-foreground" data-testid={`text-product-name-${index}`}>
-                            {item.product?.name || 'Product Name'}
-                          </h3>
-                          <p className="text-muted-foreground mt-1" data-testid={`text-product-description-${index}`}>
-                            {item.product?.description || 'Product description'}
-                          </p>
-                          <div className="mt-3 flex items-center justify-between">
-                            <div>
-                              <span className="text-sm text-muted-foreground">Purchase Type: </span>
-                              <Badge variant="outline" data-testid={`badge-purchase-type-${index}`}>
-                                {order.type.charAt(0).toUpperCase() + order.type.slice(1)}
-                              </Badge>
+                        {item.product ? (
+                          <>
+                            <img
+                              src={item.product?.imageUrl || `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop`}
+                              alt={item.product?.name || 'Product'}
+                              className="w-24 h-24 object-cover rounded-lg"
+                              data-testid={`img-product-${index}`}
+                            />
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-foreground" data-testid={`text-product-name-${index}`}>
+                                {item.product?.name || 'Product Name'}
+                              </h3>
+                              <p className="text-muted-foreground mt-1" data-testid={`text-product-description-${index}`}>
+                                {item.product?.description || 'Product description'}
+                              </p>
+                              <div className="mt-3 flex items-center justify-between">
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Purchase Type: </span>
+                                  <Badge variant="outline" data-testid={`badge-purchase-type-${index}`}>
+                                    {order.type.charAt(0).toUpperCase() + order.type.slice(1)}
+                                  </Badge>
+                                </div>
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Quantity: </span>
+                                  <span className="font-medium" data-testid={`text-quantity-${index}`}>{item.quantity}</span>
+                                </div>
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Unit Price: </span>
+                                  <span className="font-medium" data-testid={`text-unit-price-${index}`}>${item.unitPrice}</span>
+                                </div>
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Total: </span>
+                                  <span className="font-medium" data-testid={`text-total-price-${index}`}>${item.totalPrice}</span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-sm text-muted-foreground">Quantity: </span>
-                              <span className="font-medium" data-testid={`text-quantity-${index}`}>{item.quantity}</span>
-                            </div>
-                            <div>
-                              <span className="text-sm text-muted-foreground">Unit Price: </span>
-                              <span className="font-medium" data-testid={`text-unit-price-${index}`}>${item.unitPrice}</span>
-                            </div>
-                            <div>
-                              <span className="text-sm text-muted-foreground">Total: </span>
-                              <span className="font-medium" data-testid={`text-total-price-${index}`}>${item.totalPrice}</span>
+                          </>
+                        ) : (
+                          // Handle delivery fee or other non-product items
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-foreground">
+                              Delivery Fee
+                            </h3>
+                            <p className="text-muted-foreground mt-1">
+                              Shipping and handling charges
+                            </p>
+                            <div className="mt-3 flex items-center justify-between">
+                              <div>
+                                <span className="text-sm text-muted-foreground">Type: </span>
+                                <Badge variant="outline">Delivery</Badge>
+                              </div>
+                              <div>
+                                <span className="text-sm text-muted-foreground">Amount: </span>
+                                <span className="font-medium">${item.totalPrice}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>
