@@ -300,12 +300,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserAdmin(id: string, updates: Partial<User>): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
-    return user;
+    try {
+      const [user] = await db
+        .update(users)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      
+      if (!user) {
+        throw new Error(`User with id ${id} not found`);
+      }
+      
+      return user;
+    } catch (error: any) {
+      // Handle unique constraint violations
+      if (error.code === '23505') { // PostgreSQL unique violation error code
+        if (error.constraint?.includes('phone_number')) {
+          throw new Error('Phone number already exists');
+        } else if (error.constraint?.includes('email')) {
+          throw new Error('Email already exists');
+        } else if (error.constraint?.includes('store_id')) {
+          throw new Error('Store ID already exists');
+        } else {
+          throw new Error('A field with this value already exists');
+        }
+      }
+      
+      // Handle foreign key constraint violations
+      if (error.code === '23503') {
+        throw new Error('Referenced record does not exist');
+      }
+      
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   async deleteUser(id: string): Promise<void> {
@@ -413,7 +441,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSellerShops(): Promise<User[]> {
-    return await db
+    // First, check for sellers without storeId but with displayName or legalName
+    const shopsWithoutStoreId = await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.isSeller, true),
+        or(
+          isNotNull(users.displayName),
+          isNotNull(users.legalName)
+        )
+      ))
+      .orderBy(users.displayName);
+    
+    // Update these shops to have storeId set to displayName or legalName if missing
+    for (const shop of shopsWithoutStoreId) {
+      if (!shop.storeId) {
+        const storeId = shop.displayName || shop.legalName;
+        if (storeId) {
+          try {
+            await db
+              .update(users)
+              .set({ storeId, updatedAt: new Date() })
+              .where(eq(users.id, shop.id));
+            console.log(`Updated shop ${shop.id} with storeId: ${storeId}`);
+          } catch (error) {
+            console.error(`Failed to update storeId for shop ${shop.id}:`, error);
+          }
+        }
+      }
+    }
+    
+    // Now get all shops with storeId
+    const shops = await db
       .select()
       .from(users)
       .where(and(
@@ -421,10 +481,58 @@ export class DatabaseStorage implements IStorage {
         isNotNull(users.storeId)
       ))
       .orderBy(users.displayName);
+    
+    console.log("getSellerShops - Found shops:", shops.length);
+    console.log("Shop details:", shops.map(s => ({ 
+      id: s.id, 
+      displayName: s.displayName, 
+      legalName: s.legalName, 
+      storeId: s.storeId, 
+      isSeller: s.isSeller,
+      firstName: s.firstName,
+      lastName: s.lastName
+    })));
+    
+    return shops;
   }
 
   async getSellerShopsBySeller(sellerId: string): Promise<User[]> {
-    return await db
+    console.log("=== getSellerShopsBySeller called ===");
+    console.log("Looking for sellerId:", sellerId);
+    
+    // First, let's check if the user exists and what their data looks like
+    const user = await db.select().from(users).where(eq(users.id, sellerId));
+    console.log("User found:", user.length > 0 ? user[0] : "No user found");
+    
+    if (user.length > 0) {
+      console.log("User details:", {
+        id: user[0].id,
+        isSeller: user[0].isSeller,
+        storeId: user[0].storeId,
+        displayName: user[0].displayName,
+        legalName: user[0].legalName,
+        firstName: user[0].firstName,
+        lastName: user[0].lastName
+      });
+      
+      // If user is a seller but doesn't have storeId, set it
+      if (user[0].isSeller && !user[0].storeId) {
+        const storeId = user[0].displayName || user[0].legalName || `${user[0].firstName} ${user[0].lastName}`.trim();
+        if (storeId) {
+          try {
+            await db
+              .update(users)
+              .set({ storeId, updatedAt: new Date() })
+              .where(eq(users.id, sellerId));
+            console.log(`Updated user ${sellerId} with storeId: ${storeId}`);
+          } catch (error) {
+            console.error(`Failed to update storeId for user ${sellerId}:`, error);
+          }
+        }
+      }
+    }
+    
+    const shops = await db
       .select()
       .from(users)
       .where(and(
@@ -433,6 +541,17 @@ export class DatabaseStorage implements IStorage {
         isNotNull(users.storeId)
       ))
       .orderBy(users.displayName);
+    
+    console.log("Shops found for seller:", shops.length);
+    console.log("Shop details:", shops.map(s => ({ 
+      id: s.id, 
+      displayName: s.displayName, 
+      legalName: s.legalName, 
+      storeId: s.storeId, 
+      isSeller: s.isSeller 
+    })));
+    
+    return shops;
   }
 
   async getProductsBySeller(sellerId: string): Promise<ProductWithDetails[]> {

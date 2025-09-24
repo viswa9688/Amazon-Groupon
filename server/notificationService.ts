@@ -221,6 +221,7 @@ export class NotificationService {
         pending: "Your order is being processed",
         processing: "Your order is being prepared",
         shipped: "Your order has been shipped",
+        out_for_delivery: "Your order is out for delivery",
         delivered: "Your order has been delivered",
         completed: "Your order has been completed",
         cancelled: "Your order has been cancelled"
@@ -230,6 +231,7 @@ export class NotificationService {
         pending: "⏳",
         processing: "🔄",
         shipped: "🚚",
+        out_for_delivery: "🚛",
         delivered: "📦",
         completed: "✅",
         cancelled: "❌"

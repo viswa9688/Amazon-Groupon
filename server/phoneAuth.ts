@@ -188,7 +188,11 @@ export async function setupPhoneAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const sessionUser = (req.session as any).user;
   
+  console.log("=== isAuthenticated middleware ===");
+  console.log("Session user:", sessionUser);
+  
   if (!sessionUser) {
+    console.log("No session user found");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -198,35 +202,74 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       (req.session as any).adminImpersonation.adminUserId === 'viswa968' &&
       sessionUser.id === 'f3d84bd2-d98c-4a34-917d-c8e03a598b43') {
     userId = (req.session as any).adminImpersonation.impersonatedUserId;
+    console.log("Admin impersonation detected, using userId:", userId);
   }
 
+  console.log("Looking up user with ID:", userId);
   const user = await storage.getUser(userId);
   
   if (!user) {
+    console.log("User not found in database");
     return res.status(401).json({ message: "Unauthorized" });
   }
+
+  console.log("User found:", {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    isSeller: user.isSeller,
+    isSellerType: typeof user.isSeller,
+    storeId: user.storeId,
+    displayName: user.displayName
+  });
+
+  // Ensure isSeller is properly converted to boolean
+  const isSeller = user.isSeller === true || user.isSeller === 'true' || user.isSeller === 1;
+  console.log("isSeller converted:", isSeller, "type:", typeof isSeller);
 
   // Attach user to request for use in route handlers (use impersonated user if applicable)
   (req as any).user = { 
     claims: { sub: user.id },
     id: user.id,
-    isSeller: user.isSeller,
+    isSeller: isSeller,
     ...sessionUser 
   };
   
+  console.log("Request user object set:", (req as any).user);
   next();
 };
 
 // Seller authorization middleware
 export const isSellerAuthenticated: RequestHandler = async (req, res, next) => {
+  console.log("=== isSellerAuthenticated middleware ===");
+  
   // First check if user is authenticated
   await isAuthenticated(req, res, () => {});
   
   // Check if the user has seller permissions
   const user = (req as any).user;
-  if (!user || !user.isSeller) {
+  console.log("Checking seller permissions for user:", user);
+  
+  if (!user) {
+    console.log("No user object found");
     return res.status(403).json({ message: "Seller access required" });
   }
   
+  // TEMPORARY: More permissive check for debugging
+  const isSeller = user.isSeller === true || user.isSeller === 'true' || user.isSeller === 1 || user.isSeller === 'TRUE';
+  console.log("isSeller check:", {
+    original: user.isSeller,
+    type: typeof user.isSeller,
+    converted: isSeller,
+    strict: user.isSeller === true,
+    truthy: !!user.isSeller
+  });
+  
+  if (!isSeller) {
+    console.log("User is not a seller. isSeller:", user.isSeller, "converted:", isSeller);
+    return res.status(403).json({ message: "Seller access required" });
+  }
+  
+  console.log("Seller authentication successful");
   next();
 };

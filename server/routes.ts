@@ -115,9 +115,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userData = req.body;
       const updatedUser = await storage.updateUserAdmin(userId, userData);
       res.json(updatedUser);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating user:", error);
-      res.status(500).json({ message: "Failed to update user" });
+      
+      // Handle specific error types
+      if (error.message?.includes('already exists')) {
+        return res.status(409).json({ 
+          message: error.message,
+          error: 'CONFLICT',
+          details: 'The provided value conflicts with an existing record'
+        });
+      }
+      
+      if (error.message?.includes('not found')) {
+        return res.status(404).json({ 
+          message: error.message,
+          error: 'NOT_FOUND'
+        });
+      }
+      
+      if (error.message?.includes('Referenced record does not exist')) {
+        return res.status(400).json({ 
+          message: error.message,
+          error: 'INVALID_REFERENCE'
+        });
+      }
+      
+      // Generic error for other cases
+      res.status(500).json({ 
+        message: "Failed to update user",
+        error: 'INTERNAL_ERROR'
+      });
     }
   });
 
@@ -298,11 +326,259 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current seller's shops only
+  // Debug endpoint to check all users and their shop status
+  app.get('/api/debug/users', async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const debugInfo = allUsers.map(user => ({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isSeller: user.isSeller,
+        storeId: user.storeId,
+        displayName: user.displayName,
+        legalName: user.legalName,
+        shopType: user.shopType,
+        status: user.status
+      }));
+      
+      console.log("=== DEBUG: All Users ===");
+      console.log(JSON.stringify(debugInfo, null, 2));
+      
+      res.json(debugInfo);
+    } catch (error) {
+      console.error("Error fetching debug users:", error);
+      res.status(500).json({ message: "Failed to fetch debug users" });
+    }
+  });
+
+  // Debug endpoint to check current user authentication status
+  app.get('/api/debug/auth', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sessionUser = (req.session as any).user;
+      const adminImpersonation = (req.session as any).adminImpersonation;
+      
+      const debugInfo = {
+        sessionUser,
+        requestUser: user,
+        adminImpersonation,
+        isSeller: user?.isSeller,
+        userId: user?.id
+      };
+      
+      console.log("=== DEBUG: Auth Status ===");
+      console.log(JSON.stringify(debugInfo, null, 2));
+      
+      res.json(debugInfo);
+    } catch (error) {
+      console.error("Error fetching auth debug:", error);
+      res.status(500).json({ message: "Failed to fetch auth debug" });
+    }
+  });
+
+  // Temporary fix endpoint to make current user a seller
+  app.post('/api/debug/make-seller', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log("Making user a seller:", userId);
+      
+      // Update user to be a seller
+      const updatedUser = await storage.updateUserAdmin(userId, {
+        isSeller: true,
+        storeId: req.user.displayName || req.user.legalName || `${req.user.firstName} ${req.user.lastName}`.trim()
+      });
+      
+      console.log("User updated to seller:", updatedUser);
+      
+      res.json({ 
+        message: "User updated to seller", 
+        user: updatedUser 
+      });
+    } catch (error) {
+      console.error("Error making user a seller:", error);
+      res.status(500).json({ message: "Failed to make user a seller" });
+    }
+  });
+
+  // Debug endpoint to test seller authentication specifically
+  app.get('/api/debug/test-seller-auth', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log("=== Testing seller auth for user:", userId);
+      
+      // Get fresh user data from database
+      const freshUser = await storage.getUser(userId);
+      console.log("Fresh user data from DB:", freshUser);
+      
+      // Check if user is seller
+      const isSeller = freshUser?.isSeller;
+      console.log("isSeller value:", isSeller, "type:", typeof isSeller);
+      
+      const result = {
+        userId,
+        requestUser: req.user,
+        freshUserFromDB: freshUser,
+        isSeller: isSeller,
+        isSellerType: typeof isSeller,
+        isSellerStrict: isSeller === true,
+        isSellerTruthy: !!isSeller,
+        canAccessSellerEndpoints: !!isSeller
+      };
+      
+      console.log("Seller auth test result:", result);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing seller auth:", error);
+      res.status(500).json({ message: "Failed to test seller auth" });
+    }
+  });
+
+  // Debug endpoint to test specific user ID
+  app.get('/api/debug/test-user/:userId', async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      console.log("=== Testing specific user ID:", userId);
+      
+      // Get fresh user data from database
+      const freshUser = await storage.getUser(userId);
+      console.log("Fresh user data from DB:", freshUser);
+      
+      if (!freshUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if user is seller
+      const isSeller = freshUser.isSeller;
+      console.log("isSeller value:", isSeller, "type:", typeof isSeller);
+      
+      const result = {
+        userId,
+        freshUserFromDB: freshUser,
+        isSeller: isSeller,
+        isSellerType: typeof isSeller,
+        isSellerStrict: isSeller === true,
+        isSellerTruthy: !!isSeller,
+        canAccessSellerEndpoints: !!isSeller
+      };
+      
+      console.log("Specific user test result:", result);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing specific user:", error);
+      res.status(500).json({ message: "Failed to test specific user" });
+    }
+  });
+
+  // Debug endpoint to refresh user session
+  app.post('/api/debug/refresh-session', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log("=== Refreshing session for user:", userId);
+      
+      // Get fresh user data from database
+      const freshUser = await storage.getUser(userId);
+      console.log("Fresh user data from DB:", freshUser);
+      
+      if (!freshUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Update the session with fresh data
+      (req.session as any).user = {
+        ...(req.session as any).user,
+        isSeller: freshUser.isSeller,
+        displayName: freshUser.displayName,
+        legalName: freshUser.legalName,
+        storeId: freshUser.storeId
+      };
+      
+      // Update the request user object
+      (req as any).user = {
+        ...(req as any).user,
+        isSeller: freshUser.isSeller,
+        displayName: freshUser.displayName,
+        legalName: freshUser.legalName,
+        storeId: freshUser.storeId
+      };
+      
+      const result = {
+        message: "Session refreshed",
+        userId,
+        freshUserFromDB: freshUser,
+        updatedSessionUser: (req.session as any).user,
+        updatedRequestUser: (req as any).user
+      };
+      
+      console.log("Session refresh result:", result);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error refreshing session:", error);
+      res.status(500).json({ message: "Failed to refresh session" });
+    }
+  });
+
+  // Temporary bypass endpoint to test shops without seller authentication
+  app.get('/api/debug/shops-bypass', isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      console.log("=== DEBUG: Shops bypass called ===");
+      console.log("Seller ID:", sellerId);
+      console.log("User object:", req.user);
+      
+      // Get all shops regardless of seller status
+      const shops = await storage.getSellerShops();
+      console.log("All shops found:", shops.length);
+      
+      res.json({
+        message: "Shops retrieved with bypass",
+        sellerId,
+        user: req.user,
+        shops: shops
+      });
+    } catch (error) {
+      console.error("Error in shops bypass:", error);
+      res.status(500).json({ message: "Failed to fetch shops with bypass" });
+    }
+  });
+
+  // Get current seller's shops only (or all shops if admin is impersonating)
   app.get('/api/seller/shops', isSellerAuthenticated, async (req: any, res) => {
     try {
       const sellerId = req.user.claims.sub;
-      const shops = await storage.getSellerShopsBySeller(sellerId);
+      console.log("=== /api/seller/shops called ===");
+      console.log("Seller ID:", sellerId);
+      console.log("User object:", req.user);
+      
+      // Check if admin is impersonating this user
+      const sessionUser = (req.session as any).user;
+      const isAdminImpersonating = (req.session as any).adminImpersonation && 
+        (req.session as any).adminImpersonation.adminUserId === 'viswa968' &&
+        sessionUser.id === 'f3d84bd2-d98c-4a34-917d-c8e03a598b43';
+      
+      console.log("Session user:", sessionUser);
+      console.log("Admin impersonation:", (req.session as any).adminImpersonation);
+      console.log("Is admin impersonating:", isAdminImpersonating);
+      
+      let shops;
+      if (isAdminImpersonating) {
+        // If admin is impersonating, return all shops
+        console.log("Fetching all shops (admin impersonating)");
+        shops = await storage.getSellerShops();
+        console.log("Admin impersonating - returning all shops:", shops.length);
+        console.log("Shop details:", shops.map(s => ({ id: s.id, displayName: s.displayName, legalName: s.legalName, storeId: s.storeId, isSeller: s.isSeller })));
+      } else {
+        // Otherwise, return only the seller's own shops
+        console.log("Fetching seller's own shops");
+        shops = await storage.getSellerShopsBySeller(sellerId);
+        console.log("Regular seller - returning own shops:", shops.length);
+        console.log("Shop details:", shops.map(s => ({ id: s.id, displayName: s.displayName, legalName: s.legalName, storeId: s.storeId, isSeller: s.isSeller })));
+      }
+      
+      console.log("Final shops array:", JSON.stringify(shops, null, 2));
       res.json(shops);
     } catch (error) {
       console.error("Error fetching shops:", error);

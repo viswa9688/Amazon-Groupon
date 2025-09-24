@@ -278,6 +278,24 @@ export default function SellerDashboard() {
     enabled: isAuthenticated,
   });
 
+  // Debug logging for shops
+  useEffect(() => {
+    console.log("=== Frontend Shops Debug ===");
+    console.log("isAuthenticated:", isAuthenticated);
+    console.log("shopsLoading:", shopsLoading);
+    console.log("shops data:", shops);
+    console.log("shops length:", shops?.length);
+    if (shops && shops.length > 0) {
+      console.log("Shop details:", shops.map(s => ({ 
+        id: s.id, 
+        displayName: s.displayName, 
+        legalName: s.legalName, 
+        storeId: s.storeId, 
+        isSeller: s.isSeller 
+      })));
+    }
+  }, [shops, isAuthenticated, shopsLoading]);
+
   const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
     enabled: isAuthenticated,
@@ -983,7 +1001,7 @@ export default function SellerDashboard() {
                                 <SelectContent>
                                   {shops?.map((shop: any) => (
                                     <SelectItem key={shop.id} value={shop.id}>
-                                      {shop.displayName} ({shop.storeType})
+                                      {shop.displayName || shop.legalName} ({shop.shopType === "groceries" ? "Groceries" : "Services"})
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -2597,31 +2615,156 @@ export default function SellerDashboard() {
                 <div className="space-y-4">
                   {orders.map((order: Order) => (
                     <Card key={order.id} className="p-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-semibold">Order #{order.id}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Status: {order.status}
-                          </p>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-semibold">Order #{order.id}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Status: {order.status}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
+                        
+                        {/* Delivery Status Tracker */}
+                        <div className="space-y-2">
+                          <h5 className="text-sm font-medium">Delivery Status</h5>
+                          <div className="space-y-2">
+                            <div className="flex items-center text-sm">
+                              <div className={`w-3 h-3 rounded-full mr-3 ${
+                                order.status === "pending" ? "bg-green-500" : 
+                                ["processing", "shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) ? "bg-green-500" : "bg-gray-300"
+                              }`}></div>
+                              <div>
+                                <div className="font-medium">Order Placed</div>
+                                <div className="text-muted-foreground text-xs">
+                                  {new Date(order.createdAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center text-sm">
+                              <div className={`w-3 h-3 rounded-full mr-3 ${
+                                order.status === "processing" ? "bg-blue-500" : 
+                                ["shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) ? "bg-blue-500" : "bg-gray-300"
+                              }`}></div>
+                              <div>
+                                <div className="font-medium">Processing</div>
+                                <div className="text-muted-foreground text-xs">1-2 business days</div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center text-sm">
+                              <div className={`w-3 h-3 rounded-full mr-3 ${
+                                order.status === "shipped" ? "bg-blue-500" : 
+                                ["out_for_delivery", "delivered", "completed"].includes(order.status) ? "bg-blue-500" : "bg-gray-300"
+                              }`}></div>
+                              <div>
+                                <div className="font-medium">Shipped</div>
+                                <div className="text-muted-foreground text-xs">3-5 business days</div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center text-sm">
+                              <div className={`w-3 h-3 rounded-full mr-3 ${
+                                order.status === "out_for_delivery" ? "bg-blue-500" : 
+                                ["delivered", "completed"].includes(order.status) ? "bg-blue-500" : "bg-gray-300"
+                              }`}></div>
+                              <div>
+                                <div className="font-medium">Out for Delivery</div>
+                                <div className="text-muted-foreground text-xs">Final day</div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center text-sm">
+                              <div className={`w-3 h-3 rounded-full mr-3 ${
+                                order.status === "delivered" ? "bg-green-500" : 
+                                order.status === "completed" ? "bg-green-500" : "bg-gray-300"
+                              }`}></div>
+                              <div>
+                                <div className="font-medium">Delivered</div>
+                                <div className="text-muted-foreground text-xs">
+                                  {order.status === "delivered" || order.status === "completed" ? 
+                                    "Order completed" : "Expected soon"
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Status Management Buttons */}
+                        <div>
+                          <h5 className="text-sm font-medium mb-2">Update Status</h5>
+                        <div className="flex flex-wrap gap-2">
                           <Button
-                            variant="outline"
+                            variant={order.status === "pending" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "pending")
+                            }
+                            disabled={order.status === "completed" || order.status === "cancelled"}
+                          >
+                            Pending
+                          </Button>
+                          <Button
+                            variant={order.status === "processing" ? "default" : "outline"}
                             size="sm"
                             onClick={() =>
                               handleStatusUpdate(order.id!, "processing")
                             }
+                            disabled={order.status === "completed" || order.status === "cancelled"}
                           >
                             Processing
                           </Button>
                           <Button
-                            variant="default"
+                            variant={order.status === "shipped" ? "default" : "outline"}
                             size="sm"
                             onClick={() =>
                               handleStatusUpdate(order.id!, "shipped")
                             }
+                            disabled={order.status === "completed" || order.status === "cancelled"}
                           >
-                            Ship
+                            Shipped
+                          </Button>
+                          <Button
+                            variant={order.status === "out_for_delivery" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "out_for_delivery")
+                            }
+                            disabled={order.status === "completed" || order.status === "cancelled"}
+                          >
+                            Out for Delivery
+                          </Button>
+                          <Button
+                            variant={order.status === "delivered" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "delivered")
+                            }
+                            disabled={order.status === "completed" || order.status === "cancelled"}
+                          >
+                            Delivered
+                          </Button>
+                          <Button
+                            variant={order.status === "completed" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "completed")
+                            }
+                            disabled={order.status === "cancelled"}
+                          >
+                            Complete
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() =>
+                              handleStatusUpdate(order.id!, "cancelled")
+                            }
+                            disabled={order.status === "completed" || order.status === "cancelled"}
+                          >
+                            Cancel
                           </Button>
                         </div>
                       </div>
