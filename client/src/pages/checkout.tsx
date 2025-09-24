@@ -58,11 +58,11 @@ export default function Checkout() {
               >
                 Browse Products
               </a>
-            </div>
           </div>
         </div>
       </div>
-    );
+    </div>
+  );
   }
 
   return <UnifiedCheckout checkoutData={checkoutData} />;

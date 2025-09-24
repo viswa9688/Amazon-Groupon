@@ -47,13 +47,15 @@ const PaymentForm = ({
   cartItems,
   selectedAddressId,
   deliveryFee,
-  productPrice
+  productPrice,
+  clientSecret
 }: { 
   amount: number; 
   cartItems: CartItem[];
   selectedAddressId: number | null;
   deliveryFee: number;
   productPrice: number;
+  clientSecret: string;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -93,18 +95,48 @@ const PaymentForm = ({
         variant: "destructive",
       });
     } else {
-      toast({
-        title: "Payment Successful!",
-        description: "Your order has been placed successfully.",
-      });
-      
-      // Invalidate cart queries to refresh the UI
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-      
-      // Use a small delay to ensure toast shows before navigation
-      setTimeout(() => {
-        navigate("/orders");
-      }, 1000);
+      // Payment successful - now create the order
+      try {
+        // In development, manually create the order since webhook won't be called
+        if (import.meta.env.DEV) {
+          // Get the payment intent from the confirmPayment result
+          const { paymentIntent } = await stripe.retrievePaymentIntent(clientSecret);
+          
+          if (paymentIntent) {
+            const response = await apiRequest("POST", "/api/create-order-from-payment", {
+              paymentIntentId: paymentIntent.id
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              console.log("Order created successfully:", result);
+            } else {
+              console.error("Failed to create order:", await response.text());
+            }
+          }
+        }
+        
+        toast({
+          title: "Payment Successful!",
+          description: "Your order has been placed successfully.",
+        });
+        
+        // Invalidate cart and orders queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        
+        // Use a small delay to ensure toast shows before navigation
+        setTimeout(() => {
+          navigate("/orders");
+        }, 1000);
+      } catch (orderError) {
+        console.error("Error creating order:", orderError);
+        toast({
+          title: "Payment Successful",
+          description: "Payment completed but there was an issue creating the order. Please contact support.",
+          variant: "destructive",
+        });
+      }
     }
 
     setIsProcessing(false);
@@ -154,7 +186,12 @@ export default function CartCheckout() {
     setProductPrice(total);
   }, [cartItemsData]);
 
-  // Create multi-item payment intent when address is selected and delivery fee is calculated
+  // Update total amount when product price or delivery fee changes
+  useEffect(() => {
+    setAmount(productPrice + deliveryFee);
+  }, [productPrice, deliveryFee]);
+
+  // Create multi-item payment intent when address is selected
   const createMultiItemPaymentIntent = async (addressId: number) => {
     try {
       setIsLoadingPayment(true);
@@ -164,7 +201,7 @@ export default function CartCheckout() {
       });
       const data = await response.json();
       setClientSecret(data.clientSecret);
-      setAmount(data.totalAmount);
+      // Delivery fee is already set by the DeliveryFeeDisplay component
       setIsLoadingPayment(false);
     } catch (error) {
       console.error("Error creating multi-item payment intent:", error);
@@ -172,18 +209,12 @@ export default function CartCheckout() {
     }
   };
 
-  // Auto-create payment intent when address is selected and delivery fee is calculated
+  // Auto-create payment intent when address is selected
   useEffect(() => {
-    if (selectedAddressId && !clientSecret && cartItems.length > 0 && deliveryFee >= 0) {
+    if (selectedAddressId && !clientSecret && cartItems.length > 0) {
       createMultiItemPaymentIntent(selectedAddressId);
     }
-  }, [selectedAddressId, clientSecret, cartItems.length, deliveryFee]);
-
-  // Update total amount when delivery fee changes
-  useEffect(() => {
-    const totalAmount = productPrice + deliveryFee;
-    setAmount(totalAmount);
-  }, [productPrice, deliveryFee]);
+  }, [selectedAddressId, clientSecret, cartItems.length]);
 
   const handleAddressSelect = (addressId: number, address: any) => {
     setSelectedAddressId(addressId);
@@ -303,7 +334,7 @@ export default function CartCheckout() {
               {/* Delivery Fee Display */}
               <DeliveryFeeDisplay 
                 addressId={selectedAddressId}
-                onDeliveryFeeChange={(fee) => setDeliveryFee(fee)}
+                onDeliveryFeeChange={setDeliveryFee}
               />
             </div>
 
@@ -368,6 +399,7 @@ export default function CartCheckout() {
                         selectedAddressId={selectedAddressId}
                         deliveryFee={deliveryFee}
                         productPrice={productPrice}
+                        clientSecret={clientSecret}
                       />
                     </Elements>
                   ) : (

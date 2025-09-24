@@ -876,6 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the new method to get orders with items
       const orders = await storage.getUserOrdersWithItems(userId);
       console.log("Orders fetched successfully:", orders.length);
+      console.log("Order details:", orders.map(o => ({ id: o.id, type: o.type, userId: o.userId, payerId: o.payerId, createdAt: o.createdAt })));
       res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -2748,6 +2749,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint to manually create order after successful payment (development only)
+  app.post("/api/create-order-from-payment", isAuthenticated, async (req: any, res) => {
+    if (process.env.NODE_ENV !== "development") {
+      return res.status(404).json({ message: "Not found" });
+    }
+    
+    const { paymentIntentId } = req.body;
+    const userId = req.user.claims.sub;
+    
+    if (!paymentIntentId) {
+      return res.status(400).json({ message: "paymentIntentId is required" });
+    }
+    
+    try {
+      // Fetch the payment intent from Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      console.log("Manual order creation - Retrieved payment intent:", paymentIntent.id);
+      console.log("Manual order creation - Payment metadata:", paymentIntent.metadata);
+      
+      const type = paymentIntent.metadata.type || "individual";
+      const amount = paymentIntent.amount / 100;
+      
+      if (type === "multi_item_individual") {
+        console.log("Manual order creation - Processing multi-item individual payment...");
+        const addressId = parseInt(paymentIntent.metadata.addressId);
+        const deliveryFee = parseFloat(paymentIntent.metadata.deliveryFee || "0");
+        const originalAmount = parseFloat(paymentIntent.metadata.originalAmount || amount.toString());
+        const cartItemIds = paymentIntent.metadata.cartItemIds?.split(',').map(id => parseInt(id)) || [];
+        
+        console.log("Manual order creation - Multi-item payment metadata:", {
+          userId,
+          addressId,
+          deliveryFee,
+          originalAmount,
+          cartItemIds
+        });
+        
+        if (!userId || cartItemIds.length === 0) {
+          console.error("Manual order creation - Missing required metadata for multi-item order creation");
+          return res.status(400).json({ message: "Missing required metadata" });
+        }
+
+        // Get cart items
+        const cartItems = await storage.getUserCart(userId);
+        console.log("Manual order creation - All cart items for user:", cartItems.length);
+        const relevantCartItems = cartItems.filter(item => cartItemIds.includes(item.id));
+        console.log("Manual order creation - Relevant cart items found:", relevantCartItems.length);
+        
+        if (relevantCartItems.length === 0) {
+          console.error("Manual order creation - No cart items found for multi-item order creation");
+          return res.status(400).json({ message: "No cart items found" });
+        }
+
+        // Get user address for shipping information
+        let shippingAddress = "International Shipping Address";
+        if (addressId) {
+          try {
+            const addresses = await storage.getUserAddresses(userId);
+            const address = addresses.find(addr => addr.id === addressId);
+            if (address) {
+              shippingAddress = `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`;
+            }
+          } catch (e) {
+            console.log("Manual order creation - Could not fetch address for shipping information");
+          }
+        }
+
+        // Create order record for multi-item individual purchase
+        const orderData = {
+          userId,
+          payerId: userId,
+          addressId: addressId || null,
+          totalPrice: (originalAmount + deliveryFee).toString(),
+          finalPrice: (originalAmount + deliveryFee).toString(),
+          status: "completed" as const,
+          type: "individual" as const,
+          shippingAddress
+        };
+
+        // Create order items array for multi-item purchase
+        const orderItems = relevantCartItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: parseFloat(item.product.originalPrice).toString(),
+          totalPrice: (parseFloat(item.product.originalPrice) * item.quantity).toString()
+        }));
+
+        console.log("Manual order creation - Creating order with data:", orderData);
+        console.log("Manual order creation - Creating order items:", orderItems);
+        
+        const newOrder = await storage.createOrderWithItems(orderData, orderItems);
+        console.log("Manual order creation - Multi-item individual order created successfully:", newOrder.id, "Items:", relevantCartItems.length, "Total:", orderData.finalPrice);
+
+        // Clear the cart items that were purchased
+        for (const cartItem of relevantCartItems) {
+          await storage.removeFromCart(cartItem.id);
+        }
+
+        // Create notifications for sellers about payment received
+        const sellerNotifications = new Map();
+        for (const item of relevantCartItems) {
+          if (item.product.sellerId) {
+            const sellerId = item.product.sellerId;
+            if (!sellerNotifications.has(sellerId)) {
+              sellerNotifications.set(sellerId, []);
+            }
+            sellerNotifications.get(sellerId).push({
+              name: item.product.name,
+              amount: (parseFloat(item.product.originalPrice) * item.quantity).toFixed(2)
+            });
+          }
+        }
+        
+        // Create one notification per seller with payment details
+        for (const [sellerId, products] of sellerNotifications) {
+          const totalAmount = products.reduce((sum, product) => sum + parseFloat(product.amount), 0);
+          await storage.createSellerNotification({
+            sellerId,
+            type: "payment_received",
+            title: "Payment Received",
+            message: `Payment of $${totalAmount.toFixed(2)} received for: ${products.map(p => p.name).join(", ")} (Order #${newOrder.id})`,
+            data: { orderId: newOrder.id, amount: totalAmount, productIds: products.map(p => p.productId) },
+            priority: "high"
+          });
+        }
+        
+        return res.json({ 
+          success: true, 
+          orderId: newOrder.id, 
+          message: "Order created successfully" 
+        });
+      } else {
+        return res.status(400).json({ message: "Only multi_item_individual type supported" });
+      }
+    } catch (error) {
+      console.error("Manual order creation error:", error);
+      return res.status(500).json({ message: "Order creation failed", error: error.message });
+    }
+  });
+
+  // Test endpoint to manually trigger webhook processing (development only)
+  app.post("/api/test-webhook", async (req, res) => {
+    if (process.env.NODE_ENV !== "development") {
+      return res.status(404).json({ message: "Not found" });
+    }
+    
+    const { paymentIntentId } = req.body;
+    if (!paymentIntentId) {
+      return res.status(400).json({ message: "paymentIntentId is required" });
+    }
+    
+    try {
+      // Fetch the payment intent from Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      console.log("Test webhook - Retrieved payment intent:", paymentIntent.id);
+      console.log("Test webhook - Payment metadata:", paymentIntent.metadata);
+      
+      // Create a mock webhook event
+      const mockEvent = {
+        type: "payment_intent.succeeded",
+        data: {
+          object: paymentIntent
+        }
+      };
+      
+      // Process the event (same logic as webhook)
+      const type = paymentIntent.metadata.type || "individual";
+      const amount = paymentIntent.amount / 100;
+      
+      if (type === "multi_item_individual") {
+        console.log("Test webhook - Processing multi-item individual payment...");
+        const userId = paymentIntent.metadata.userId;
+        const addressId = parseInt(paymentIntent.metadata.addressId);
+        const deliveryFee = parseFloat(paymentIntent.metadata.deliveryFee || "0");
+        const originalAmount = parseFloat(paymentIntent.metadata.originalAmount || amount.toString());
+        const cartItemIds = paymentIntent.metadata.cartItemIds?.split(',').map(id => parseInt(id)) || [];
+        
+        console.log("Test webhook - Multi-item payment metadata:", {
+          userId,
+          addressId,
+          deliveryFee,
+          originalAmount,
+          cartItemIds
+        });
+        
+        if (!userId || cartItemIds.length === 0) {
+          console.error("Test webhook - Missing required metadata for multi-item order creation");
+          return res.status(400).json({ message: "Missing required metadata" });
+        }
+
+        // Get cart items
+        const cartItems = await storage.getUserCart(userId);
+        console.log("Test webhook - All cart items for user:", cartItems.length);
+        const relevantCartItems = cartItems.filter(item => cartItemIds.includes(item.id));
+        console.log("Test webhook - Relevant cart items found:", relevantCartItems.length);
+        
+        if (relevantCartItems.length === 0) {
+          console.error("Test webhook - No cart items found for multi-item order creation");
+          return res.status(400).json({ message: "No cart items found" });
+        }
+
+        // Get user address for shipping information
+        let shippingAddress = "International Shipping Address";
+        if (addressId) {
+          try {
+            const addresses = await storage.getUserAddresses(userId);
+            const address = addresses.find(addr => addr.id === addressId);
+            if (address) {
+              shippingAddress = `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`;
+            }
+          } catch (e) {
+            console.log("Test webhook - Could not fetch address for shipping information");
+          }
+        }
+
+        // Create order record for multi-item individual purchase
+        const orderData = {
+          userId,
+          payerId: userId,
+          addressId: addressId || null,
+          totalPrice: (originalAmount + deliveryFee).toString(),
+          finalPrice: (originalAmount + deliveryFee).toString(),
+          status: "completed" as const,
+          type: "individual" as const,
+          shippingAddress
+        };
+
+        // Create order items array for multi-item purchase
+        const orderItems = relevantCartItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: parseFloat(item.product.originalPrice).toString(),
+          totalPrice: (parseFloat(item.product.originalPrice) * item.quantity).toString()
+        }));
+
+        console.log("Test webhook - Creating order with data:", orderData);
+        console.log("Test webhook - Creating order items:", orderItems);
+        
+        const newOrder = await storage.createOrderWithItems(orderData, orderItems);
+        console.log("Test webhook - Multi-item individual order created successfully:", newOrder.id, "Items:", relevantCartItems.length, "Total:", orderData.finalPrice);
+
+        // Clear the cart items that were purchased
+        for (const cartItem of relevantCartItems) {
+          await storage.removeFromCart(cartItem.id);
+        }
+
+        // Create notifications for sellers about payment received
+        const sellerNotifications = new Map();
+        for (const item of relevantCartItems) {
+          if (item.product.sellerId) {
+            const sellerId = item.product.sellerId;
+            if (!sellerNotifications.has(sellerId)) {
+              sellerNotifications.set(sellerId, []);
+            }
+            sellerNotifications.get(sellerId).push({
+              name: item.product.name,
+              amount: (parseFloat(item.product.originalPrice) * item.quantity).toFixed(2)
+            });
+          }
+        }
+        
+        // Create one notification per seller with payment details
+        for (const [sellerId, products] of sellerNotifications) {
+          const totalAmount = products.reduce((sum, product) => sum + parseFloat(product.amount), 0);
+          await storage.createSellerNotification({
+            sellerId,
+            type: "payment_received",
+            title: "Payment Received",
+            message: `Payment of $${totalAmount.toFixed(2)} received for: ${products.map(p => p.name).join(", ")} (Order #${newOrder.id})`,
+            data: { orderId: newOrder.id, amount: totalAmount, productIds: products.map(p => p.productId) },
+            priority: "high"
+          });
+        }
+        
+        return res.json({ 
+          success: true, 
+          orderId: newOrder.id, 
+          message: "Order created successfully via test webhook" 
+        });
+      } else {
+        return res.status(400).json({ message: "Only multi_item_individual type supported in test webhook" });
+      }
+    } catch (error) {
+      console.error("Test webhook error:", error);
+      return res.status(500).json({ message: "Test webhook failed", error: error.message });
+    }
+  });
+
   // Webhook for payment confirmation
   app.post("/api/stripe-webhook", async (req, res) => {
     let event;
@@ -2919,11 +3208,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
           } else if (type === "multi_item_individual") {
             // Handle multi-item individual payments (cart checkout)
+            console.log("Processing multi-item individual payment...");
             const userId = paymentIntent.metadata.userId;
             const addressId = parseInt(paymentIntent.metadata.addressId);
             const deliveryFee = parseFloat(paymentIntent.metadata.deliveryFee || "0");
             const originalAmount = parseFloat(paymentIntent.metadata.originalAmount || amount.toString());
             const cartItemIds = paymentIntent.metadata.cartItemIds?.split(',').map(id => parseInt(id)) || [];
+            
+            console.log("Multi-item payment metadata:", {
+              userId,
+              addressId,
+              deliveryFee,
+              originalAmount,
+              cartItemIds
+            });
             
             if (!userId || cartItemIds.length === 0) {
               console.error("Missing required metadata for multi-item order creation");
@@ -2932,7 +3230,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Get cart items
             const cartItems = await storage.getUserCart(userId);
+            console.log("All cart items for user:", cartItems.length);
             const relevantCartItems = cartItems.filter(item => cartItemIds.includes(item.id));
+            console.log("Relevant cart items found:", relevantCartItems.length);
             
             if (relevantCartItems.length === 0) {
               console.error("No cart items found for multi-item order creation");
@@ -2976,6 +3276,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Note: Delivery fee is included in the order's total price, not as a separate line item
             // This prevents issues with product details display
 
+            console.log("Creating order with data:", orderData);
+            console.log("Creating order items:", orderItems);
+            
             const newOrder = await storage.createOrderWithItems(orderData, orderItems);
             console.log("Multi-item individual order created successfully:", newOrder.id, "Items:", relevantCartItems.length, "Total:", orderData.finalPrice);
 
