@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { geocodingService } from "./geocodingService";
 
 interface Address {
   addressLine: string;
@@ -27,6 +28,15 @@ interface DeliverySummary {
     reason: string;
   }>;
   hasDeliveryCharges: boolean;
+  isBCAddress: boolean;
+  bcValidationError?: string;
+}
+
+interface BCValidationResult {
+  isInBC: boolean;
+  canDeliver: boolean;
+  error?: string;
+  reason?: string;
 }
 
 export class DeliveryService {
@@ -42,6 +52,22 @@ export class DeliveryService {
     pincode: "94043"
   };
 
+  // BC-specific delivery constraints
+  private readonly BC_DELIVERY_CONSTRAINTS = {
+    // Group order constraints
+    group: {
+      minimumOrderValue: 50.00, // $50 minimum for group orders
+      deliveryFee: 5.99, // $5.99 delivery fee for group orders
+      freeDeliveryThreshold: 100.00 // Free delivery for group orders over $100
+    },
+    // Individual order constraints
+    individual: {
+      minimumOrderValue: 25.00, // $25 minimum for individual orders
+      deliveryFee: 3.99, // $3.99 delivery fee for individual orders
+      freeDeliveryThreshold: 75.00 // Free delivery for individual orders over $75
+    }
+  };
+
   constructor() {
     // Log configuration status on startup
     if (this.GOOGLE_API_KEY) {
@@ -53,28 +79,78 @@ export class DeliveryService {
   }
 
   /**
+   * Validate if address is in British Columbia and can receive delivery
+   */
+  async validateBCAddress(buyerAddress: Address): Promise<BCValidationResult> {
+    try {
+      const geocodingResult = await geocodingService.verifyBCAddress(buyerAddress);
+      
+      if (geocodingResult.error) {
+        return {
+          isInBC: false,
+          canDeliver: false,
+          error: geocodingResult.error,
+          reason: 'Address validation failed'
+        };
+      }
+
+      if (!geocodingResult.isInBC) {
+        return {
+          isInBC: false,
+          canDeliver: false,
+          reason: `Address is not in British Columbia. Found: ${geocodingResult.province}`
+        };
+      }
+
+      return {
+        isInBC: true,
+        canDeliver: true,
+        reason: `Address verified in British Columbia (${geocodingResult.province})`
+      };
+
+    } catch (error) {
+      console.error('Error validating BC address:', error);
+      return {
+        isInBC: false,
+        canDeliver: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        reason: 'Address validation failed'
+      };
+    }
+  }
+
+  /**
    * Calculate delivery charges from fixed store location to buyer address
+   * Now includes BC validation
    */
   async calculateDeliveryCharges(
     buyerAddress: Address,
-    orderTotal: number = 0
+    orderTotal: number = 0,
+    orderType: 'group' | 'individual' = 'individual'
   ): Promise<DeliveryCalculation> {
     try {
+      // First validate BC address
+      const bcValidation = await this.validateBCAddress(buyerAddress);
+      
+      if (!bcValidation.canDeliver) {
+        throw new Error(`Delivery not available: ${bcValidation.reason}`);
+      }
+
       // Format store address
       const storeAddressFormatted = this.formatAddress(this.STORE_ADDRESS);
 
       // Format buyer address
       const buyerAddressFormatted = this.formatAddress(buyerAddress);
 
-
       // Calculate distance using Google Distance Matrix API
       const distanceData = await this.getDistanceFromGoogle(storeAddressFormatted, buyerAddressFormatted);
 
-      // Calculate delivery charges based on distance
-      const deliveryCalculation = this.calculateDeliveryFee(
+      // Calculate delivery charges based on distance and BC constraints
+      const deliveryCalculation = this.calculateBCDeliveryFee(
         distanceData.distance,
         distanceData.duration,
-        orderTotal
+        orderTotal,
+        orderType
       );
 
       return deliveryCalculation;
@@ -87,23 +163,37 @@ export class DeliveryService {
   /**
    * Get delivery summary for group orders (single store location)
    */
-  async getDeliverySummary(buyerAddress: Address, orderTotal: number = 0): Promise<DeliverySummary> {
+  async getDeliverySummary(buyerAddress: Address, orderTotal: number = 0, orderType: 'group' | 'individual' = 'group'): Promise<DeliverySummary> {
     try {
-      const calculation = await this.calculateDeliveryCharges(buyerAddress, orderTotal);
+      // First validate BC address
+      const bcValidation = await this.validateBCAddress(buyerAddress);
+      
+      if (!bcValidation.canDeliver) {
+        return {
+          totalDeliveryCharge: 0,
+          deliveryDetails: [],
+          hasDeliveryCharges: false,
+          isBCAddress: false,
+          bcValidationError: bcValidation.reason
+        };
+      }
+
+      const calculation = await this.calculateDeliveryCharges(buyerAddress, orderTotal, orderType);
       
       const deliveryDetails = [{
         sellerId: "store",
         sellerName: "Main Store",
-            distance: calculation.distance,
-            deliveryCharge: calculation.deliveryCharge,
-            isFreeDelivery: calculation.isFreeDelivery,
-            reason: calculation.reason
+        distance: calculation.distance,
+        deliveryCharge: calculation.deliveryCharge,
+        isFreeDelivery: calculation.isFreeDelivery,
+        reason: calculation.reason
       }];
 
       return {
         totalDeliveryCharge: calculation.deliveryCharge,
         deliveryDetails,
-        hasDeliveryCharges: calculation.deliveryCharge > 0
+        hasDeliveryCharges: calculation.deliveryCharge > 0,
+        isBCAddress: true
       };
     } catch (error) {
       console.error("Error getting delivery summary:", error);
@@ -627,6 +717,67 @@ export class DeliveryService {
   }
 
   /**
+   * Calculate BC-specific delivery fee based on order type and constraints
+   */
+  private calculateBCDeliveryFee(distance: number, duration: number, orderTotal: number, orderType: 'group' | 'individual'): DeliveryCalculation {
+    const constraints = this.BC_DELIVERY_CONSTRAINTS[orderType];
+    
+    // Check minimum order value
+    if (orderTotal < constraints.minimumOrderValue) {
+      return {
+        distance,
+        duration,
+        deliveryCharge: 0,
+        isFreeDelivery: false,
+        reason: `Order total $${orderTotal.toFixed(2)} is below minimum $${constraints.minimumOrderValue.toFixed(2)} for ${orderType} orders`
+      };
+    }
+
+    // Check if order qualifies for free delivery
+    const isFreeDelivery = orderTotal >= constraints.freeDeliveryThreshold;
+    
+    let deliveryCharge = 0;
+    let reason = '';
+
+    if (isFreeDelivery) {
+      reason = `Free delivery: Order total $${orderTotal.toFixed(2)} ≥ $${constraints.freeDeliveryThreshold.toFixed(2)} threshold for ${orderType} orders`;
+    } else {
+      deliveryCharge = constraints.deliveryFee;
+      reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders under $${constraints.freeDeliveryThreshold.toFixed(2)}`;
+    }
+
+    return {
+      distance,
+      duration,
+      deliveryCharge: Math.round(deliveryCharge * 100) / 100, // Round to 2 decimal places
+      isFreeDelivery,
+      reason
+    };
+  }
+
+  /**
+   * Check if order meets minimum value requirements for BC delivery
+   */
+  async checkBCMinimumOrderValue(orderTotal: number, orderType: 'group' | 'individual'): Promise<{ isValid: boolean; message: string; minimumRequired: number }> {
+    const constraints = this.BC_DELIVERY_CONSTRAINTS[orderType];
+    const minimumRequired = constraints.minimumOrderValue;
+    
+    if (orderTotal < minimumRequired) {
+      return {
+        isValid: false,
+        message: `Minimum order value for ${orderType} orders in BC is $${minimumRequired.toFixed(2)}. Current total: $${orderTotal.toFixed(2)}`,
+        minimumRequired
+      };
+    }
+    
+    return {
+      isValid: true,
+      message: `Order meets minimum value requirement for ${orderType} orders in BC`,
+      minimumRequired
+    };
+  }
+
+  /**
    * Format address for Google API
    */
   private formatAddress(address: Address): string {
@@ -637,7 +788,7 @@ export class DeliveryService {
       address.pincode,
       address.country
     ].filter(part => part && part.trim() !== '');
-
+    
     return parts.join(', ');
   }
 }

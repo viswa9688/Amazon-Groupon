@@ -2627,8 +2627,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      // Calculate delivery charges for the entire cart
-      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress);
+      // Calculate delivery charges for the entire cart with BC validation
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, 0, 'individual');
       const deliveryFee = deliveryCalculation.deliveryCharge;
 
       // Calculate total product price
@@ -2637,6 +2637,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }, 0);
 
       const totalAmount = productPrice + deliveryFee;
+
+      // Check BC minimum order value for individual orders
+      const bcValidation = await deliveryService.checkBCMinimumOrderValue(productPrice, 'individual');
+      if (!bcValidation.isValid) {
+        return res.status(400).json({ 
+          message: bcValidation.message,
+          minimumRequired: bcValidation.minimumRequired,
+          currentTotal: productPrice,
+          type: 'minimum_order_value'
+        });
+      }
 
       // Create Stripe customer
       const customer = await stripe.customers.create({
@@ -2737,12 +2748,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress);
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, 0, 'individual');
       const deliveryFee = deliveryCalculation.deliveryCharge;
 
       // Calculate total amount (product price + delivery fee)
       const productPrice = parseFloat(product.originalPrice) * quantity;
       const totalAmount = productPrice + deliveryFee;
+
+      // Check BC minimum order value for individual orders
+      const bcValidation = await deliveryService.checkBCMinimumOrderValue(productPrice, 'individual');
+      if (!bcValidation.isValid) {
+        return res.status(400).json({ 
+          message: bcValidation.message,
+          minimumRequired: bcValidation.minimumRequired,
+          currentTotal: productPrice,
+          type: 'minimum_order_value'
+        });
+      }
 
       // Create customer with billing address
       const customer = await stripe.customers.create({
@@ -2851,6 +2873,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const alreadyPaid = await storage.hasUserPaidForProduct(finalBeneficiaryId, userGroupId, finalProductId);
       if (alreadyPaid) {
         return res.status(400).json({ message: "This user has already paid for this product in this group" });
+      }
+
+      // Get address for BC validation
+      const addresses = await storage.getUserAddresses(finalBeneficiaryId);
+      const address = addresses.find(addr => addr.id === addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      const buyerAddress = {
+        addressLine: address.addressLine,
+        city: address.city,
+        state: address.state || undefined,
+        country: address.country || 'US',
+        pincode: address.pincode
+      };
+
+      // Check BC minimum order value for group orders
+      const bcValidation = await deliveryService.checkBCMinimumOrderValue(amount, 'group');
+      if (!bcValidation.isValid) {
+        return res.status(400).json({ 
+          message: bcValidation.message,
+          minimumRequired: bcValidation.minimumRequired,
+          currentTotal: amount,
+          type: 'minimum_order_value'
+        });
       }
 
       // Get product details for description (use first product or a generic name)
