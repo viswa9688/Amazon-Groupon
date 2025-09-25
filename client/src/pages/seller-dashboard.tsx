@@ -79,6 +79,7 @@ import type {
 } from "@shared/schema";
 import { Link } from "wouter";
 import SellerNotifications from "@/components/SellerNotifications";
+import DeliveryInfo from "@/components/DeliveryInfo";
 
 // Service categories
 const serviceCategories = [
@@ -2676,6 +2677,16 @@ export default function SellerDashboard() {
                             </p>
                           </div>
                         </div>
+                        
+                        {/* Delivery Information */}
+                        <DeliveryInfo
+                          expectedDeliveryDate={order.expectedDeliveryDate}
+                          actualDeliveryDate={order.actualDeliveryDate}
+                          orderTime={order.createdAt}
+                          status={order.status}
+                          showOrderTime={true}
+                          showCutoffInfo={true}
+                        />
                         
                         {/* Delivery Status Tracker */}
                         <div className="space-y-4">

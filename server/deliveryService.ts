@@ -43,13 +43,19 @@ export class DeliveryService {
   private readonly GOOGLE_API_KEY = process.env.GOOGLE_DISTANCE_MATRIX_API_KEY;
   private readonly FREE_DELIVERY_DISTANCE_KM = 10;
   private readonly DELIVERY_RATE_PER_KM = 5.99; // $5.99 per km beyond 10km
-  // Fixed store location - this should be configured based on your actual store
+  private readonly BC_PROVINCE_NAMES = [
+    'British Columbia',
+    'BC',
+    'Colombie-Britannique', // French name
+    'Colombie Britannique'
+  ];
+  // Fixed store location - configured for British Columbia operations
   private readonly STORE_ADDRESS = {
-    addressLine: "1600 Amphitheatre Parkway",
-    city: "Mountain View",
-    state: "CA",
-    country: "United States",
-    pincode: "94043"
+    addressLine: "456 Granville Street",
+    city: "Vancouver",
+    state: "British Columbia",
+    country: "Canada",
+    pincode: "V6C 1T4"
   };
 
   // BC-specific delivery constraints
@@ -86,6 +92,16 @@ export class DeliveryService {
       const geocodingResult = await geocodingService.verifyBCAddress(buyerAddress);
       
       if (geocodingResult.error) {
+        // If the error is due to missing API key, allow delivery but log a warning
+        if (geocodingResult.error.includes('Google Geocoding API key not configured')) {
+          console.warn('⚠️  Google Geocoding API key not configured - allowing delivery without BC validation');
+          return {
+            isInBC: true, // Assume BC for now
+            canDeliver: true,
+            reason: 'Delivery allowed (BC validation disabled - API key not configured)'
+          };
+        }
+        
         return {
           isInBC: false,
           canDeliver: false,
@@ -120,13 +136,14 @@ export class DeliveryService {
   }
 
   /**
-   * Calculate delivery charges from fixed store location to buyer address
-   * Now includes BC validation
+   * Calculate delivery charges from shop location to buyer address
+   * Now includes BC validation and shop-specific settings
    */
   async calculateDeliveryCharges(
     buyerAddress: Address,
     orderTotal: number = 0,
-    orderType: 'group' | 'individual' = 'individual'
+    orderType: 'group' | 'individual' = 'individual',
+    sellerId?: string
   ): Promise<DeliveryCalculation> {
     try {
       // First validate BC address
@@ -136,21 +153,79 @@ export class DeliveryService {
         throw new Error(`Delivery not available: ${bcValidation.reason}`);
       }
 
-      // Format store address
-      const storeAddressFormatted = this.formatAddress(this.STORE_ADDRESS);
+      // Correct address data inconsistency: if state is British Columbia, country should be Canada
+      const correctedBuyerAddress = { ...buyerAddress };
+      if (buyerAddress.state && this.BC_PROVINCE_NAMES.some(bcName => 
+        buyerAddress.state!.toLowerCase().includes(bcName.toLowerCase())
+      )) {
+        correctedBuyerAddress.country = 'Canada';
+        console.log('Corrected buyer address country to Canada for BC address:', correctedBuyerAddress);
+      }
 
-      // Format buyer address
-      const buyerAddressFormatted = this.formatAddress(buyerAddress);
+      // Get shop-specific address and settings
+      let shopAddress = this.STORE_ADDRESS; // Default fallback
+      let shopDeliveryFee = 5.99; // Default fallback
+      let shopFreeDeliveryThreshold = 75.00; // Default fallback
+      let shopMinimumOrderValue = 25.00; // Default fallback
+
+      if (sellerId) {
+        try {
+          // Import storage dynamically to avoid circular dependency
+          const { storage } = await import('./storage');
+          const seller = await storage.getUser(sellerId);
+          
+          if (seller && seller.isSeller) {
+            // Use shop-specific address if available
+            if (seller.addressLine1 && seller.locality && seller.region && seller.country) {
+              shopAddress = {
+                addressLine: seller.addressLine1,
+                city: seller.locality,
+                state: seller.region,
+                country: seller.country,
+                pincode: seller.postalCode || ''
+              };
+              console.log('Using shop-specific address:', shopAddress);
+            }
+
+            // Use shop-specific delivery settings
+            if (seller.deliveryFee !== undefined && seller.deliveryFee !== null) {
+              shopDeliveryFee = parseFloat(seller.deliveryFee.toString());
+            }
+            if (seller.freeDeliveryThreshold !== undefined && seller.freeDeliveryThreshold !== null) {
+              shopFreeDeliveryThreshold = parseFloat(seller.freeDeliveryThreshold.toString());
+            }
+            if (seller.minimumOrderValue !== undefined && seller.minimumOrderValue !== null) {
+              shopMinimumOrderValue = parseFloat(seller.minimumOrderValue.toString());
+            }
+            
+            console.log('Using shop-specific delivery settings:', {
+              deliveryFee: shopDeliveryFee,
+              freeDeliveryThreshold: shopFreeDeliveryThreshold,
+              minimumOrderValue: shopMinimumOrderValue
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to fetch shop-specific data, using defaults:', error);
+        }
+      }
+
+      // Format shop address
+      const shopAddressFormatted = this.formatAddress(shopAddress);
+
+      // Format buyer address (use corrected address)
+      const buyerAddressFormatted = this.formatAddress(correctedBuyerAddress);
 
       // Calculate distance using Google Distance Matrix API
-      const distanceData = await this.getDistanceFromGoogle(storeAddressFormatted, buyerAddressFormatted);
+      const distanceData = await this.getDistanceFromGoogle(shopAddressFormatted, buyerAddressFormatted);
 
-      // Calculate delivery charges based on distance and BC constraints
-      const deliveryCalculation = this.calculateBCDeliveryFee(
+      // Calculate delivery charges based on distance and shop-specific settings
+      const deliveryCalculation = this.calculateShopDeliveryFee(
         distanceData.distance,
         distanceData.duration,
         orderTotal,
-        orderType
+        shopDeliveryFee,
+        shopFreeDeliveryThreshold,
+        shopMinimumOrderValue
       );
 
       return deliveryCalculation;
@@ -658,25 +733,86 @@ export class DeliveryService {
    * Calculate distance based on address strings for consistent results
    */
   private calculateAddressBasedDistance(origin: string, destination: string): number {
-    // Create a consistent hash from both addresses
-    const combinedAddress = origin + destination;
-    const hash = this.simpleHash(combinedAddress);
+    // Extract cities from both addresses
+    const originCity = this.extractCityFromAddress(origin);
+    const destCity = this.extractCityFromAddress(destination);
     
-    // Use the hash to generate a consistent distance between 1-15 km
-    const distance = (hash % 15) + 1;
-    
-    // For Mountain View addresses, adjust based on street numbers
-    const originStreetNumber = this.extractStreetNumber(origin);
-    const destStreetNumber = this.extractStreetNumber(destination);
-    
-    if (originStreetNumber && destStreetNumber) {
-      // Calculate distance based on street number difference
-      const streetDiff = Math.abs(originStreetNumber - destStreetNumber);
-      const streetBasedDistance = Math.min(streetDiff / 100, 10); // Max 10km based on street numbers
-      return Math.max(streetBasedDistance, 0.5); // Minimum 0.5km
+    // If both addresses are in the same city, use street-based calculation
+    if (originCity === destCity) {
+      const originStreetNumber = this.extractStreetNumber(origin);
+      const destStreetNumber = this.extractStreetNumber(destination);
+      
+      if (originStreetNumber && destStreetNumber) {
+        // Calculate distance based on street number difference within same city
+        const streetDiff = Math.abs(originStreetNumber - destStreetNumber);
+        const streetBasedDistance = Math.min(streetDiff / 100, 10); // Max 10km based on street numbers
+        return Math.max(streetBasedDistance, 0.5); // Minimum 0.5km
+      }
+      
+      // Same city, different streets - estimate 2-8km
+      return 5;
     }
     
-    return distance;
+    // Different cities - use realistic BC city distances
+    const cityDistances: { [key: string]: { [key: string]: number } } = {
+      'vancouver': {
+        'burnaby': 12,
+        'richmond': 15,
+        'surrey': 25,
+        'langley': 35,
+        'coquitlam': 20,
+        'delta': 18,
+        'new westminster': 15,
+        'north vancouver': 8,
+        'west vancouver': 10,
+        'victoria': 100
+      },
+      'burnaby': {
+        'vancouver': 12,
+        'richmond': 20,
+        'surrey': 15,
+        'langley': 25,
+        'coquitlam': 8,
+        'delta': 25,
+        'new westminster': 5,
+        'north vancouver': 15,
+        'west vancouver': 18
+      },
+      'richmond': {
+        'vancouver': 15,
+        'burnaby': 20,
+        'surrey': 30,
+        'langley': 40,
+        'coquitlam': 25,
+        'delta': 10,
+        'new westminster': 18,
+        'north vancouver': 20,
+        'west vancouver': 22
+      },
+      'surrey': {
+        'vancouver': 25,
+        'burnaby': 15,
+        'richmond': 30,
+        'langley': 10,
+        'coquitlam': 20,
+        'delta': 15,
+        'new westminster': 18,
+        'north vancouver': 30,
+        'west vancouver': 32
+      }
+    };
+    
+    // Look up distance between cities
+    if (cityDistances[originCity] && cityDistances[originCity][destCity]) {
+      return cityDistances[originCity][destCity];
+    }
+    
+    if (cityDistances[destCity] && cityDistances[destCity][originCity]) {
+      return cityDistances[destCity][originCity];
+    }
+    
+    // If cities not found in lookup, use a reasonable default for BC
+    return 20; // Default 20km for unknown BC city combinations
   }
 
   /**
@@ -711,6 +847,50 @@ export class DeliveryService {
       distance,
       duration,
       deliveryCharge: Math.round(deliveryCharge * 100) / 100, // Round to 2 decimal places
+      isFreeDelivery,
+      reason
+    };
+  }
+
+  /**
+   * Calculate shop-specific delivery fee based on shop settings
+   */
+  private calculateShopDeliveryFee(
+    distance: number, 
+    duration: number, 
+    orderTotal: number,
+    shopDeliveryFee: number,
+    shopFreeDeliveryThreshold: number,
+    shopMinimumOrderValue: number
+  ): DeliveryCalculation {
+    // Check minimum order value
+    if (orderTotal < shopMinimumOrderValue) {
+      return {
+        distance,
+        duration,
+        deliveryCharge: 0,
+        isFreeDelivery: false,
+        reason: `Order total $${orderTotal.toFixed(2)} is below minimum $${shopMinimumOrderValue.toFixed(2)}`
+      };
+    }
+
+    // Check if order qualifies for free delivery
+    const isFreeDelivery = orderTotal >= shopFreeDeliveryThreshold;
+
+    let deliveryCharge = 0;
+    let reason = '';
+
+    if (isFreeDelivery) {
+      reason = `Free delivery: Order total $${orderTotal.toFixed(2)} ≥ $${shopFreeDeliveryThreshold.toFixed(2)} threshold`;
+    } else {
+      deliveryCharge = shopDeliveryFee;
+      reason = `Delivery fee: $${shopDeliveryFee.toFixed(2)} for orders under $${shopFreeDeliveryThreshold.toFixed(2)}`;
+    }
+
+    return {
+      distance,
+      duration,
+      deliveryCharge: Math.round(deliveryCharge * 100) / 100,
       isFreeDelivery,
       reason
     };
@@ -752,6 +932,41 @@ export class DeliveryService {
       deliveryCharge: Math.round(deliveryCharge * 100) / 100, // Round to 2 decimal places
       isFreeDelivery,
       reason
+    };
+  }
+
+  /**
+   * Check if an order meets the minimum value for shop delivery
+   */
+  async checkShopMinimumOrderValue(orderTotal: number, sellerId?: string): Promise<{ isValid: boolean; message: string; minimumRequired: number }> {
+    let minimumRequired = 25.00; // Default fallback
+
+    if (sellerId) {
+      try {
+        // Import storage dynamically to avoid circular dependency
+        const { storage } = await import('./storage');
+        const seller = await storage.getUser(sellerId);
+        
+        if (seller && seller.isSeller && seller.minimumOrderValue !== undefined && seller.minimumOrderValue !== null) {
+          minimumRequired = parseFloat(seller.minimumOrderValue.toString());
+        }
+      } catch (error) {
+        console.warn('Failed to fetch shop minimum order value, using default:', error);
+      }
+    }
+
+    if (orderTotal < minimumRequired) {
+      return {
+        isValid: false,
+        message: `Minimum order value is $${minimumRequired.toFixed(2)}. Current total: $${orderTotal.toFixed(2)}`,
+        minimumRequired
+      };
+    }
+
+    return {
+      isValid: true,
+      message: `Order meets minimum value requirement of $${minimumRequired.toFixed(2)}`,
+      minimumRequired
     };
   }
 

@@ -292,6 +292,99 @@ export default function AdminSuper() {
 
   const handleAddShop = async () => {
     try {
+      // Validate required fields
+      if (!newShopForm.storeId?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Store ID is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.legalName?.trim()) {
+        toast({
+          title: "Validation Error", 
+          description: "Legal Name is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.displayName?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Display Name is required", 
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate address fields
+      if (!newShopForm.addressLine1?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Address Line 1 is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.locality?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "City is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.region?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Province/State is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.postalCode?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Postal Code is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.country?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Country is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate delivery settings
+      if (!newShopForm.deliveryFee || newShopForm.deliveryFee < 0) {
+        toast({
+          title: "Validation Error",
+          description: "Delivery Fee must be a valid positive number",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newShopForm.minimumOrderValue || newShopForm.minimumOrderValue < 0) {
+        toast({
+          title: "Validation Error",
+          description: "Minimum Order Value must be a valid positive number",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Create a new user with shop details
       await apiRequest("POST", `/api/admin/create-shop`, {
         ...loginData,
@@ -791,6 +884,68 @@ export default function AdminSuper() {
                       value={newShopForm.deliveryHours || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryHours: e.target.value }))}
                       placeholder="e.g., Mon-Sun 11:00-19:00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Delivery Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Delivery Settings
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="deliveryFee">Delivery Fee (CAD) *</Label>
+                    <Input
+                      id="deliveryFee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newShopForm.deliveryFee || ""}
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryFee: parseFloat(e.target.value) || 0 }))}
+                      placeholder="e.g., 5.99"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="freeDeliveryThreshold">Free Delivery Threshold (CAD)</Label>
+                    <Input
+                      id="freeDeliveryThreshold"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newShopForm.freeDeliveryThreshold || ""}
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, freeDeliveryThreshold: parseFloat(e.target.value) || 0 }))}
+                      placeholder="e.g., 75.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minimumOrderValue">Minimum Order Value (CAD) *</Label>
+                    <Input
+                      id="minimumOrderValue"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newShopForm.minimumOrderValue || ""}
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, minimumOrderValue: parseFloat(e.target.value) || 0 }))}
+                      placeholder="e.g., 25.00"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deliveryRadiusKm">Delivery Radius (km)</Label>
+                    <Input
+                      id="deliveryRadiusKm"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={newShopForm.deliveryRadiusKm || ""}
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 10 }))}
+                      placeholder="e.g., 10"
                     />
                   </div>
                 </div>

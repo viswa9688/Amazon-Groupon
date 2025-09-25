@@ -123,7 +123,16 @@ export async function setupPhoneAuth(app: Express) {
       }
     } catch (error) {
       console.error("Verify OTP error:", error);
-      res.status(500).json({ message: "Failed to verify OTP" });
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      res.status(500).json({ 
+        message: "Failed to verify OTP",
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 

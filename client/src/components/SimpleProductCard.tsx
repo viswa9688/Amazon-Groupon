@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import CategoryConflictDialog from "./CategoryConflictDialog";
 import PhoneAuthModal from "@/components/PhoneAuthModal";
+import DeliveryTimeIndicator from "./DeliveryTimeIndicator";
 
 interface SimpleProductCardProps {
   product: {
@@ -175,6 +176,11 @@ export default function SimpleProductCard({ product, testId }: SimpleProductCard
         <Badge className="absolute top-2 left-2 bg-white/90 text-gray-700">
           {product.category.name}
         </Badge>
+        
+        {/* Delivery Time Indicator */}
+        <div className="absolute bottom-2 left-2">
+          <DeliveryTimeIndicator />
+        </div>
       </div>
       
       <CardContent className="p-4">

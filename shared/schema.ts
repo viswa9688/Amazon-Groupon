@@ -75,6 +75,12 @@ export const users = pgTable("users", {
   substitutionPolicy: varchar("substitution_policy", { length: 50 }),
   refundPolicyUrl: varchar("refund_policy_url", { length: 500 }),
   
+  // Delivery Settings
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default("0.00"),
+  freeDeliveryThreshold: decimal("free_delivery_threshold", { precision: 10, scale: 2 }).default("0.00"),
+  minimumOrderValue: decimal("minimum_order_value", { precision: 10, scale: 2 }).default("0.00"),
+  deliveryRadiusKm: integer("delivery_radius_km").default(10),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -301,6 +307,8 @@ export const orders = pgTable("orders", {
   shippingAddress: text("shipping_address"), // Fallback for legacy orders
   status: varchar("status", { length: 20 }).default("pending"), // pending, processing, shipped, delivered, completed
   type: varchar("type", { length: 20 }).default("group"), // group, individual
+  expectedDeliveryDate: timestamp("expected_delivery_date"), // Expected delivery date based on order time
+  actualDeliveryDate: timestamp("actual_delivery_date"), // Actual delivery date when delivered
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import CategoryConflictDialog from "./CategoryConflictDialog";
 import PhoneAuthModal from "@/components/PhoneAuthModal";
+import DeliveryTimeIndicator from "./DeliveryTimeIndicator";
 
 interface ServiceProductCardProps {
   product: {
@@ -238,14 +239,19 @@ export default function ServiceProductCard({ product, testId }: ServiceProductCa
                 )}
               </Badge>
             )}
-            {sp.yearsInBusiness && sp.yearsInBusiness > 0 && (
-              <Badge className="absolute bottom-2 right-2 bg-gray-700 text-white">
-                {sp.yearsInBusiness}+ years
-              </Badge>
-            )}
-          </>
-        )}
-      </div>
+             {sp.yearsInBusiness && sp.yearsInBusiness > 0 && (
+               <Badge className="absolute bottom-2 right-2 bg-gray-700 text-white">
+                 {sp.yearsInBusiness}+ years
+               </Badge>
+             )}
+           </>
+         )}
+         
+         {/* Delivery Time Indicator */}
+         <div className="absolute bottom-2 left-2">
+           <DeliveryTimeIndicator />
+         </div>
+       </div>
       
       <CardContent className="p-4">
         <h3 className="font-semibold text-lg text-foreground line-clamp-2 mb-2" data-testid={`text-product-name-${product.id}`}>

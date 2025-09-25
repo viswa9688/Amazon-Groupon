@@ -10,6 +10,7 @@ import Stripe from "stripe";
 import { notificationService } from "./notificationService";
 import { notificationBroadcaster } from "./notificationBroadcaster";
 import { deliveryService } from "./deliveryService";
+import { calculateExpectedDeliveryDate } from "./utils/orderTimeManager";
 import {
   insertProductSchema,
   insertServiceProviderSchema,
@@ -776,14 +777,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create individual order at original price
       const totalPrice = parseFloat(product.originalPrice.toString()) * quantity;
       
+      // Calculate expected delivery date based on order time
+      const deliveryInfo = calculateExpectedDeliveryDate();
+      
       const orderData = insertOrderSchema.parse({
         userId,
         productId,
         quantity,
         unitPrice: product.originalPrice,
         totalPrice: totalPrice.toString(),
+        finalPrice: totalPrice.toString(),
         status: "completed", // Individual orders are immediately confirmed
         type: "individual",
+        expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       });
       
       const order = await storage.createOrder(orderData);
@@ -873,6 +879,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate final price including delivery charges
       const finalPriceWithDelivery = (finalPrice || totalPrice) + totalDeliveryCharge;
       
+      // Calculate expected delivery date based on order time
+      const deliveryInfo = calculateExpectedDeliveryDate();
+      
       const orderData = {
         userId: finalUserId,
         payerId: finalPayerId,
@@ -881,7 +890,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         finalPrice: finalPriceWithDelivery,
         shippingAddress,
         status: status || "completed",
-        type: type || "group"
+        type: type || "group",
+        expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       };
       
       console.log("Order data:", orderData);
@@ -1284,9 +1294,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Calculate expected delivery date based on order time
+      const deliveryInfo = calculateExpectedDeliveryDate();
+      
       const orderData = {
         ...req.body,
         userId,
+        expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       };
       
       const validatedOrderData = insertOrderSchema.parse(orderData);
@@ -2736,27 +2751,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      // Calculate delivery charges for the entire cart with BC validation
-      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, 0, 'individual');
-      const deliveryFee = deliveryCalculation.deliveryCharge;
-
-      // Calculate total product price
+      // Calculate total product price first
       const productPrice = cartItems.reduce((total, item) => {
         return total + (parseFloat(item.product.originalPrice) * item.quantity);
       }, 0);
 
-      const totalAmount = productPrice + deliveryFee;
+      // Get seller ID from cart items (assuming all items are from the same seller due to cart validation)
+      const sellerId = cartItems.length > 0 ? cartItems[0].product.sellerId : undefined;
 
-      // Check BC minimum order value for individual orders
-      const bcValidation = await deliveryService.checkBCMinimumOrderValue(productPrice, 'individual');
-      if (!bcValidation.isValid) {
+      // Check shop minimum order value BEFORE calculating delivery
+      const shopValidation = await deliveryService.checkShopMinimumOrderValue(productPrice, sellerId);
+      if (!shopValidation.isValid) {
         return res.status(400).json({ 
-          message: bcValidation.message,
-          minimumRequired: bcValidation.minimumRequired,
+          message: shopValidation.message,
+          minimumRequired: shopValidation.minimumRequired,
           currentTotal: productPrice,
           type: 'minimum_order_value'
         });
       }
+
+      // Calculate delivery charges for the entire cart with shop-specific settings
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, productPrice, 'individual', sellerId);
+      const deliveryFee = deliveryCalculation.deliveryCharge;
+
+      const totalAmount = productPrice + deliveryFee;
 
       // Create Stripe customer
       const customer = await stripe.customers.create({
@@ -2857,23 +2875,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, 0, 'individual');
-      const deliveryFee = deliveryCalculation.deliveryCharge;
-
       // Calculate total amount (product price + delivery fee)
       const productPrice = parseFloat(product.originalPrice) * quantity;
-      const totalAmount = productPrice + deliveryFee;
 
-      // Check BC minimum order value for individual orders
-      const bcValidation = await deliveryService.checkBCMinimumOrderValue(productPrice, 'individual');
-      if (!bcValidation.isValid) {
+      // Check shop minimum order value BEFORE calculating delivery
+      const shopValidation = await deliveryService.checkShopMinimumOrderValue(productPrice, product.sellerId);
+      if (!shopValidation.isValid) {
         return res.status(400).json({ 
-          message: bcValidation.message,
-          minimumRequired: bcValidation.minimumRequired,
+          message: shopValidation.message,
+          minimumRequired: shopValidation.minimumRequired,
           currentTotal: productPrice,
           type: 'minimum_order_value'
         });
       }
+
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, productPrice, 'individual', product.sellerId);
+      const deliveryFee = deliveryCalculation.deliveryCharge;
+
+      const totalAmount = productPrice + deliveryFee;
 
       // Create customer with billing address
       const customer = await stripe.customers.create({
@@ -3874,8 +3893,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { addressId } = req.body;
       const userId = req.user.claims.sub;
 
+      console.log("Delivery fee calculation request:", { addressId, userId });
+
       if (!addressId) {
         return res.status(400).json({ message: "addressId is required" });
+      }
+
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
       }
 
       // Get user address
@@ -3885,6 +3910,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!address) {
         return res.status(404).json({ message: "Address not found" });
       }
+
+      console.log("Found address:", address);
 
 
       // Format address for delivery calculation
@@ -3896,8 +3923,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      // Calculate delivery charges
-      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress);
+      // Calculate delivery charges (default to individual order type with $0 total for fee calculation)
+      console.log("Calculating delivery charges for address:", buyerAddress);
+      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, 0, 'individual', userId);
+      console.log("Delivery calculation result:", deliveryCalculation);
 
       res.json({
         distance: deliveryCalculation.distance,
@@ -3906,9 +3935,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isFreeDelivery: deliveryCalculation.isFreeDelivery,
         reason: deliveryCalculation.reason
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calculating delivery fee:", error);
-      res.status(500).json({ message: "Failed to calculate delivery fee" });
+      
+      // Check if it's a BC validation error
+      if (error.message?.includes('Delivery not available')) {
+        return res.status(400).json({ 
+          message: "Delivery not available for this address",
+          error: error.message,
+          details: "Address must be in British Columbia for delivery"
+        });
+      }
+      
+      // Check if it's a geocoding API error
+      if (error.message?.includes('Google Geocoding API key not configured')) {
+        return res.status(503).json({ 
+          message: "Delivery calculation temporarily unavailable",
+          error: "Geocoding service not configured",
+          details: "Please try again later or contact support"
+        });
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to calculate delivery fee",
+        error: error.message || "Unknown error"
+      });
     }
   });
 
