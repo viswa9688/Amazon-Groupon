@@ -2767,6 +2767,7 @@ export default function SellerDashboard() {
                             Cancel
                           </Button>
                         </div>
+                        </div>
                       </div>
                     </Card>
                   ))}
