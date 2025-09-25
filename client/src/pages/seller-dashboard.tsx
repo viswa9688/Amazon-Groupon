@@ -2626,66 +2626,98 @@ export default function SellerDashboard() {
                         </div>
                         
                         {/* Delivery Status Tracker */}
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                           <h5 className="text-sm font-medium">Delivery Status</h5>
-                          <div className="space-y-2">
-                            <div className="flex items-center text-sm">
-                              <div className={`w-3 h-3 rounded-full mr-3 ${
-                                order.status === "pending" ? "bg-green-500" : 
-                                ["processing", "shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) ? "bg-green-500" : "bg-gray-300"
-                              }`}></div>
-                              <div>
-                                <div className="font-medium">Order Placed</div>
-                                <div className="text-muted-foreground text-xs">
-                                  {new Date(order.createdAt).toLocaleDateString()}
+                          <div className="relative">
+                            {/* Progress Line */}
+                            <div className="absolute left-2 top-2 w-0.5 bg-gray-200" style={{ height: '85%' }}></div>
+                            <div 
+                              className="absolute left-2 top-2 w-0.5 bg-green-500 transition-all duration-300"
+                                style={{
+                                  height: order.status === "pending" ? "0%" :
+                                         order.status === "processing" ? "20%" :
+                                         order.status === "shipped" ? "40%" :
+                                         order.status === "out_for_delivery" ? "60%" :
+                                         order.status === "delivered" ? "85%" :
+                                         order.status === "completed" ? "85%" : "0%"
+                                }}
+                            ></div>
+                            
+                            {/* Status Steps */}
+                            <div className="space-y-6">
+                              {/* Order Placed */}
+                              <div className="flex items-start">
+                                <div className="relative z-10">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    ["pending", "processing", "shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) 
+                                      ? "bg-green-500 border-green-500" : "bg-white border-gray-300"
+                                  }`}></div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                  <div className="font-medium text-sm">Order Placed</div>
+                                  <div className="text-muted-foreground text-xs">
+                                    {new Date(order.createdAt).toLocaleDateString()}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            
-                            <div className="flex items-center text-sm">
-                              <div className={`w-3 h-3 rounded-full mr-3 ${
-                                order.status === "processing" ? "bg-blue-500" : 
-                                ["shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) ? "bg-blue-500" : "bg-gray-300"
-                              }`}></div>
-                              <div>
-                                <div className="font-medium">Processing</div>
-                                <div className="text-muted-foreground text-xs">1-2 business days</div>
+                              
+                              {/* Processing */}
+                              <div className="flex items-start">
+                                <div className="relative z-10">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    ["processing", "shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) 
+                                      ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"
+                                  }`}></div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                  <div className="font-medium text-sm">Processing</div>
+                                  <div className="text-muted-foreground text-xs">1-2 business days</div>
+                                </div>
                               </div>
-                            </div>
-                            
-                            <div className="flex items-center text-sm">
-                              <div className={`w-3 h-3 rounded-full mr-3 ${
-                                order.status === "shipped" ? "bg-blue-500" : 
-                                ["out_for_delivery", "delivered", "completed"].includes(order.status) ? "bg-blue-500" : "bg-gray-300"
-                              }`}></div>
-                              <div>
-                                <div className="font-medium">Shipped</div>
-                                <div className="text-muted-foreground text-xs">3-5 business days</div>
+                              
+                              {/* Shipped */}
+                              <div className="flex items-start">
+                                <div className="relative z-10">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    ["shipped", "out_for_delivery", "delivered", "completed"].includes(order.status) 
+                                      ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"
+                                  }`}></div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                  <div className="font-medium text-sm">Shipped</div>
+                                  <div className="text-muted-foreground text-xs">3-5 business days</div>
+                                </div>
                               </div>
-                            </div>
-                            
-                            <div className="flex items-center text-sm">
-                              <div className={`w-3 h-3 rounded-full mr-3 ${
-                                order.status === "out_for_delivery" ? "bg-blue-500" : 
-                                ["delivered", "completed"].includes(order.status) ? "bg-blue-500" : "bg-gray-300"
-                              }`}></div>
-                              <div>
-                                <div className="font-medium">Out for Delivery</div>
-                                <div className="text-muted-foreground text-xs">Final day</div>
+                              
+                              {/* Out for Delivery */}
+                              <div className="flex items-start">
+                                <div className="relative z-10">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    ["out_for_delivery", "delivered", "completed"].includes(order.status) 
+                                      ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"
+                                  }`}></div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                  <div className="font-medium text-sm">Out for Delivery</div>
+                                  <div className="text-muted-foreground text-xs">Final day</div>
+                                </div>
                               </div>
-                            </div>
-                            
-                            <div className="flex items-center text-sm">
-                              <div className={`w-3 h-3 rounded-full mr-3 ${
-                                order.status === "delivered" ? "bg-green-500" : 
-                                order.status === "completed" ? "bg-green-500" : "bg-gray-300"
-                              }`}></div>
-                              <div>
-                                <div className="font-medium">Delivered</div>
-                                <div className="text-muted-foreground text-xs">
-                                  {order.status === "delivered" || order.status === "completed" ? 
-                                    "Order completed" : "Expected soon"
-                                  }
+                              
+                              {/* Delivered */}
+                              <div className="flex items-start">
+                                <div className="relative z-10">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    ["delivered", "completed"].includes(order.status) 
+                                      ? "bg-green-500 border-green-500" : "bg-white border-gray-300"
+                                  }`}></div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                  <div className="font-medium text-sm">Delivered</div>
+                                  <div className="text-muted-foreground text-xs">
+                                    {["delivered", "completed"].includes(order.status) ? 
+                                      "Order completed" : "Expected soon"
+                                    }
+                                  </div>
                                 </div>
                               </div>
                             </div>
