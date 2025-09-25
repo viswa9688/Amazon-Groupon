@@ -491,6 +491,192 @@ export class NotificationService {
 
     console.log(`Real-time notification sent to user ${userId}: ${notification.title}`);
   }
+
+  /**
+   * Notify all group members when a pickup order is completed
+   * This is called when an order with deliveryMethod="pickup" is marked as completed
+   */
+  async notifyPickupOrderCompleted(orderId: number): Promise<void> {
+    try {
+      // Get order details
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        console.error(`Order ${orderId} not found for pickup completion notification`);
+        return;
+      }
+
+      // Get group details from group payments
+      const groupPayments = await db
+        .select()
+        .from(groupPayments)
+        .where(eq(groupPayments.userId, order.userId));
+
+      if (groupPayments.length === 0) {
+        console.log(`No group payments found for order ${orderId}, skipping pickup notification`);
+        return;
+      }
+
+      const userGroupId = groupPayments[0].userGroupId;
+      const group = await storage.getUserGroup(userGroupId);
+      if (!group) {
+        console.error(`Group ${userGroupId} not found for pickup completion notification`);
+        return;
+      }
+
+      // Get all group members (owner + participants)
+      const allMembers = [group.userId]; // Start with owner
+      
+      // Add approved participants
+      const participants = await db
+        .select()
+        .from(userGroupParticipants)
+        .where(and(
+          eq(userGroupParticipants.userGroupId, userGroupId),
+          eq(userGroupParticipants.status, 'approved')
+        ));
+
+      for (const participant of participants) {
+        allMembers.push(participant.userId);
+      }
+
+      // Get order items for product names
+      const orderItemsList = await db
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+
+      const productNames = [];
+      for (const item of orderItemsList) {
+        const product = await storage.getProduct(item.productId);
+        if (product) {
+          productNames.push(product.name);
+        }
+      }
+
+      const productNamesText = productNames.join(", ");
+
+      // Notify all group members
+      for (const memberId of allMembers) {
+        const member = await storage.getUser(memberId);
+        if (!member) continue;
+
+        const notification: NotificationTemplate = {
+          type: "pickup_order_ready",
+          title: "Order Ready for Pickup! 📦",
+          message: `Your group order for "${productNamesText}" is ready for pickup from the group owner. Please contact them to arrange pickup.`,
+          priority: "high",
+          data: {
+            orderId: orderId,
+            groupId: userGroupId,
+            groupName: group.name,
+            productNames: productNamesText,
+            ownerId: group.userId
+          }
+        };
+
+        await this.createNotification(memberId, notification);
+      }
+
+      console.log(`Pickup order completion notifications sent to ${allMembers.length} group members for order ${orderId}`);
+    } catch (error) {
+      console.error("Error sending pickup order completion notifications:", error);
+    }
+  }
+
+  /**
+   * Notify specific member and group owner when a delivery order is completed
+   * This is called when an order with deliveryMethod="delivery" is marked as completed
+   */
+  async notifyDeliveryOrderCompleted(orderId: number): Promise<void> {
+    try {
+      // Get order details
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        console.error(`Order ${orderId} not found for delivery completion notification`);
+        return;
+      }
+
+      // Get group details from group payments
+      const groupPayments = await db
+        .select()
+        .from(groupPayments)
+        .where(eq(groupPayments.userId, order.userId));
+
+      if (groupPayments.length === 0) {
+        console.log(`No group payments found for order ${orderId}, skipping delivery notification`);
+        return;
+      }
+
+      const userGroupId = groupPayments[0].userGroupId;
+      const group = await storage.getUserGroup(userGroupId);
+      if (!group) {
+        console.error(`Group ${userGroupId} not found for delivery completion notification`);
+        return;
+      }
+
+      // Get order items for product names
+      const orderItemsList = await db
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+
+      const productNames = [];
+      for (const item of orderItemsList) {
+        const product = await storage.getProduct(item.productId);
+        if (product) {
+          productNames.push(product.name);
+        }
+      }
+
+      const productNamesText = productNames.join(", ");
+
+      // Notify the order recipient (member)
+      const member = await storage.getUser(order.userId);
+      if (member) {
+        const memberNotification: NotificationTemplate = {
+          type: "delivery_order_completed",
+          title: "Order Delivered! ✅",
+          message: `Your order for "${productNamesText}" has been delivered successfully. Thank you for your purchase!`,
+          priority: "normal",
+          data: {
+            orderId: orderId,
+            groupId: userGroupId,
+            groupName: group.name,
+            productNames: productNamesText
+          }
+        };
+
+        await this.createNotification(order.userId, memberNotification);
+      }
+
+      // Notify the group owner (if different from member)
+      if (group.userId !== order.userId) {
+        const owner = await storage.getUser(group.userId);
+        if (owner) {
+          const ownerNotification: NotificationTemplate = {
+            type: "group_member_order_delivered",
+            title: "Group Member Order Delivered",
+            message: `Order for "${productNamesText}" has been delivered to ${member?.firstName} ${member?.lastName} in your group "${group.name}".`,
+            priority: "normal",
+            data: {
+              orderId: orderId,
+              groupId: userGroupId,
+              groupName: group.name,
+              productNames: productNamesText,
+              memberId: order.userId,
+              memberName: `${member?.firstName} ${member?.lastName}`
+            }
+          };
+
+          await this.createNotification(group.userId, ownerNotification);
+        }
+      }
+
+      console.log(`Delivery order completion notifications sent for order ${orderId}`);
+    } catch (error) {
+      console.error("Error sending delivery order completion notifications:", error);
+    }
+  }
 }
 
 export const notificationService = new NotificationService();

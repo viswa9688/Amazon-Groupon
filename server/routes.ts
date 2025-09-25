@@ -762,7 +762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders/individual', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { productId, quantity = 1 } = req.body;
+      const { productId, quantity = 1, deliveryMethod = "delivery" } = req.body;
       
       if (!productId) {
         return res.status(400).json({ message: "Product ID is required" });
@@ -789,6 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         finalPrice: totalPrice.toString(),
         status: "pending", // Orders start as pending and need seller approval
         type: "individual",
+        deliveryMethod: deliveryMethod,
         expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       });
       
@@ -804,7 +805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders/group', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { totalPrice, finalPrice, status, type, addressId, items, payerId, beneficiaryId, userGroupId } = req.body;
+      const { totalPrice, finalPrice, status, type, addressId, items, payerId, beneficiaryId, userGroupId, deliveryMethod } = req.body;
       
       console.log("Creating group order with data:", {
         userId,
@@ -891,6 +892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shippingAddress,
         status: status || "pending",
         type: type || "group",
+        deliveryMethod: deliveryMethod || "delivery",
         expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       };
       
@@ -2709,6 +2711,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Scenario 4: Notify the specific member when order status is changed
       if (updatedOrder.userId) {
         await notificationService.notifyOrderStatusChanged(updatedOrder.userId, orderId, status);
+      }
+
+      // Handle completion notifications based on delivery method
+      if (status === "completed") {
+        if (updatedOrder.deliveryMethod === "pickup") {
+          // For pickup orders, notify all group members
+          await notificationService.notifyPickupOrderCompleted(orderId);
+        } else if (updatedOrder.deliveryMethod === "delivery") {
+          // For delivery orders, notify only the member and group owner
+          await notificationService.notifyDeliveryOrderCompleted(orderId);
+        }
       }
 
       

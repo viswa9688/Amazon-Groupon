@@ -307,6 +307,7 @@ export const orders = pgTable("orders", {
   shippingAddress: text("shipping_address"), // Fallback for legacy orders
   status: varchar("status", { length: 20 }).default("pending"), // pending, processing, shipped, delivered, completed
   type: varchar("type", { length: 20 }).default("group"), // group, individual
+  deliveryMethod: varchar("delivery_method", { length: 20 }).default("delivery"), // pickup, delivery
   expectedDeliveryDate: timestamp("expected_delivery_date"), // Expected delivery date based on order time
   actualDeliveryDate: timestamp("actual_delivery_date"), // Actual delivery date when delivered
   createdAt: timestamp("created_at").defaultNow(),

@@ -10,7 +10,7 @@ import AddressManager from "@/components/AddressManager";
 import DeliveryFeeDisplay from "@/components/DeliveryFeeDisplay";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Package, DollarSign, CheckCircle } from "lucide-react";
+import { MapPin, Users, Package, DollarSign, CheckCircle, Truck, Info } from "lucide-react";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
@@ -42,7 +42,8 @@ const PaymentForm = ({
   memberDetails,
   deliveryFee,
   originalAmount,
-  potentialSavings
+  potentialSavings,
+  deliveryMethod
 }: { 
   amount: number; 
   productId?: number; 
@@ -55,6 +56,7 @@ const PaymentForm = ({
   deliveryFee: number;
   originalAmount: number;
   potentialSavings: number;
+  deliveryMethod?: "pickup" | "delivery";
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -173,6 +175,7 @@ const PaymentForm = ({
             payerId: payerId,
             beneficiaryId: beneficiaryId,
             userGroupId: userGroupId,
+            deliveryMethod: deliveryMethod,
             items: orderItems
           });
           
@@ -252,6 +255,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [amountLocked, setAmountLocked] = useState(false);
   const [userGroupId, setUserGroupId] = useState<number | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery">("delivery");
   const initRef = useRef(false);
 
   // Safe setAmount function that respects the lock
@@ -708,19 +712,110 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
             
             {/* Right Column - Address & Payment */}
             <div className="space-y-6">
-              {/* Address Management */}
-              <AddressManager
-                selectedAddressId={selectedAddressId}
-                onAddressSelect={setSelectedAddressId}
-                showSelection={true}
-              />
+              {/* Delivery Method Selection */}
+              <Card className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    Delivery Method
+                  </CardTitle>
+                  <CardDescription>
+                    Choose how you want to receive your order
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div 
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          deliveryMethod === "delivery" 
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                        }`}
+                        onClick={() => setDeliveryMethod("delivery")}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            deliveryMethod === "delivery" 
+                              ? "border-blue-500 bg-blue-500" 
+                              : "border-gray-300 dark:border-gray-600"
+                          }`}>
+                            {deliveryMethod === "delivery" && (
+                              <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">Home Delivery</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Delivered to your selected address
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          deliveryMethod === "pickup" 
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                        }`}
+                        onClick={() => setDeliveryMethod("pickup")}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            deliveryMethod === "pickup" 
+                              ? "border-blue-500 bg-blue-500" 
+                              : "border-gray-300 dark:border-gray-600"
+                          }`}>
+                            {deliveryMethod === "pickup" && (
+                              <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">Pickup</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Pick up from group owner's location
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {deliveryMethod === "pickup" && (
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <Info className="w-5 h-5 text-yellow-600" />
+                          <span className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                            Pickup Information
+                          </span>
+                        </div>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                          When you select pickup, the order will be delivered to the group owner. 
+                          All group members will be notified when the order is ready for pickup.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* Delivery Fee Display */}
-              <DeliveryFeeDisplay
-                addressId={selectedAddressId}
-                className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
-                onDeliveryFeeChange={handleDeliveryFeeUpdate}
-              />
+              {/* Address Management - Only show for delivery */}
+              {deliveryMethod === "delivery" && (
+                <AddressManager
+                  selectedAddressId={selectedAddressId}
+                  onAddressSelect={setSelectedAddressId}
+                  showSelection={true}
+                />
+              )}
+
+              {/* Delivery Fee Display - Only show for delivery */}
+              {deliveryMethod === "delivery" && (
+                <DeliveryFeeDisplay
+                  addressId={selectedAddressId}
+                  className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
+                  onDeliveryFeeChange={handleDeliveryFeeUpdate}
+                />
+              )}
               
               {/* Payment Form */}
               <Card className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
@@ -734,8 +829,8 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {/* Show address selection requirement */}
-                  {!selectedAddressId ? (
+                  {/* Show address selection requirement - only for delivery */}
+                  {deliveryMethod === "delivery" && !selectedAddressId ? (
                     <div className="space-y-4">
                       <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border-2 border-orange-200 dark:border-orange-800 text-center">
                         <div className="w-16 h-16 bg-orange-100 dark:bg-orange-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -765,7 +860,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                         </div>
                       </div>
                     </div>
-                  ) : clientSecret && !isLoadingPayment ? (
+                  ) : (deliveryMethod === "pickup" || (deliveryMethod === "delivery" && selectedAddressId)) && clientSecret && !isLoadingPayment ? (
                     <div className="space-y-6">
                       <Elements key={clientSecret} stripe={stripePromise} options={{ 
                         clientSecret,
@@ -794,6 +889,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                           deliveryFee={deliveryFee}
                           originalAmount={originalAmount}
                           potentialSavings={potentialSavings}
+                          deliveryMethod={deliveryMethod}
                         />
                       </Elements>
                     </div>

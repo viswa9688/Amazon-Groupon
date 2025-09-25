@@ -115,6 +115,41 @@ The system uses the existing `sellerNotifications` table with the following stru
 - Message: Lists the owner's incomplete groups with member counts and needed members, encouraging them to share and promote their groups
 - Priority: `normal`
 
+### Scenario 7: Pickup Order Completed
+
+**Trigger**: When an order with deliveryMethod="pickup" is marked as completed
+**Recipients**: All group members (owner + approved participants)
+**Implementation**:
+- Integrated into order status update route
+- Triggers when order status is updated to "completed" and deliveryMethod is "pickup"
+- Sends notifications to all group members to arrange pickup
+
+**Notification Details**:
+- Type: `pickup_order_ready`
+- Title: "Order Ready for Pickup! 📦"
+- Message: Informs all group members that the order is ready for pickup from the group owner
+- Priority: `high`
+
+### Scenario 8: Delivery Order Completed
+
+**Trigger**: When an order with deliveryMethod="delivery" is marked as completed
+**Recipients**: Order recipient and group owner (if different)
+**Implementation**:
+- Integrated into order status update route
+- Triggers when order status is updated to "completed" and deliveryMethod is "delivery"
+- Sends separate notifications to the member and group owner
+
+**Notification Details**:
+- Type: `delivery_order_completed` (for member)
+- Title: "Order Delivered! ✅"
+- Message: Confirms successful delivery to the order recipient
+- Priority: `normal`
+
+- Type: `group_member_order_delivered` (for group owner)
+- Title: "Group Member Order Delivered"
+- Message: Notifies group owner that a member's order has been delivered
+- Priority: `normal`
+
 ## API Endpoints
 
 ### Notification Management
@@ -161,6 +196,9 @@ Status values:
 | `order_status_change` | Order status updated | normal | Specific member |
 | `new_order` | New order received | high | Seller(s) |
 | `group_owner_reminder` | Group owner reminder for incomplete groups | normal | Group owners |
+| `pickup_order_ready` | Pickup order completed and ready | high | All group members |
+| `delivery_order_completed` | Delivery order completed | normal | Order recipient |
+| `group_member_order_delivered` | Group member's order delivered | normal | Group owner |
 
 ## Setup and Configuration
 
