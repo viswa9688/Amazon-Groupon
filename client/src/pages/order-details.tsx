@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Package, CreditCard, Truck, MapPin, Calendar, CheckCircle } from "lucide-react";
 import Header from "@/components/Header";
+import CustomerDeliveryTracker from "@/components/CustomerDeliveryTracker";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,9 @@ export default function OrderDetails() {
   const { data: order, isLoading: orderLoading, error } = useQuery<Order & { items: any[] }>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId && !!isAuthenticated,
+    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true, // Refetch when component mounts
     retry: false,
   });
 
@@ -313,80 +317,14 @@ export default function OrderDetails() {
 
           {/* Delivery Timeline */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Truck className="w-5 h-5 mr-2" />
-                  Delivery Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    <div className="text-sm text-muted-foreground">Estimated Delivery</div>
-                    <div className="font-semibold text-foreground" data-testid="text-estimated-delivery">
-                      {formatDate(estimatedDelivery)}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      7-14 business days
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center text-sm">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                      <div>
-                        <div className="font-medium">Order Placed</div>
-                        <div className="text-muted-foreground text-xs" data-testid="text-order-date">
-                          {formatDate(order.createdAt)}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                      <div>
-                        <div className="font-medium">Processing</div>
-                        <div className="text-muted-foreground text-xs">
-                          1-2 business days
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <div className="w-3 h-3 bg-gray-300 rounded-full mr-3"></div>
-                      <div>
-                        <div className="font-medium text-muted-foreground">Shipped</div>
-                        <div className="text-muted-foreground text-xs">
-                          3-5 business days
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <div className="w-3 h-3 bg-gray-300 rounded-full mr-3"></div>
-                      <div>
-                        <div className="font-medium text-muted-foreground">Out for Delivery</div>
-                        <div className="text-muted-foreground text-xs">
-                          Final day
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <div className="w-3 h-3 bg-gray-300 rounded-full mr-3"></div>
-                      <div>
-                        <div className="font-medium text-muted-foreground">Delivered</div>
-                        <div className="text-muted-foreground text-xs">
-                          Expected {formatDate(estimatedDelivery)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <CustomerDeliveryTracker
+              orderId={order.id!}
+              status={order.status || 'pending'}
+              expectedDeliveryDate={order.expectedDeliveryDate}
+              actualDeliveryDate={order.actualDeliveryDate}
+              orderTime={order.createdAt}
+              showCutoffInfo={true}
+            />
 
             {/* Order Information */}
             <Card>
