@@ -787,7 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unitPrice: product.originalPrice,
         totalPrice: totalPrice.toString(),
         finalPrice: totalPrice.toString(),
-        status: "completed", // Individual orders are immediately confirmed
+        status: "pending", // Orders start as pending and need seller approval
         type: "individual",
         expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       });
@@ -889,7 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalPrice,
         finalPrice: finalPriceWithDelivery,
         shippingAddress,
-        status: status || "completed",
+        status: status || "pending",
         type: type || "group",
         expectedDeliveryDate: deliveryInfo.expectedDeliveryDate
       };
@@ -3275,7 +3275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           addressId: addressId || null,
           totalPrice: (originalAmount + deliveryFee).toString(),
           finalPrice: (originalAmount + deliveryFee).toString(),
-          status: "completed" as const,
+          status: "pending" as const,
           type: "individual" as const,
           shippingAddress
         };
@@ -3423,7 +3423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           addressId: addressId || null,
           totalPrice: (originalAmount + deliveryFee).toString(),
           finalPrice: (originalAmount + deliveryFee).toString(),
-          status: "completed" as const,
+          status: "pending" as const,
           type: "individual" as const,
           shippingAddress
         };
@@ -3582,7 +3582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               addressId: addressId,
               totalPrice: totalOrderPrice.toFixed(2),
               finalPrice: totalOrderPrice.toFixed(2),
-                status: "completed" as const,
+                status: "pending" as const,
                 type: "group" as const,
                 shippingAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state || ''} ${address.pincode}, ${address.country || 'US'}`
             };
@@ -3712,7 +3712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               addressId: addressId || null,
               totalPrice: (originalAmount + deliveryFee).toString(),
               finalPrice: (originalAmount + deliveryFee).toString(),
-              status: "completed" as const,
+              status: "pending" as const,
               type: "individual" as const,
               shippingAddress
             };
@@ -3808,7 +3808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               addressId: addressId || null,
               totalPrice: (originalAmount + deliveryFee).toString(),
               finalPrice: (originalAmount + deliveryFee).toString(),
-              status: "completed" as const,
+              status: "pending" as const,
               type: type as "individual" | "group",
               shippingAddress
             };
