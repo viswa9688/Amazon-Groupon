@@ -65,6 +65,7 @@ import {
   Shield,
   Phone,
   Globe,
+  RefreshCw,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -303,7 +304,7 @@ export default function SellerDashboard() {
   });
 
   // Fetch seller metrics
-  const { data: metrics, isLoading: metricsLoading } = useQuery<{
+  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useQuery<{
     totalRevenue: number;
     totalOrders: number;
     potentialRevenue: number;
@@ -314,7 +315,17 @@ export default function SellerDashboard() {
     queryKey: ["/api/seller/metrics"],
     enabled: isAuthenticated,
     retry: false,
+    refetchInterval: 15000, // Refetch every 15 seconds for more frequent updates
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true, // Always refetch when component mounts
   });
+
+
+  // Manual refresh function for metrics
+  const refreshMetrics = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
+  };
 
   // Product form
   const form = useForm<ProductFormData>({
@@ -477,6 +488,8 @@ export default function SellerDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
       toast({
         title: "Success!",
         description: isServiceCategory
@@ -558,6 +571,8 @@ export default function SellerDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
       toast({
         title: "Success!",
         description: isEditServiceCategory
@@ -738,6 +753,8 @@ export default function SellerDashboard() {
         description: "Product deleted successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
     },
@@ -819,6 +836,15 @@ export default function SellerDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <SellerNotifications />
+            <Button 
+              variant="outline" 
+              onClick={refreshMetrics}
+              disabled={metricsLoading}
+              title="Refresh metrics"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${metricsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             <Button variant="outline" asChild>
               <Link href="/seller/analytics">
                 <BarChart3 className="w-4 h-4 mr-2" />
@@ -847,10 +873,16 @@ export default function SellerDashboard() {
                     className="text-2xl font-bold text-foreground"
                     data-testid="text-revenue"
                   >
-                    $
-                    {totalRevenue.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {metricsLoading ? (
+                      <Skeleton className="h-8 w-20" />
+                    ) : (
+                      <>
+                        $
+                        {totalRevenue.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </>
+                    )}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-accent" />
@@ -869,10 +901,16 @@ export default function SellerDashboard() {
                     className="text-2xl font-bold text-orange-600"
                     data-testid="text-potential-revenue"
                   >
-                    $
-                    {potentialRevenue.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {metricsLoading ? (
+                      <Skeleton className="h-8 w-20" />
+                    ) : (
+                      <>
+                        $
+                        {potentialRevenue.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </>
+                    )}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-orange-500" />
@@ -891,7 +929,11 @@ export default function SellerDashboard() {
                     className="text-2xl font-bold text-foreground"
                     data-testid="text-active-groups"
                   >
-                    {activeGroups}
+                    {metricsLoading ? (
+                      <Skeleton className="h-8 w-8" />
+                    ) : (
+                      activeGroups
+                    )}
                   </p>
                 </div>
                 <ShoppingBag className="h-8 w-8 text-primary" />
@@ -910,7 +952,11 @@ export default function SellerDashboard() {
                     className="text-2xl font-bold text-foreground"
                     data-testid="text-total-products"
                   >
-                    {totalProducts}
+                    {metricsLoading ? (
+                      <Skeleton className="h-8 w-8" />
+                    ) : (
+                      totalProducts
+                    )}
                   </p>
                 </div>
                 <Package className="h-8 w-8 text-secondary" />
@@ -929,8 +975,14 @@ export default function SellerDashboard() {
                     className="text-2xl font-bold text-accent"
                     data-testid="text-growth-percentage"
                   >
-                    {growthPercentage >= 0 ? "+" : ""}
-                    {growthPercentage.toFixed(1)}%
+                    {metricsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      <>
+                        {growthPercentage >= 0 ? "+" : ""}
+                        {growthPercentage.toFixed(1)}%
+                      </>
+                    )}
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-accent" />

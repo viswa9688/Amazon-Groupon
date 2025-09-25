@@ -180,12 +180,36 @@ export default function AdminSuper() {
     if (!editingUser) return;
     
     try {
-      await apiRequest("PUT", `/api/admin/users/${editingUser.id}`, {
+      // Check if credential-sensitive fields or status fields are being updated
+      const credentialFields = ['phoneNumber', 'email', 'firstName', 'lastName'];
+      const statusFields = ['isSeller', 'status', 'isSellerType'];
+      const hasCredentialChanges = credentialFields.some(field => 
+        editForm.hasOwnProperty(field) && editForm[field] !== editingUser[field]
+      );
+      const hasStatusChanges = statusFields.some(field => 
+        editForm.hasOwnProperty(field) && editForm[field] !== editingUser[field]
+      );
+      
+      // Use credentials endpoint if sensitive fields or status are being updated
+      const endpoint = (hasCredentialChanges || hasStatusChanges)
+        ? `/api/admin/users/${editingUser.id}/credentials`
+        : `/api/admin/users/${editingUser.id}`;
+      
+      const response = await apiRequest("PUT", endpoint, {
         ...loginData,
         ...editForm
       });
       
-      toast({ title: "Success", description: "User updated successfully" });
+      let message = "User updated successfully";
+      if (hasCredentialChanges && hasStatusChanges) {
+        message = "User credentials and status updated successfully. Credential changes require re-login, status changes are applied immediately.";
+      } else if (hasCredentialChanges) {
+        message = "User credentials updated successfully. All user sessions have been invalidated - user must re-login.";
+      } else if (hasStatusChanges) {
+        message = "User status updated successfully. Changes are applied immediately to active sessions.";
+      }
+      
+      toast({ title: "Success", description: message });
       setEditingUser(null);
       await fetchUsers();
     } catch (error) {

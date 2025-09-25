@@ -115,8 +115,47 @@ export default function ServiceProductCard({ product, testId }: ServiceProductCa
         // Also show toast with the specific message
         toast({
           title: "Cannot Mix Categories",
-          description: "We can't club services and groceries together. Please add them separately to cart.",
+          description: error?.error || "We can't club services and groceries together. Please add them separately to cart.",
           variant: "destructive",
+        });
+      } else if (error?.shopConflict) {
+        // Handle different shop conflict error
+        toast({
+          title: "Different Shop Conflict",
+          description: error?.error || "You have products from a different shop in your cart. Please clear your cart before adding products from this shop.",
+          variant: "destructive",
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-red-100 text-red-700"
+              onClick={() => {
+                // Navigate to cart page where user can clear cart
+                window.location.href = "/cart";
+              }}
+            >
+              Go to Cart
+            </Button>
+          ),
+        });
+      } else if (error?.sameItemConflict) {
+        // Handle same item from different shop error
+        toast({
+          title: "Same Item from Different Shop",
+          description: error?.error || "You already have this item from a different seller. Cannot add the same item from multiple shops.",
+          variant: "destructive",
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Navigate to cart page where user can clear cart
+                window.location.href = "/cart";
+              }}
+            >
+              Go to Cart
+            </Button>
+          ),
         });
       } else {
         toast({

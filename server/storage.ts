@@ -16,6 +16,7 @@ import {
   groceryProducts,
   adminCredentials,
   sellerNotifications,
+  sessions,
   type User,
   type UpsertUser,
   type CreateUserWithPhone,
@@ -73,6 +74,10 @@ export interface IStorage {
   // Admin credentials operations
   getAdminCredentials(userId: string): Promise<AdminCredentials | undefined>;
   validateAdminCredentials(userId: string, password: string): Promise<boolean>;
+  
+  // Session management operations
+  invalidateUserSessions(userId: string): Promise<void>;
+  updateUserSessions(userId: string, updates: Partial<User>): Promise<void>;
 
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -368,8 +373,89 @@ export class DatabaseStorage implements IStorage {
         await tx.delete(users).where(eq(users.id, id));
       });
       
+      // Invalidate user sessions after successful deletion
+      await this.invalidateUserSessions(id);
+      
     } catch (error) {
       console.error(`Error deleting user:`, error);
+      throw error;
+    }
+  }
+
+  async invalidateUserSessions(userId: string): Promise<void> {
+    try {
+      // Get all sessions from the sessions table
+      const allSessions = await db.select().from(sessions);
+      
+      let invalidatedCount = 0;
+      
+      for (const sessionRecord of allSessions) {
+        try {
+          // Parse the session data
+          const sessionData = sessionRecord.sess as any;
+          
+          // Check if this session belongs to the user we want to invalidate
+          if (sessionData && sessionData.user && sessionData.user.id === userId) {
+            // Delete the session
+            await db.delete(sessions).where(eq(sessions.sid, sessionRecord.sid));
+            invalidatedCount++;
+            console.log(`Invalidated session ${sessionRecord.sid} for user ${userId}`);
+          }
+        } catch (parseError) {
+          // If we can't parse a session, skip it
+          console.warn(`Could not parse session ${sessionRecord.sid}:`, parseError);
+          continue;
+        }
+      }
+      
+      console.log(`Invalidated ${invalidatedCount} sessions for user ${userId}`);
+    } catch (error) {
+      console.error(`Error invalidating sessions for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  async updateUserSessions(userId: string, updates: Partial<User>): Promise<void> {
+    try {
+      // Get all sessions from the sessions table
+      const allSessions = await db.select().from(sessions);
+      
+      let updatedCount = 0;
+      
+      for (const sessionRecord of allSessions) {
+        try {
+          // Parse the session data
+          const sessionData = sessionRecord.sess as any;
+          
+          // Check if this session belongs to the user we want to update
+          if (sessionData && sessionData.user && sessionData.user.id === userId) {
+            // Update the user data in the session
+            const updatedSessionData = {
+              ...sessionData,
+              user: {
+                ...sessionData.user,
+                ...updates
+              }
+            };
+            
+            // Update the session in the database
+            await db.update(sessions)
+              .set({ sess: updatedSessionData })
+              .where(eq(sessions.sid, sessionRecord.sid));
+            
+            updatedCount++;
+            console.log(`Updated session ${sessionRecord.sid} for user ${userId} with:`, updates);
+          }
+        } catch (parseError) {
+          // If we can't parse a session, skip it
+          console.warn(`Could not parse session ${sessionRecord.sid}:`, parseError);
+          continue;
+        }
+      }
+      
+      console.log(`Updated ${updatedCount} sessions for user ${userId}`);
+    } catch (error) {
+      console.error(`Error updating sessions for user ${userId}:`, error);
       throw error;
     }
   }
@@ -1433,10 +1519,27 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(products, eq(orderItems.productId, products.id))
         .where(and(
           eq(products.sellerId, sellerId),
-          sql`${orders.status} NOT IN ('completed', 'delivered')`
+          sql`${orders.status} NOT IN ('completed', 'delivered', 'cancelled')`
         ));
 
       const { potentialRevenue } = potentialRevenueResult[0] || { potentialRevenue: 0 };
+
+      // Get potential revenue from active groups (group purchases that haven't been ordered yet)
+      const activeGroupsRevenueResult = await db
+        .select({
+          groupRevenue: sql<number>`COALESCE(SUM(CAST(${userGroupItems.quantity} * ${products.originalPrice} as DECIMAL)), 0)`,
+        })
+        .from(userGroups)
+        .innerJoin(userGroupItems, eq(userGroups.id, userGroupItems.userGroupId))
+        .innerJoin(products, eq(userGroupItems.productId, products.id))
+        .where(and(
+          eq(products.sellerId, sellerId),
+          eq(userGroups.isPublic, true),
+          sql`${userGroups.createdAt} > NOW() - INTERVAL '30 days'`
+        ));
+
+      const { groupRevenue } = activeGroupsRevenueResult[0] || { groupRevenue: 0 };
+      const totalPotentialRevenue = Number(potentialRevenue) + Number(groupRevenue);
 
       // Get previous month revenue for growth calculation
       const thirtyDaysAgo = new Date();
@@ -1469,6 +1572,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(products.sellerId, sellerId));
       
       const totalProducts = productsResult[0]?.count || 0;
+      
 
       // Get active collections count (collections containing seller's products)
       const activeCollectionsResult = await db
@@ -1483,14 +1587,16 @@ export class DatabaseStorage implements IStorage {
 
       const activeGroups = activeCollectionsResult[0]?.count || 0;
 
-      return {
+      const finalMetrics = {
         totalRevenue: Number(totalRevenue) || 0,
         totalOrders: Number(totalOrders) || 0,
-        potentialRevenue: Number(potentialRevenue) || 0,
+        potentialRevenue: Number(totalPotentialRevenue) || 0,
         activeGroups: Number(activeGroups) || 0,
         totalProducts: Number(totalProducts) || 0,
         growthPercentage: Number(growthPercentage.toFixed(1)) || 0,
       };
+      
+      return finalMetrics;
     } catch (error) {
       console.error("Error calculating seller metrics:", error);
       return {

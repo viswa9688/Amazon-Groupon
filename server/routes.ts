@@ -113,7 +113,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.params.id;
       const userData = req.body;
+      
+      // Check if credentials-related fields or critical user status fields are being updated
+      const credentialFields = ['phoneNumber', 'email', 'firstName', 'lastName'];
+      const statusFields = ['isSeller', 'status', 'isSellerType'];
+      const hasCredentialChanges = credentialFields.some(field => 
+        userData.hasOwnProperty(field) && userData[field] !== undefined
+      );
+      const hasStatusChanges = statusFields.some(field => 
+        userData.hasOwnProperty(field) && userData[field] !== undefined
+      );
+      
       const updatedUser = await storage.updateUserAdmin(userId, userData);
+      
+      // Handle session updates based on the type of changes
+      if (hasCredentialChanges || hasStatusChanges) {
+        try {
+          if (hasCredentialChanges) {
+            // For credential changes, invalidate all sessions (force re-login)
+            await storage.invalidateUserSessions(userId);
+            console.log(`Sessions invalidated for user ${userId} due to credential changes`);
+          }
+          
+          if (hasStatusChanges) {
+            // For status changes, update sessions in real-time (better UX)
+            const statusUpdates = statusFields.reduce((acc, field) => {
+              if (userData.hasOwnProperty(field) && userData[field] !== undefined) {
+                acc[field] = userData[field];
+              }
+              return acc;
+            }, {} as any);
+            
+            await storage.updateUserSessions(userId, statusUpdates);
+            console.log(`Sessions updated for user ${userId} with status changes:`, statusUpdates);
+          }
+        } catch (sessionError) {
+          console.error(`Failed to update sessions for user ${userId}:`, sessionError);
+          // Don't fail the user update if session update fails
+        }
+      }
+      
       res.json(updatedUser);
     } catch (error: any) {
       console.error("Error updating user:", error);
@@ -144,6 +183,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generic error for other cases
       res.status(500).json({ 
         message: "Failed to update user",
+        error: 'INTERNAL_ERROR'
+      });
+    }
+  });
+
+  // Admin route to update user credentials and force session invalidation
+  app.put('/api/admin/users/:id/credentials', isAdminAuthenticated, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const credentialData = req.body;
+      
+      // Update user credentials
+      const updatedUser = await storage.updateUserAdmin(userId, credentialData);
+      
+      // Always invalidate sessions when credentials are explicitly updated
+      try {
+        await storage.invalidateUserSessions(userId);
+        console.log(`Sessions invalidated for user ${userId} due to explicit credential update`);
+      } catch (sessionError) {
+        console.error(`Failed to invalidate sessions for user ${userId}:`, sessionError);
+        // Don't fail the user update if session invalidation fails
+      }
+      
+      res.json({
+        ...updatedUser,
+        message: "User credentials updated and all sessions invalidated"
+      });
+    } catch (error: any) {
+      console.error("Error updating user credentials:", error);
+      
+      // Handle specific error types
+      if (error.message?.includes('already exists')) {
+        return res.status(409).json({ 
+          message: error.message,
+          error: 'CONFLICT',
+          details: 'The provided value conflicts with an existing record'
+        });
+      }
+      
+      if (error.message?.includes('not found')) {
+        return res.status(404).json({ 
+          message: error.message,
+          error: 'NOT_FOUND'
+        });
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to update user credentials",
         error: 'INTERNAL_ERROR'
       });
     }
@@ -1234,7 +1321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Product not found" });
       }
       
-      // Get existing cart items to check for category mixing and same item from different shops
+      // Get existing cart items to check for category mixing and shop conflicts
       const existingCart = await storage.getUserCart(userId);
       if (existingCart.length > 0) {
         // Check if any existing cart item has a different category
@@ -1244,15 +1331,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if trying to mix categories
         if ((hasGroceries && product.categoryId === 2) || (hasServices && product.categoryId === 1)) {
           const currentCategory = hasGroceries ? "Groceries" : "Services";
+          const newCategory = product.categoryId === 1 ? "Groceries" : "Services";
           return res.status(400).json({ 
             message: "Cannot mix categories",
-            error: "We can't club services and groceries together. Please add them separately to cart.",
+            error: `You have ${currentCategory.toLowerCase()} in your cart. Please clear your cart before adding ${newCategory.toLowerCase()} products.`,
             categoryConflict: true,
-            currentCategory: currentCategory
+            currentCategory: currentCategory,
+            newCategory: newCategory
           });
         }
 
-        // Check if trying to add the same item from a different shop
+        // Check if trying to add from a different shop (same category but different seller)
+        const existingShopSeller = existingCart[0].product.seller;
+        const newShopSeller = product.seller;
+        
+        if (existingShopSeller.id !== newShopSeller.id) {
+          const existingShopName = existingShopSeller.displayName || `${existingShopSeller.firstName} ${existingShopSeller.lastName}`;
+          const newShopName = newShopSeller.displayName || `${newShopSeller.firstName} ${newShopSeller.lastName}`;
+          
+          return res.status(400).json({ 
+            message: "Different shop conflict",
+            error: `You have products from "${existingShopName}" in your cart. Please clear your cart before adding products from "${newShopName}".`,
+            shopConflict: true,
+            existingShop: existingShopName,
+            newShop: newShopName
+          });
+        }
+
+        // Check if trying to add the same item from a different shop (additional validation)
         const sameItemFromDifferentShop = existingCart.find(item => 
           item.product.name.toLowerCase() === product.name.toLowerCase() && 
           item.product.sellerId !== product.sellerId
@@ -1261,12 +1367,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (sameItemFromDifferentShop) {
           const existingSeller = sameItemFromDifferentShop.product.seller;
           const newSeller = product.seller;
+          const existingShopName = existingSeller.displayName || `${existingSeller.firstName} ${existingSeller.lastName}`;
+          const newShopName = newSeller.displayName || `${newSeller.firstName} ${newSeller.lastName}`;
+          
           return res.status(400).json({ 
             message: "Same item from different shop",
-            error: `You already have "${product.name}" from ${existingSeller.firstName} ${existingSeller.lastName}. Cannot add the same item from ${newSeller.firstName} ${newSeller.lastName}.`,
+            error: `You already have "${product.name}" from "${existingShopName}". Please clear your cart before adding the same item from "${newShopName}".`,
             sameItemConflict: true,
-            existingSeller: `${existingSeller.firstName} ${existingSeller.lastName}`,
-            newSeller: `${newSeller.firstName} ${newSeller.lastName}`
+            existingSeller: existingShopName,
+            newSeller: newShopName
           });
         }
       }
