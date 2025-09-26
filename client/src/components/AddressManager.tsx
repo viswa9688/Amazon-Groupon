@@ -15,11 +15,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { insertUserAddressSchema, type UserAddress, type InsertUserAddress } from "@shared/schema";
+import { validateBCAddress, type AddressData } from "@/lib/addressValidation";
 
 const addressSchema = insertUserAddressSchema.omit({ userId: true }).extend({
-  pincode: z.string().min(1, "ZIP code is required"),
-  state: z.string().min(1, "State is required"),
-  country: z.string().default("United States"),
+  pincode: z.string().min(1, "Postal code is required"),
+  state: z.string().min(1, "Province/State is required"),
+  country: z.string().default("Canada"),
 });
 
 type AddressFormData = z.infer<typeof addressSchema>;
@@ -49,7 +50,7 @@ export default function AddressManager({
       city: "",
       pincode: "",
       state: "",
-      country: "United States",
+      country: "Canada",
       isDefault: false,
     },
   });
@@ -149,7 +150,41 @@ export default function AddressManager({
     },
   });
 
-  const handleSubmit = (data: AddressFormData) => {
+  const handleSubmit = async (data: AddressFormData) => {
+    // Validate BC address using geocoding API
+    const addressData: AddressData = {
+      addressLine1: data.addressLine,
+      city: data.city,
+      state: data.state,
+      postalCode: data.pincode,
+      country: data.country
+    };
+
+    try {
+      const validationResult = await validateBCAddress(addressData);
+      
+      if (!validationResult.isValid) {
+        toast({
+          title: "Address Validation Error",
+          description: validationResult.error || "Address is not in British Columbia. Please enter a valid BC address.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Show success message with formatted address
+      if (validationResult.formattedAddress) {
+        console.log('Address validated successfully:', validationResult.formattedAddress);
+      }
+    } catch (error) {
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate address. Please check your internet connection and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (editingAddress) {
       updateAddressMutation.mutate({
         id: editingAddress.id,
@@ -174,7 +209,7 @@ export default function AddressManager({
       city: address.city,
       pincode: address.pincode,
       state: address.state || "",
-      country: address.country || "United States",
+      country: address.country || "Canada",
       isDefault: address.isDefault || false,
     });
     setShowForm(true);
@@ -450,20 +485,25 @@ export default function AddressManager({
               </div>
 
               <div>
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="state">Province/State * (Must be BC)</Label>
                 <Input
                   id="state"
-                  placeholder="State"
+                  placeholder="e.g., British Columbia"
                   {...form.register("state")}
                   data-testid="input-address-state"
                 />
+                {form.formState.errors.state && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {form.formState.errors.state.message}
+                  </p>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="pincode">ZIP Code *</Label>
+                <Label htmlFor="pincode">Postal Code *</Label>
                 <Input
                   id="pincode"
-                  placeholder="ZIP Code"
+                  placeholder="e.g., V6C 1T4"
                   {...form.register("pincode")}
                   data-testid="input-address-zipcode"
                 />

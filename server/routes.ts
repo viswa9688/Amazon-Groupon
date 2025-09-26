@@ -109,6 +109,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
+
+  // Address validation endpoint
+  app.post('/api/validate-address', async (req, res) => {
+    try {
+      const { addressLine1, addressLine2, city, state, postalCode, country } = req.body;
+      
+      if (!addressLine1 || !city || !state || !postalCode || !country) {
+        return res.status(400).json({ 
+          isValid: false, 
+          error: "Missing required address fields" 
+        });
+      }
+
+      const address = {
+        addressLine: addressLine1 + (addressLine2 ? `, ${addressLine2}` : ''),
+        city,
+        state,
+        pincode: postalCode,
+        country
+      };
+
+      const { geocodingService } = await import('./geocodingService');
+      const result = await geocodingService.verifyBCAddress(address);
+      
+      res.json({
+        isValid: result.isInBC,
+        formattedAddress: result.formattedAddress,
+        province: result.province,
+        confidence: result.confidence,
+        error: result.error
+      });
+    } catch (error) {
+      console.error("Error validating address:", error);
+      res.status(500).json({ 
+        isValid: false, 
+        error: "Address validation failed" 
+      });
+    }
+  });
   
   app.put('/api/admin/users/:id', isAdminAuthenticated, async (req, res) => {
     try {

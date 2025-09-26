@@ -167,6 +167,7 @@ export class DeliveryService {
       let shopDeliveryFee = 5.99; // Default fallback
       let shopFreeDeliveryThreshold = 75.00; // Default fallback
       let shopMinimumOrderValue = 25.00; // Default fallback
+      let shopDeliveryFeePerKm = 0; // Default fallback
 
       if (sellerId) {
         try {
@@ -197,11 +198,15 @@ export class DeliveryService {
             if (seller.minimumOrderValue !== undefined && seller.minimumOrderValue !== null) {
               shopMinimumOrderValue = parseFloat(seller.minimumOrderValue.toString());
             }
+            if (seller.deliveryFeePerKm !== undefined && seller.deliveryFeePerKm !== null) {
+              shopDeliveryFeePerKm = parseFloat(seller.deliveryFeePerKm.toString());
+            }
             
             console.log('Using shop-specific delivery settings:', {
               deliveryFee: shopDeliveryFee,
               freeDeliveryThreshold: shopFreeDeliveryThreshold,
-              minimumOrderValue: shopMinimumOrderValue
+              minimumOrderValue: shopMinimumOrderValue,
+              deliveryFeePerKm: shopDeliveryFeePerKm
             });
           }
         } catch (error) {
@@ -225,7 +230,8 @@ export class DeliveryService {
         orderTotal,
         shopDeliveryFee,
         shopFreeDeliveryThreshold,
-        shopMinimumOrderValue
+        shopMinimumOrderValue,
+        shopDeliveryFeePerKm
       );
 
       return deliveryCalculation;
@@ -861,7 +867,8 @@ export class DeliveryService {
     orderTotal: number,
     shopDeliveryFee: number,
     shopFreeDeliveryThreshold: number,
-    shopMinimumOrderValue: number
+    shopMinimumOrderValue: number,
+    shopDeliveryFeePerKm: number = 0
   ): DeliveryCalculation {
     // Check minimum order value
     if (orderTotal < shopMinimumOrderValue) {
@@ -885,6 +892,19 @@ export class DeliveryService {
     } else {
       deliveryCharge = shopDeliveryFee;
       reason = `Delivery fee: $${shopDeliveryFee.toFixed(2)} for orders under $${shopFreeDeliveryThreshold.toFixed(2)}`;
+    }
+
+    // Add per-km fee for distances beyond 10km
+    if (distance > 10 && shopDeliveryFeePerKm > 0) {
+      const extraKm = distance - 10;
+      const extraKmFee = extraKm * shopDeliveryFeePerKm;
+      deliveryCharge += extraKmFee;
+      
+      if (isFreeDelivery) {
+        reason += ` + $${extraKmFee.toFixed(2)} for ${extraKm.toFixed(1)}km beyond 10km radius ($${shopDeliveryFeePerKm.toFixed(2)}/km)`;
+      } else {
+        reason += ` + $${extraKmFee.toFixed(2)} for ${extraKm.toFixed(1)}km beyond 10km radius ($${shopDeliveryFeePerKm.toFixed(2)}/km)`;
+      }
     }
 
     return {

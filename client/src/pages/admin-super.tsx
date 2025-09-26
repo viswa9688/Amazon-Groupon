@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { validateBCAddress, type AddressData } from "@/lib/addressValidation";
 
 interface User {
   id: string;
@@ -58,6 +59,13 @@ interface User {
   ageCheckEnabled?: boolean;
   substitutionPolicy?: string;
   refundPolicyUrl?: string;
+  
+  // Delivery Settings
+  deliveryFee?: string;
+  freeDeliveryThreshold?: string;
+  minimumOrderValue?: string;
+  deliveryRadiusKm?: number;
+  deliveryFeePerKm?: string;
   
   _impersonation?: {
     isImpersonating: boolean;
@@ -178,6 +186,71 @@ export default function AdminSuper() {
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
+    
+    // Validate address fields if they are being updated
+    if (editForm.addressLine1 || editForm.locality || editForm.region || editForm.postalCode || editForm.country) {
+      if (!editForm.addressLine1?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Address Line 1 is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!editForm.locality?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "City is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!editForm.region?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Province/State is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate BC address using geocoding API
+      const addressData: AddressData = {
+        addressLine1: editForm.addressLine1!,
+        addressLine2: editForm.addressLine2,
+        city: editForm.locality!,
+        state: editForm.region!,
+        postalCode: editForm.postalCode!,
+        country: editForm.country!
+      };
+
+      try {
+        const validationResult = await validateBCAddress(addressData);
+        
+        if (!validationResult.isValid) {
+          toast({
+            title: "Address Validation Error",
+            description: validationResult.error || "Address is not in British Columbia. Please enter a valid BC address.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Show success message with formatted address
+        if (validationResult.formattedAddress) {
+          console.log('Address validated successfully:', validationResult.formattedAddress);
+        }
+      } catch (error) {
+        toast({
+          title: "Validation Error",
+          description: "Failed to validate address. Please check your internet connection and try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
     
     try {
       // Check if credential-sensitive fields or status fields are being updated
@@ -348,19 +421,36 @@ export default function AdminSuper() {
         return;
       }
 
-      if (!newShopForm.postalCode?.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Postal Code is required",
-          variant: "destructive"
-        });
-        return;
-      }
+      // Validate BC address using geocoding API
+      const addressData: AddressData = {
+        addressLine1: newShopForm.addressLine1!,
+        addressLine2: newShopForm.addressLine2,
+        city: newShopForm.locality!,
+        state: newShopForm.region!,
+        postalCode: newShopForm.postalCode!,
+        country: newShopForm.country!
+      };
 
-      if (!newShopForm.country?.trim()) {
+      try {
+        const validationResult = await validateBCAddress(addressData);
+        
+        if (!validationResult.isValid) {
+          toast({
+            title: "Address Validation Error",
+            description: validationResult.error || "Address is not in British Columbia. Please enter a valid BC address.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Show success message with formatted address
+        if (validationResult.formattedAddress) {
+          console.log('Address validated successfully:', validationResult.formattedAddress);
+        }
+      } catch (error) {
         toast({
           title: "Validation Error",
-          description: "Country is required",
+          description: "Failed to validate address. Please check your internet connection and try again.",
           variant: "destructive"
         });
         return;
@@ -422,6 +512,7 @@ export default function AdminSuper() {
           <TableHead>Location</TableHead>
           <TableHead>Status</TableHead>
           {type === "sellers" && <TableHead>Products</TableHead>}
+          {type === "sellers" && <TableHead>Delivery Fee/Km</TableHead>}
           <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -470,6 +561,17 @@ export default function AdminSuper() {
             {type === "sellers" && (
               <TableCell>
                 <Badge variant="outline">{user.productCount || 0} products</Badge>
+              </TableCell>
+            )}
+            {type === "sellers" && (
+              <TableCell>
+                <div className="text-sm">
+                  {user.deliveryFeePerKm ? (
+                    <span className="font-medium">${user.deliveryFeePerKm}/km</span>
+                  ) : (
+                    <span className="text-muted-foreground">Not set</span>
+                  )}
+                </div>
               </TableCell>
             )}
             <TableCell>
@@ -794,12 +896,13 @@ export default function AdminSuper() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="addressLine1">Address Line 1</Label>
+                    <Label htmlFor="addressLine1">Address Line 1 *</Label>
                     <Input
                       id="addressLine1"
                       value={newShopForm.addressLine1 || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, addressLine1: e.target.value }))}
                       placeholder="e.g., 123 Main Street"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -812,39 +915,43 @@ export default function AdminSuper() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="locality">City</Label>
+                    <Label htmlFor="locality">City *</Label>
                     <Input
                       id="locality"
                       value={newShopForm.locality || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, locality: e.target.value }))}
                       placeholder="e.g., Vancouver"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="region">Province/State</Label>
+                    <Label htmlFor="region">Province/State * (Must be BC)</Label>
                     <Input
                       id="region"
                       value={newShopForm.region || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, region: e.target.value }))}
-                      placeholder="e.g., BC"
+                      placeholder="e.g., British Columbia"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode">Postal Code</Label>
+                    <Label htmlFor="postalCode">Postal Code *</Label>
                     <Input
                       id="postalCode"
                       value={newShopForm.postalCode || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, postalCode: e.target.value }))}
-                      placeholder="e.g., V5K0A1"
+                      placeholder="e.g., V6C 1T4"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="country">Country</Label>
+                    <Label htmlFor="country">Country *</Label>
                     <Input
                       id="country"
                       value={newShopForm.country || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, country: e.target.value }))}
-                      placeholder="e.g., CA"
+                      placeholder="e.g., Canada"
+                      required
                     />
                   </div>
                 </div>
@@ -947,6 +1054,21 @@ export default function AdminSuper() {
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 10 }))}
                       placeholder="e.g., 10"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deliveryFeePerKm">Delivery Fee per KM (after 10km)</Label>
+                    <Input
+                      id="deliveryFeePerKm"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newShopForm.deliveryFeePerKm || ""}
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryFeePerKm: parseFloat(e.target.value) || 0 }))}
+                      placeholder="e.g., 2.50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Fee charged per kilometer for deliveries beyond 10km radius
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1165,11 +1287,12 @@ export default function AdminSuper() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="editAddressLine1">Address Line 1</Label>
+                    <Label htmlFor="editAddressLine1">Address Line 1 *</Label>
                     <Input
                       id="editAddressLine1"
                       value={editForm.addressLine1 || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, addressLine1: e.target.value }))}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -1181,35 +1304,39 @@ export default function AdminSuper() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editLocality">City</Label>
+                    <Label htmlFor="editLocality">City *</Label>
                     <Input
                       id="editLocality"
                       value={editForm.locality || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, locality: e.target.value }))}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editRegion">Province/State</Label>
+                    <Label htmlFor="editRegion">Province/State * (Must be BC)</Label>
                     <Input
                       id="editRegion"
                       value={editForm.region || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, region: e.target.value }))}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editPostalCode">Postal Code</Label>
+                    <Label htmlFor="editPostalCode">Postal Code *</Label>
                     <Input
                       id="editPostalCode"
                       value={editForm.postalCode || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, postalCode: e.target.value }))}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editCountry">Country</Label>
+                    <Label htmlFor="editCountry">Country *</Label>
                     <Input
                       id="editCountry"
                       value={editForm.country || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, country: e.target.value }))}
+                      required
                     />
                   </div>
                 </div>
@@ -1247,6 +1374,80 @@ export default function AdminSuper() {
                       value={editForm.deliveryHours || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, deliveryHours: e.target.value }))}
                     />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Delivery Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Delivery Settings
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editDeliveryFee">Delivery Fee (CAD)</Label>
+                    <Input
+                      id="editDeliveryFee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editForm.deliveryFee || ""}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, deliveryFee: e.target.value }))}
+                      placeholder="e.g., 5.99"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editFreeDeliveryThreshold">Free Delivery Threshold (CAD)</Label>
+                    <Input
+                      id="editFreeDeliveryThreshold"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editForm.freeDeliveryThreshold || ""}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, freeDeliveryThreshold: e.target.value }))}
+                      placeholder="e.g., 50.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editMinimumOrderValue">Minimum Order Value (CAD)</Label>
+                    <Input
+                      id="editMinimumOrderValue"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editForm.minimumOrderValue || ""}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, minimumOrderValue: e.target.value }))}
+                      placeholder="e.g., 25.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editDeliveryRadiusKm">Delivery Radius (km)</Label>
+                    <Input
+                      id="editDeliveryRadiusKm"
+                      type="number"
+                      min="1"
+                      value={editForm.deliveryRadiusKm || ""}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 10 }))}
+                      placeholder="e.g., 10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editDeliveryFeePerKm">Delivery Fee per KM (after 10km)</Label>
+                    <Input
+                      id="editDeliveryFeePerKm"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editForm.deliveryFeePerKm || ""}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, deliveryFeePerKm: e.target.value }))}
+                      placeholder="e.g., 2.50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Fee charged per kilometer for deliveries beyond 10km radius
+                    </p>
                   </div>
                 </div>
               </div>

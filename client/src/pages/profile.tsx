@@ -19,6 +19,7 @@ import { insertUserAddressSchema } from "@shared/schema";
 import type { UserAddress, InsertUserAddress } from "@shared/schema";
 import { Plus, Edit2, Trash2, MapPin, Home, Star } from "lucide-react";
 import { z } from "zod";
+import { validateBCAddress, type AddressData } from "@/lib/addressValidation";
 
 const addressFormSchema = insertUserAddressSchema.omit({ userId: true });
 type AddressFormData = z.infer<typeof addressFormSchema>;
@@ -61,7 +62,7 @@ export default function Profile() {
       city: "",
       pincode: "",
       state: "",
-      country: "India",
+      country: "Canada",
       isDefault: false,
     },
   });
@@ -188,7 +189,41 @@ export default function Profile() {
     setShowAddressForm(true);
   };
 
-  const handleSubmit = (data: AddressFormData) => {
+  const handleSubmit = async (data: AddressFormData) => {
+    // Validate BC address using geocoding API
+    const addressData: AddressData = {
+      addressLine1: data.addressLine,
+      city: data.city,
+      state: data.state,
+      postalCode: data.pincode,
+      country: data.country
+    };
+
+    try {
+      const validationResult = await validateBCAddress(addressData);
+      
+      if (!validationResult.isValid) {
+        toast({
+          title: "Address Validation Error",
+          description: validationResult.error || "Address is not in British Columbia. Please enter a valid BC address.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Show success message with formatted address
+      if (validationResult.formattedAddress) {
+        console.log('Address validated successfully:', validationResult.formattedAddress);
+      }
+    } catch (error) {
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate address. Please check your internet connection and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (editingAddress) {
       updateAddressMutation.mutate({ id: editingAddress.id, data });
     } else {

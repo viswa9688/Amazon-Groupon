@@ -80,6 +80,7 @@ export const users = pgTable("users", {
   freeDeliveryThreshold: decimal("free_delivery_threshold", { precision: 10, scale: 2 }).default("0.00"),
   minimumOrderValue: decimal("minimum_order_value", { precision: 10, scale: 2 }).default("0.00"),
   deliveryRadiusKm: integer("delivery_radius_km").default(10),
+  deliveryFeePerKm: decimal("delivery_fee_per_km", { precision: 10, scale: 2 }).default("0.00"), // Fee per km after 10km radius
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -245,8 +246,8 @@ export const userAddresses = pgTable("user_addresses", {
   addressLine: text("address_line").notNull(), // Street address
   city: varchar("city", { length: 100 }).notNull(),
   pincode: varchar("pincode", { length: 20 }).notNull(),
-  state: varchar("state", { length: 100 }),
-  country: varchar("country", { length: 100 }).default("India"),
+  state: varchar("state", { length: 100 }).notNull(),
+  country: varchar("country", { length: 100 }).default("Canada"),
   isDefault: boolean("is_default").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
