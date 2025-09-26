@@ -768,6 +768,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Validate minimum order value of $50
+      const totalPrice = parseFloat(req.body.totalPrice || req.body.finalPrice || "0");
+      if (totalPrice < 50) {
+        return res.status(400).json({ 
+          message: "Minimum order value is $50.00. Your current order total is $" + totalPrice.toFixed(2) + "." 
+        });
+      }
+      
       const orderData = insertOrderSchema.parse({
         ...req.body,
         userId,
@@ -815,6 +824,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create individual order at original price
       const totalPrice = parseFloat(product.originalPrice.toString()) * quantity;
+      
+      // Validate minimum order value of $50
+      if (totalPrice < 50) {
+        return res.status(400).json({ 
+          message: "Minimum order value is $50.00. Your current order total is $" + totalPrice.toFixed(2) + "." 
+        });
+      }
       
       // Calculate expected delivery date based on order time
       const deliveryInfo = calculateExpectedDeliveryDate();
@@ -878,6 +894,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!items || !Array.isArray(items) || items.length === 0) {
         console.log("Missing or invalid items:", items);
         return res.status(400).json({ message: "Order items are required" });
+      }
+      
+      // Validate minimum order value of $50
+      if (!totalPrice || parseFloat(totalPrice) < 50) {
+        return res.status(400).json({ 
+          message: "Minimum order value is $50.00. Your current order total is $" + (totalPrice ? parseFloat(totalPrice).toFixed(2) : "0.00") + "." 
+        });
       }
       
       // Get address details if addressId is provided
