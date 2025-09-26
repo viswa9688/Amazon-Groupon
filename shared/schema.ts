@@ -271,6 +271,7 @@ export const userGroups = pgTable("user_groups", {
   shareToken: varchar("share_token", { length: 32 }).notNull().unique(),
   maxMembers: integer("max_members").notNull().default(5),
   isPublic: boolean("is_public").default(true),
+  deliveryMethod: varchar("delivery_method", { length: 20 }).default("delivery"), // delivery, pickup
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

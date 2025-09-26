@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,7 +41,8 @@ import {
   AlertTriangle,
   CreditCard,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  Truck
 } from "lucide-react";
 import type { UserGroupWithDetails, ProductWithDetails, UserGroupParticipant, User } from "@shared/schema";
 
@@ -49,6 +51,10 @@ const editGroupSchema = z.object({
   name: z.string().min(1, "Group name is required").max(255, "Name too long"),
   description: z.string().optional(),
   isPublic: z.boolean().optional(),
+});
+
+const deliveryMethodSchema = z.object({
+  deliveryMethod: z.enum(["delivery", "pickup"]),
 });
 
 const addProductSchema = z.object({
@@ -235,6 +241,14 @@ export default function UserGroupPage() {
     },
   });
 
+  // Delivery method form
+  const deliveryMethodForm = useForm<z.infer<typeof deliveryMethodSchema>>({
+    resolver: zodResolver(deliveryMethodSchema),
+    defaultValues: {
+      deliveryMethod: userGroup?.deliveryMethod || "delivery",
+    },
+  });
+
   // Add product form
   const addProductForm = useForm<z.infer<typeof addProductSchema>>({
     resolver: zodResolver(addProductSchema),
@@ -252,8 +266,11 @@ export default function UserGroupPage() {
         description: userGroup.description || "",
         isPublic: userGroup.isPublic || false,
       });
+      deliveryMethodForm.reset({
+        deliveryMethod: userGroup.deliveryMethod || "delivery",
+      });
     }
-  }, [userGroup, editForm]);
+  }, [userGroup, editForm, deliveryMethodForm]);
 
   // Edit group mutation
   const editGroupMutation = useMutation({
@@ -284,6 +301,39 @@ export default function UserGroupPage() {
       toast({
         title: "Error",
         description: "Failed to update group. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delivery method mutation
+  const deliveryMethodMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof deliveryMethodSchema>) => {
+      return await apiRequest("PUT", `/api/user-groups/${groupId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-groups"] });
+      toast({
+        title: "Success",
+        description: "Delivery method updated successfully!",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update delivery method. Please try again.",
         variant: "destructive",
       });
     },
@@ -663,6 +713,23 @@ export default function UserGroupPage() {
                           🔒 Locked (Max Capacity)
                         </Badge>
                       )}
+                      <Badge variant="outline" className={`flex items-center space-x-1 ${
+                        userGroup.deliveryMethod === "pickup" 
+                          ? "text-purple-600 border-purple-300 bg-purple-50" 
+                          : "text-blue-600 border-blue-300 bg-blue-50"
+                      }`}>
+                        {userGroup.deliveryMethod === "pickup" ? (
+                          <>
+                            <Users className="w-3 h-3" />
+                            <span>Group Pickup</span>
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="w-3 h-3" />
+                            <span>Home Delivery</span>
+                          </>
+                        )}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -757,6 +824,54 @@ export default function UserGroupPage() {
               </div>
             </div>
           </div>
+          
+          {/* Delivery Method Control - Always available for owners */}
+          {isOwner && (
+            <div className="mt-6 p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-purple-200/50 dark:border-purple-800/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Truck className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Delivery Method</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Change how group members receive their orders
+                    </p>
+                  </div>
+                </div>
+                <Form {...deliveryMethodForm}>
+                  <form onSubmit={deliveryMethodForm.handleSubmit((data) => deliveryMethodMutation.mutate(data))} className="flex items-center space-x-3">
+                    <FormField
+                      control={deliveryMethodForm.control}
+                      name="deliveryMethod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Select delivery method" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="delivery">Home Delivery</SelectItem>
+                              <SelectItem value="pickup">Group Pickup</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="submit" 
+                      size="sm"
+                      disabled={deliveryMethodMutation.isPending}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      {deliveryMethodMutation.isPending ? "Updating..." : "Update"}
+                    </Button>
+                  </form>
+                </Form>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

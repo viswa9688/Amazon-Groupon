@@ -401,6 +401,9 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
             const userGroupResponse = await apiRequest("GET", `/api/user-groups/${groupDataResponse.id}`);
             const userGroupDetails = await userGroupResponse.json();
             
+            // Set delivery method from group settings
+            setDeliveryMethod(userGroupDetails.deliveryMethod || "delivery");
+            
             // Get member details if specified
             if (checkoutData.memberId) {
               const member = userGroupDetails.participants?.find((p: any) => p.userId === checkoutData.memberId);
@@ -712,7 +715,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
             
             {/* Right Column - Address & Payment */}
             <div className="space-y-6">
-              {/* Delivery Method Selection */}
+              {/* Delivery Method Display */}
               <Card className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -720,66 +723,100 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                     Delivery Method
                   </CardTitle>
                   <CardDescription>
-                    Choose how you want to receive your order
+                    {checkoutData.type === 'group' 
+                      ? "Delivery method set by group owner" 
+                      : "Choose how you want to receive your order"
+                    }
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div 
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          deliveryMethod === "delivery" 
-                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
-                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                        }`}
-                        onClick={() => setDeliveryMethod("delivery")}
-                      >
+                    {checkoutData.type === 'group' ? (
+                      // Group checkout - show selected method
+                      <div className={`p-4 border-2 rounded-lg ${
+                        deliveryMethod === "delivery" 
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                          : "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
+                      }`}>
                         <div className="flex items-center space-x-3">
                           <div className={`w-4 h-4 rounded-full border-2 ${
                             deliveryMethod === "delivery" 
                               ? "border-blue-500 bg-blue-500" 
-                              : "border-gray-300 dark:border-gray-600"
+                              : "border-purple-500 bg-purple-500"
                           }`}>
-                            {deliveryMethod === "delivery" && (
-                              <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                            )}
+                            <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900 dark:text-white">Home Delivery</h3>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {deliveryMethod === "delivery" ? "Home Delivery" : "Group Pickup"}
+                            </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Delivered to your selected address
+                              {deliveryMethod === "delivery" 
+                                ? "Delivered directly to your selected address"
+                                : "Pick up from group owner's location"
+                              }
                             </p>
                           </div>
                         </div>
                       </div>
-                      
-                      <div 
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          deliveryMethod === "pickup" 
-                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
-                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                        }`}
-                        onClick={() => setDeliveryMethod("pickup")}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
+                    ) : (
+                      // Individual checkout - allow selection
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div 
+                          className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                            deliveryMethod === "delivery" 
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                              : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                          }`}
+                          onClick={() => setDeliveryMethod("delivery")}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-4 h-4 rounded-full border-2 ${
+                              deliveryMethod === "delivery" 
+                                ? "border-blue-500 bg-blue-500" 
+                                : "border-gray-300 dark:border-gray-600"
+                            }`}>
+                              {deliveryMethod === "delivery" && (
+                                <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">Home Delivery</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Delivered directly to your selected address
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div 
+                          className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                             deliveryMethod === "pickup" 
-                              ? "border-blue-500 bg-blue-500" 
-                              : "border-gray-300 dark:border-gray-600"
-                          }`}>
-                            {deliveryMethod === "pickup" && (
-                              <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900 dark:text-white">Pickup</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Pick up from group owner's location
-                            </p>
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                              : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                          }`}
+                          onClick={() => setDeliveryMethod("pickup")}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-4 h-4 rounded-full border-2 ${
+                              deliveryMethod === "pickup" 
+                                ? "border-blue-500 bg-blue-500" 
+                                : "border-gray-300 dark:border-gray-600"
+                            }`}>
+                              {deliveryMethod === "pickup" && (
+                                <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">Group Pickup</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Pick up from group owner's location
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                     
                     {deliveryMethod === "pickup" && (
                       <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
@@ -790,8 +827,10 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                           </span>
                         </div>
                         <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                          When you select pickup, the order will be delivered to the group owner. 
-                          All group members will be notified when the order is ready for pickup.
+                          {checkoutData.type === 'group' 
+                            ? "The group owner has set this group for pickup. Contact them to arrange pickup time and location."
+                            : "When you select pickup, the order will be delivered to the group owner. All group members will be notified when the order is ready for pickup."
+                          }
                         </p>
                       </div>
                     )}
@@ -799,14 +838,74 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                 </CardContent>
               </Card>
 
-              {/* Address Management - Only show for delivery */}
-              {deliveryMethod === "delivery" && (
+              {/* Address Management - Show based on delivery method */}
+              {deliveryMethod === "delivery" ? (
                 <AddressManager
                   selectedAddressId={selectedAddressId}
                   onAddressSelect={setSelectedAddressId}
                   showSelection={true}
+                  deliveryMethod={deliveryMethod}
                 />
+              ) : (
+                // For pickup, show owner's address information
+                <Card className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Pickup Location
+                    </CardTitle>
+                    <CardDescription>
+                      Pickup address set by group owner
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {groupData && groupData.user ? (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
+                              <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900 dark:text-white">
+                                {groupData.user.firstName} {groupData.user.lastName}
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Group Owner
+                              </p>
+                              {groupData.user.phoneNumber && (
+                                <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
+                                  📞 {groupData.user.phoneNumber}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Info className="w-5 h-5 text-yellow-600" />
+                            <span className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                              Pickup Instructions
+                            </span>
+                          </div>
+                          <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                            Contact the group owner to arrange pickup time and location. 
+                            You'll be notified when your order is ready for collection.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Loading pickup information...
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
+
 
               {/* Delivery Fee Display - Only show for delivery */}
               {deliveryMethod === "delivery" && (

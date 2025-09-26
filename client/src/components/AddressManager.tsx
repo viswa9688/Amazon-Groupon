@@ -29,12 +29,14 @@ interface AddressManagerProps {
   selectedAddressId?: number | null;
   onAddressSelect: (addressId: number) => void;
   showSelection?: boolean;
+  deliveryMethod?: "pickup" | "delivery";
 }
 
 export default function AddressManager({ 
   selectedAddressId, 
   onAddressSelect, 
-  showSelection = true 
+  showSelection = true,
+  deliveryMethod = "delivery"
 }: AddressManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
@@ -243,7 +245,7 @@ export default function AddressManager({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <MapPin className="w-5 h-5" />
-            <span>Delivery Addresses</span>
+            <span>{deliveryMethod === "pickup" ? "Contact Addresses" : "Delivery Addresses"}</span>
           </div>
           {!showForm && (
             <Button 
@@ -256,6 +258,12 @@ export default function AddressManager({
             </Button>
           )}
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {deliveryMethod === "pickup" 
+            ? "Select your contact address for pickup coordination" 
+            : "Select a delivery address for your order"
+          }
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Address List */}
