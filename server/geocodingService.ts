@@ -77,14 +77,32 @@ export class GeocodingService {
       const confidence = this.calculateConfidence(geocodingResult);
 
       // If geocoding says not BC but address data suggests BC, use fallback
+      // BUT only if the geocoding result is actually in Canada
       if (!isInBC && this.isBCFromAddressData(correctedAddress)) {
-        console.log('Geocoding failed but address data suggests BC, using fallback validation');
-        return {
-          isInBC: true,
-          formattedAddress: geocodingResult.formatted_address || formattedAddress,
-          province: 'British Columbia',
-          confidence: 0.7
-        };
+        const isInCanada = geocodingResult.address_components?.some((component: any) => 
+          component.types.includes('country') && component.short_name === 'CA'
+        );
+        
+        if (isInCanada) {
+          console.log('Geocoding failed but address data suggests BC and result is in Canada, using fallback validation');
+          return {
+            isInBC: true,
+            formattedAddress: geocodingResult.formatted_address || formattedAddress,
+            province: 'British Columbia',
+            confidence: 0.7
+          };
+        } else {
+          console.log('Geocoding result is not in Canada, rejecting BC validation');
+          return {
+            isInBC: false,
+            formattedAddress: geocodingResult.formatted_address || formattedAddress,
+            province: geocodingResult.address_components?.find(component => 
+              component.types.includes('administrative_area_level_1')
+            )?.long_name || 'Unknown',
+            confidence: 0.8,
+            error: 'Address is not in Canada'
+          };
+        }
       }
 
       return {
@@ -135,6 +153,11 @@ export class GeocodingService {
    * Check if address data suggests it's in British Columbia (fallback validation)
    */
   private isBCFromAddressData(address: Address): boolean {
+    // First, check if country is explicitly NOT Canada - if so, definitely not BC
+    if (address.country && address.country.toLowerCase() !== 'canada' && address.country.toLowerCase() !== 'ca') {
+      return false;
+    }
+
     // Check if state/province is British Columbia
     if (address.state && this.BC_PROVINCE_NAMES.some(bcName => 
       address.state!.toLowerCase().includes(bcName.toLowerCase())
@@ -142,16 +165,17 @@ export class GeocodingService {
       return true;
     }
 
-    // Check if postal code starts with V (BC postal codes)
-    if (address.pincode && address.pincode.toUpperCase().startsWith('V')) {
+    // Check if postal code starts with V (BC postal codes) AND country is Canada
+    if (address.pincode && address.pincode.toUpperCase().startsWith('V') && 
+        address.country && (address.country.toLowerCase() === 'canada' || address.country.toLowerCase() === 'ca')) {
       return true;
     }
 
-    // Check if city is a known BC city
+    // Check if city is a known BC city AND country is Canada
     const bcCities = ['vancouver', 'victoria', 'burnaby', 'richmond', 'surrey', 'langley', 'coquitlam', 'delta', 'new westminster', 'north vancouver', 'west vancouver'];
     if (address.city && bcCities.some(city => 
       address.city!.toLowerCase().includes(city)
-    )) {
+    ) && address.country && (address.country.toLowerCase() === 'canada' || address.country.toLowerCase() === 'ca')) {
       return true;
     }
 

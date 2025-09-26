@@ -227,9 +227,12 @@ export default function AdminSuper() {
       };
 
       try {
+        console.log('Edit form - Validating address:', addressData);
         const validationResult = await validateBCAddress(addressData);
+        console.log('Edit form - Validation result:', validationResult);
         
         if (!validationResult.isValid) {
+          console.log('Edit form - Address validation failed:', validationResult.error);
           toast({
             title: "Address Validation Error",
             description: validationResult.error || "Address is not in British Columbia. Please enter a valid BC address.",
@@ -432,9 +435,12 @@ export default function AdminSuper() {
       };
 
       try {
+        console.log('New shop form - Validating address:', addressData);
         const validationResult = await validateBCAddress(addressData);
+        console.log('New shop form - Validation result:', validationResult);
         
         if (!validationResult.isValid) {
+          console.log('New shop form - Address validation failed:', validationResult.error);
           toast({
             title: "Address Validation Error",
             description: validationResult.error || "Address is not in British Columbia. Please enter a valid BC address.",

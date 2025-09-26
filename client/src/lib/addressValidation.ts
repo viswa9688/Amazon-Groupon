@@ -22,7 +22,10 @@ export interface AddressData {
  */
 export async function validateBCAddress(address: AddressData): Promise<AddressValidationResult> {
   try {
-    const result = await apiRequest<AddressValidationResult>('POST', '/api/validate-address', address);
+    console.log('Sending address validation request:', address);
+    const response = await apiRequest('POST', '/api/validate-address', address);
+    const result = await response.json() as AddressValidationResult;
+    console.log('Received validation response:', result);
     return result;
   } catch (error) {
     console.error('Address validation error:', error);
