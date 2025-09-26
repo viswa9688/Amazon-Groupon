@@ -457,23 +457,15 @@ export default function AdminSuper() {
       }
 
       // Validate delivery settings
-      if (!newShopForm.deliveryFee || newShopForm.deliveryFee < 0) {
+      if (!newShopForm.deliveryFeePerKm || newShopForm.deliveryFeePerKm < 0) {
         toast({
           title: "Validation Error",
-          description: "Delivery Fee must be a valid positive number",
+          description: "Delivery fee per km is required and must be a positive number",
           variant: "destructive"
         });
         return;
       }
 
-      if (!newShopForm.minimumOrderValue || newShopForm.minimumOrderValue < 0) {
-        toast({
-          title: "Validation Error",
-          description: "Minimum Order Value must be a valid positive number",
-          variant: "destructive"
-        });
-        return;
-      }
 
       // Create a new user with shop details
       await apiRequest("POST", `/api/admin/create-shop`, {
@@ -1006,19 +998,6 @@ export default function AdminSuper() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="deliveryFee">Delivery Fee (CAD) *</Label>
-                    <Input
-                      id="deliveryFee"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={newShopForm.deliveryFee || ""}
-                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryFee: parseFloat(e.target.value) || 0 }))}
-                      placeholder="e.g., 5.99"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="freeDeliveryThreshold">Free Delivery Threshold (CAD)</Label>
                     <Input
                       id="freeDeliveryThreshold"
@@ -1029,9 +1008,12 @@ export default function AdminSuper() {
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, freeDeliveryThreshold: parseFloat(e.target.value) || 0 }))}
                       placeholder="e.g., 75.00"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Order amount for completely free delivery
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minimumOrderValue">Minimum Order Value (CAD) *</Label>
+                    <Label htmlFor="minimumOrderValue">Minimum Order Value (CAD)</Label>
                     <Input
                       id="minimumOrderValue"
                       type="number"
@@ -1040,23 +1022,28 @@ export default function AdminSuper() {
                       value={newShopForm.minimumOrderValue || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, minimumOrderValue: parseFloat(e.target.value) || 0 }))}
                       placeholder="e.g., 25.00"
-                      required
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Minimum order amount required for delivery
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="deliveryRadiusKm">Delivery Radius (km)</Label>
                     <Input
                       id="deliveryRadiusKm"
                       type="number"
-                      min="1"
+                      min="0"
                       max="100"
                       value={newShopForm.deliveryRadiusKm || ""}
-                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 10 }))}
-                      placeholder="e.g., 10"
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 0 }))}
+                      placeholder="e.g., 15"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Maximum delivery distance (leave empty for unlimited)
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="deliveryFeePerKm">Delivery Fee per KM (after 10km)</Label>
+                    <Label htmlFor="deliveryFeePerKm">Delivery Fee per KM (after 10km) *</Label>
                     <Input
                       id="deliveryFeePerKm"
                       type="number"
@@ -1065,9 +1052,10 @@ export default function AdminSuper() {
                       value={newShopForm.deliveryFeePerKm || ""}
                       onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryFeePerKm: parseFloat(e.target.value) || 0 }))}
                       placeholder="e.g., 2.50"
+                      required
                     />
                     <p className="text-xs text-muted-foreground">
-                      Fee charged per kilometer for deliveries beyond 10km radius
+                      First 10km is FREE. This fee applies only to each km beyond 10km radius.
                     </p>
                   </div>
                 </div>
@@ -1388,18 +1376,6 @@ export default function AdminSuper() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="editDeliveryFee">Delivery Fee (CAD)</Label>
-                    <Input
-                      id="editDeliveryFee"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={editForm.deliveryFee || ""}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, deliveryFee: e.target.value }))}
-                      placeholder="e.g., 5.99"
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="editFreeDeliveryThreshold">Free Delivery Threshold (CAD)</Label>
                     <Input
                       id="editFreeDeliveryThreshold"
@@ -1410,6 +1386,9 @@ export default function AdminSuper() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, freeDeliveryThreshold: e.target.value }))}
                       placeholder="e.g., 50.00"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Order amount for completely free delivery
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="editMinimumOrderValue">Minimum Order Value (CAD)</Label>
@@ -1422,20 +1401,27 @@ export default function AdminSuper() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, minimumOrderValue: e.target.value }))}
                       placeholder="e.g., 25.00"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Minimum order amount required for delivery
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="editDeliveryRadiusKm">Delivery Radius (km)</Label>
                     <Input
                       id="editDeliveryRadiusKm"
                       type="number"
-                      min="1"
+                      min="0"
+                      max="100"
                       value={editForm.deliveryRadiusKm || ""}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 10 }))}
-                      placeholder="e.g., 10"
+                      onChange={(e) => setEditForm(prev => ({ ...prev, deliveryRadiusKm: parseInt(e.target.value) || 0 }))}
+                      placeholder="e.g., 15"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Maximum delivery distance (leave empty for unlimited)
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editDeliveryFeePerKm">Delivery Fee per KM (after 10km)</Label>
+                    <Label htmlFor="editDeliveryFeePerKm">Delivery Fee per KM (after 10km) *</Label>
                     <Input
                       id="editDeliveryFeePerKm"
                       type="number"
@@ -1444,9 +1430,10 @@ export default function AdminSuper() {
                       value={editForm.deliveryFeePerKm || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, deliveryFeePerKm: e.target.value }))}
                       placeholder="e.g., 2.50"
+                      required
                     />
                     <p className="text-xs text-muted-foreground">
-                      Fee charged per kilometer for deliveries beyond 10km radius
+                      First 10km is FREE. This fee applies only to each km beyond 10km radius.
                     </p>
                   </div>
                 </div>
