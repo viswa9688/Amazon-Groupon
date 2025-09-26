@@ -1055,13 +1055,13 @@ export default function AdminSuper() {
                       type="number"
                       step="0.01"
                       min="0"
-                      value={newShopForm.deliveryFeePerKm || ""}
-                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryFeePerKm: parseFloat(e.target.value) || 0 }))}
-                      placeholder="e.g., 2.50"
+                      value={newShopForm.deliveryFeePerKm || "5.99"}
+                      onChange={(e) => setNewShopForm(prev => ({ ...prev, deliveryFeePerKm: parseFloat(e.target.value) || 5.99 }))}
+                      placeholder="e.g., 5.99"
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      First 10km is FREE. This fee applies only to each km beyond 10km radius.
+                      Required: Per-km charge for delivery beyond 10km radius (default: $5.99)
                     </p>
                   </div>
                 </div>
@@ -1433,13 +1433,13 @@ export default function AdminSuper() {
                       type="number"
                       step="0.01"
                       min="0"
-                      value={editForm.deliveryFeePerKm || ""}
+                      value={editForm.deliveryFeePerKm || "5.99"}
                       onChange={(e) => setEditForm(prev => ({ ...prev, deliveryFeePerKm: e.target.value }))}
-                      placeholder="e.g., 2.50"
+                      placeholder="e.g., 5.99"
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      First 10km is FREE. This fee applies only to each km beyond 10km radius.
+                      Required: Per-km charge for delivery beyond 10km radius (default: $5.99)
                     </p>
                   </div>
                 </div>

@@ -167,7 +167,7 @@ export class DeliveryService {
       let shopDeliveryFee = 5.99; // Default fallback
       let shopFreeDeliveryThreshold = 75.00; // Default fallback
       let shopMinimumOrderValue = 25.00; // Default fallback
-      let shopDeliveryFeePerKm = 0; // Default fallback
+      let shopDeliveryFeePerKm = 5.99; // Default fallback
       let shopDeliveryRadiusKm = 0; // Default fallback (0 = unlimited)
 
       if (sellerId) {

@@ -80,7 +80,7 @@ export const users = pgTable("users", {
   freeDeliveryThreshold: decimal("free_delivery_threshold", { precision: 10, scale: 2 }).default("0.00"),
   minimumOrderValue: decimal("minimum_order_value", { precision: 10, scale: 2 }).default("0.00"),
   deliveryRadiusKm: integer("delivery_radius_km").default(10),
-  deliveryFeePerKm: decimal("delivery_fee_per_km", { precision: 10, scale: 2 }).default("0.00"), // Fee per km after 10km radius
+  deliveryFeePerKm: decimal("delivery_fee_per_km", { precision: 10, scale: 2 }).default("5.99"), // Fee per km after 10km radius
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
