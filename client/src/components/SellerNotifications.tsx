@@ -249,16 +249,7 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
         
         <ScrollArea className="h-[400px]">
           {/* Debug info */}
-          <div className="p-4 bg-gray-50 text-xs text-gray-600 mb-4">
-            <p>Debug Info:</p>
-            <p>User ID: {user?.id}</p>
-            <p>Is Seller: {user?.isSeller ? 'Yes' : 'No'}</p>
-            <p>Authenticated: {isAuthenticated ? 'Yes' : 'No'}</p>
-            <p>Real-time: {isConnected ? 'Connected' : 'Disconnected'}</p>
-            <p>Notifications Count: {notifications.length}</p>
-            <p>Unread Count: {unreadCount}</p>
-            {connectionError && <p className="text-red-600">Error: {connectionError}</p>}
-          </div>
+
           
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -268,7 +259,7 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
             <div className="text-center py-8 text-muted-foreground">
               <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No notifications yet</p>
-              <p className="text-xs mt-2">Click "Test" to create a test notification</p>
+              
             </div>
           ) : (
             <div className="space-y-2">
