@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Apple,
   Briefcase,
+  Heart,
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -460,6 +461,21 @@ export default function Header() {
               <Briefcase className="w-4 h-4" />
               <span>Services</span>
               {window.location.pathname === "/browse/services" && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+              )}
+            </a>
+            <a
+              href="/browse/pet-essentials"
+              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-all relative ${
+                window.location.pathname === "/browse/pet-essentials"
+                  ? "text-primary bg-white dark:bg-gray-800 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50"
+              }`}
+              data-testid="tab-pet-essentials"
+            >
+              <Heart className="w-4 h-4" />
+              <span>Pet Essentials</span>
+              {window.location.pathname === "/browse/pet-essentials" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
               )}
             </a>

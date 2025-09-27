@@ -95,6 +95,19 @@ const serviceCategories = [
   "Other",
 ];
 
+// Pet service categories
+const petServiceCategories = [
+  "Pet Grooming",
+  "Pet Training",
+  "Pet Sitting & Walking",
+  "Veterinary Services",
+  "Pet Boarding",
+  "Pet Photography",
+  "Pet Transportation",
+  "Pet Supplies",
+  "Other",
+];
+
 // Pricing models
 const pricingModels = [
   { value: "flat_fee", label: "Flat Fee" },
@@ -365,7 +378,7 @@ export default function SellerDashboard() {
   // Automatically set category based on shop type
   useEffect(() => {
     if (selectedShop) {
-      const categoryId = selectedShop.shopType === "groceries" ? "1" : "2";
+      const categoryId = selectedShop.shopType === "groceries" ? "1" : selectedShop.shopType === "services" ? "2" : selectedShop.shopType === "pet-essentials" ? "3" : "1";
       form.setValue("categoryId", categoryId);
     } else {
       // Reset category when no shop is selected
@@ -378,7 +391,8 @@ export default function SellerDashboard() {
 
   // Check for service category - grocery shops should show product fields, service shops should show service fields
   const isServiceCategory =
-    selectedCategoryId === "2" && selectedShop?.shopType === "services";
+    (selectedCategoryId === "2" && selectedShop?.shopType === "services") ||
+    (selectedCategoryId === "3" && selectedShop?.shopType === "pet-essentials");
   
   // Check for grocery category
   const isGroceryCategory =
@@ -1222,7 +1236,7 @@ export default function SellerDashboard() {
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                          {serviceCategories.map((cat) => (
+                                          {(selectedCategoryId === "3" ? petServiceCategories : serviceCategories).map((cat) => (
                                             <SelectItem key={cat} value={cat}>
                                               {cat}
                                             </SelectItem>

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Users, ShoppingCart, Zap, Apple, Briefcase, ArrowLeft } from "lucide-react";
+import { Search, Filter, Users, ShoppingCart, Zap, Apple, Briefcase, Heart, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import type { UserGroupWithDetails } from "@shared/schema";
@@ -43,10 +43,10 @@ export default function BrowseCategory() {
   const [sortBy, setSortBy] = useState<string>("newest");
 
   // Determine category ID based on URL parameter
-  const categoryId = category === "groceries" ? 1 : category === "services" ? 2 : null;
-  const categoryName = category === "groceries" ? "Groceries" : "Services";
-  const categoryIcon = category === "groceries" ? Apple : Briefcase;
-  const categoryColor = category === "groceries" ? "green" : "blue";
+  const categoryId = category === "groceries" ? 1 : category === "services" ? 2 : category === "pet-essentials" ? 3 : null;
+  const categoryName = category === "groceries" ? "Groceries" : category === "services" ? "Services" : "Pet Essentials";
+  const categoryIcon = category === "groceries" ? Apple : category === "services" ? Briefcase : Heart;
+  const categoryColor = category === "groceries" ? "green" : category === "services" ? "blue" : "pink";
 
   const { data: collections, isLoading: collectionsLoading } = useQuery<UserGroupWithDetails[]>({
     queryKey: ["/api/collections"],
@@ -128,11 +128,13 @@ export default function BrowseCategory() {
         <div className={`mb-8 p-8 rounded-3xl bg-gradient-to-br ${
           categoryColor === "green" 
             ? "from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800" 
-            : "from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-blue-200 dark:border-blue-800"
+            : categoryColor === "blue"
+            ? "from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-blue-200 dark:border-blue-800"
+            : "from-pink-50 to-rose-50 dark:from-pink-950 dark:to-rose-950 border-pink-200 dark:border-pink-800"
         } border-2`}>
           <div className="flex items-center space-x-4 mb-4">
             <div className={`p-4 ${
-              categoryColor === "green" ? "bg-green-500" : "bg-blue-500"
+              categoryColor === "green" ? "bg-green-500" : categoryColor === "blue" ? "bg-blue-500" : "bg-pink-500"
             } text-white rounded-2xl`}>
               <Icon className="h-8 w-8" />
             </div>
@@ -143,7 +145,9 @@ export default function BrowseCategory() {
               <p className="text-muted-foreground text-lg">
                 {category === "groceries" 
                   ? "Fresh produce, daily essentials, and organic foods with bulk discounts"
-                  : "Electronics, fashion, home goods, and professional services"}
+                  : category === "services"
+                  ? "Electronics, fashion, home goods, and professional services"
+                  : "Pet grooming, training, sitting, and veterinary services"}
               </p>
             </div>
           </div>
@@ -151,14 +155,18 @@ export default function BrowseCategory() {
             <Badge variant="secondary" className={`${
               categoryColor === "green" 
                 ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
-                : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                : categoryColor === "blue"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                : "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300"
             }`}>
               {categoryProducts.length} products available
             </Badge>
             <Badge variant="secondary" className={`${
               categoryColor === "green" 
                 ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
-                : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                : categoryColor === "blue"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                : "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300"
             }`}>
               {filteredAndSortedCollections.length} popular groups
             </Badge>
@@ -220,7 +228,7 @@ export default function BrowseCategory() {
         <div className="mb-12">
           <div className="flex items-center space-x-2 mb-6">
             <ShoppingCart className={`h-6 w-6 ${
-              categoryColor === "green" ? "text-green-600" : "text-blue-600"
+              categoryColor === "green" ? "text-green-600" : categoryColor === "blue" ? "text-blue-600" : "text-pink-600"
             }`} />
             <h2 className="text-2xl font-bold text-foreground">{categoryName} Products</h2>
             <Badge variant="secondary">{filteredAndSortedProducts.length} items</Badge>
@@ -276,7 +284,7 @@ export default function BrowseCategory() {
           <div>
             <div className="flex items-center space-x-2 mb-6">
               <Users className={`h-6 w-6 ${
-                categoryColor === "green" ? "text-green-600" : "text-blue-600"
+                categoryColor === "green" ? "text-green-600" : categoryColor === "blue" ? "text-blue-600" : "text-pink-600"
               }`} />
               <h2 className="text-2xl font-bold text-foreground">Popular Groups with {categoryName}</h2>
               <Badge variant="secondary">{filteredAndSortedCollections.length} groups</Badge>

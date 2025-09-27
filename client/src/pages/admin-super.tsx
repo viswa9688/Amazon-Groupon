@@ -534,8 +534,8 @@ export default function AdminSuper() {
               </div>
             </TableCell>
             <TableCell>
-              <Badge variant={user.shopType === "groceries" ? "default" : "secondary"}>
-                {user.shopType === "groceries" ? "Groceries" : user.shopType === "services" ? "Services" : "Not Set"}
+              <Badge variant={user.shopType === "groceries" ? "default" : user.shopType === "services" ? "secondary" : user.shopType === "pet-essentials" ? "outline" : "secondary"}>
+                {user.shopType === "groceries" ? "Groceries" : user.shopType === "services" ? "Services" : user.shopType === "pet-essentials" ? "Pet Essentials" : "Not Set"}
               </Badge>
             </TableCell>
             <TableCell>
@@ -808,6 +808,7 @@ export default function AdminSuper() {
                       <SelectContent>
                         <SelectItem value="groceries">Groceries</SelectItem>
                         <SelectItem value="services">Services</SelectItem>
+                        <SelectItem value="pet-essentials">Pet Essentials</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1197,6 +1198,7 @@ export default function AdminSuper() {
                       <SelectContent>
                         <SelectItem value="groceries">Groceries</SelectItem>
                         <SelectItem value="services">Services</SelectItem>
+                        <SelectItem value="pet-essentials">Pet Essentials</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

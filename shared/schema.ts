@@ -163,10 +163,72 @@ export const serviceProviders = pgTable("service_providers", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Pet Provider Details (for Pet Essentials category)
+export const petProviders = pgTable("pet_providers", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().unique().references(() => products.id),
+  
+  // Provider Profile
+  legalName: varchar("legal_name", { length: 255 }),
+  displayName: varchar("display_name", { length: 255 }),
+  serviceCategory: varchar("service_category", { length: 100 }), // Grooming, Training, Veterinary, etc.
+  status: varchar("status", { length: 20 }).default("active"), // active, inactive, draft
+  licenseNumber: varchar("license_number", { length: 100 }),
+  insuranceValidTill: timestamp("insurance_valid_till"),
+  yearsInBusiness: integer("years_in_business"),
+  
+  // Location & Coverage
+  serviceMode: varchar("service_mode", { length: 20 }).default("in_person"), // in_person, online, hybrid
+  addressLine1: varchar("address_line_1", { length: 255 }),
+  addressLine2: varchar("address_line_2", { length: 255 }),
+  locality: varchar("locality", { length: 100 }),
+  region: varchar("region", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 20 }),
+  country: varchar("country", { length: 100 }).default("India"),
+  serviceAreaPolygon: jsonb("service_area_polygon"), // GeoJSON for coverage area
+  
+  // Service Details
+  serviceName: varchar("service_name", { length: 255 }), // e.g., "Pet Grooming – Full Service"
+  durationMinutes: integer("duration_minutes"),
+  pricingModel: varchar("pricing_model", { length: 50 }), // flat_fee, hourly, per_session, subscription
+  materialsIncluded: boolean("materials_included").default(false),
+  taxClass: varchar("tax_class", { length: 50 }), // pet_services_basic, veterinary_services, etc.
+  ageRestriction: integer("age_restriction"),
+  
+  // Availability
+  availabilityType: varchar("availability_type", { length: 30 }), // fixed_hours, by_appointment
+  operatingHours: jsonb("operating_hours"), // Store as JSON with day-wise timings
+  advanceBookingDays: integer("advance_booking_days").default(7),
+  cancellationPolicyUrl: varchar("cancellation_policy_url", { length: 500 }),
+  rescheduleAllowed: boolean("reschedule_allowed").default(true),
+  
+  // Reviews & Compliance
+  avgRating: decimal("avg_rating", { precision: 2, scale: 1 }).default('0'),
+  reviewCount: integer("review_count").default(0),
+  highlightedTestimonials: jsonb("highlighted_testimonials"),
+  insurancePolicyNumber: varchar("insurance_policy_number", { length: 100 }),
+  liabilityWaiverRequired: boolean("liability_waiver_required").default(false),
+  healthSafetyCert: varchar("health_safety_cert", { length: 500 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Service Provider Staff (optional)
 export const serviceProviderStaff = pgTable("service_provider_staff", {
   id: serial("id").primaryKey(),
   serviceProviderId: integer("service_provider_id").notNull().references(() => serviceProviders.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  skills: jsonb("skills"), // Array of skills
+  availability: jsonb("availability"), // Availability schedule
+  rating: decimal("rating", { precision: 2, scale: 1 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Pet Provider Staff (optional)
+export const petProviderStaff = pgTable("pet_provider_staff", {
+  id: serial("id").primaryKey(),
+  petProviderId: integer("pet_provider_id").notNull().references(() => petProviders.id),
   name: varchar("name", { length: 255 }).notNull(),
   skills: jsonb("skills"), // Array of skills
   availability: jsonb("availability"), // Availability schedule
@@ -379,6 +441,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   discountTiers: many(discountTiers),
   orders: many(orders),
   serviceProvider: one(serviceProviders, { fields: [products.id], references: [serviceProviders.productId] }),
+  petProvider: one(petProviders, { fields: [products.id], references: [petProviders.productId] }),
   groceryProduct: one(groceryProducts, { fields: [products.id], references: [groceryProducts.productId] }),
   groupPayments: many(groupPayments),
 }));
@@ -390,6 +453,15 @@ export const serviceProvidersRelations = relations(serviceProviders, ({ one, man
 
 export const serviceProviderStaffRelations = relations(serviceProviderStaff, ({ one }) => ({
   serviceProvider: one(serviceProviders, { fields: [serviceProviderStaff.serviceProviderId], references: [serviceProviders.id] }),
+}));
+
+export const petProvidersRelations = relations(petProviders, ({ one, many }) => ({
+  product: one(products, { fields: [petProviders.productId], references: [products.id] }),
+  staff: many(petProviderStaff),
+}));
+
+export const petProviderStaffRelations = relations(petProviderStaff, ({ one }) => ({
+  petProvider: one(petProviders, { fields: [petProviderStaff.petProviderId], references: [petProviders.id] }),
 }));
 
 export const groceryProductsRelations = relations(groceryProducts, ({ one }) => ({
@@ -478,6 +550,17 @@ export const insertServiceProviderSchema = createInsertSchema(serviceProviders).
 });
 
 export const insertServiceProviderStaffSchema = createInsertSchema(serviceProviderStaff).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPetProviderSchema = createInsertSchema(petProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPetProviderStaffSchema = createInsertSchema(petProviderStaff).omit({
   id: true,
   createdAt: true,
 });
@@ -571,6 +654,10 @@ export type ServiceProvider = typeof serviceProviders.$inferSelect;
 export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
 export type ServiceProviderStaff = typeof serviceProviderStaff.$inferSelect;
 export type InsertServiceProviderStaff = z.infer<typeof insertServiceProviderStaffSchema>;
+export type PetProvider = typeof petProviders.$inferSelect;
+export type InsertPetProvider = z.infer<typeof insertPetProviderSchema>;
+export type PetProviderStaff = typeof petProviderStaff.$inferSelect;
+export type InsertPetProviderStaff = z.infer<typeof insertPetProviderStaffSchema>;
 export type GroceryProduct = typeof groceryProducts.$inferSelect;
 export type InsertGroceryProduct = z.infer<typeof insertGroceryProductSchema>;
 export type DiscountTier = typeof discountTiers.$inferSelect;
@@ -602,6 +689,7 @@ export type ProductWithDetails = Product & {
   category: Category | null;
   discountTiers: DiscountTier[];
   serviceProvider?: ServiceProvider & { staff?: ServiceProviderStaff[] };
+  petProvider?: PetProvider & { staff?: PetProviderStaff[] };
   groceryProduct?: GroceryProduct;
 };
 

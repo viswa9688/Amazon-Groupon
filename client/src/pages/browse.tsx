@@ -130,7 +130,7 @@ export default function Browse() {
         {/* Category Selection - Clean Design with Elegant Titles */}
         {showCategories && (
           <div className="mb-12">
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
               {/* Groceries Category */}
               <div 
                 className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
@@ -179,6 +179,34 @@ export default function Browse() {
                     <h3 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Services</h3>
                     <p className="text-white/90 text-sm drop-shadow">
                       Professional & premium services
+                    </p>
+                  </div>
+                  
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+              </div>
+
+              {/* Pet Essentials Category */}
+              <div 
+                className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
+                onClick={() => window.location.href = '/browse/pet-essentials'}
+                data-testid="card-category-pet-essentials"
+              >
+                <div className="relative aspect-[4/3]">
+                  <img 
+                    src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&q=80" 
+                    alt="Pet Essentials"
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Gradient overlay for text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  
+                  {/* Category Title */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <h3 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Pet Essentials</h3>
+                    <p className="text-white/90 text-sm drop-shadow">
+                      Pet care & grooming services
                     </p>
                   </div>
                   

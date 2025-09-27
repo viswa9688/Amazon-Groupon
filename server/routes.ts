@@ -19,6 +19,7 @@ import { CacheWarmer, CachePerformanceMonitor } from "./cache";
 import {
   insertProductSchema,
   insertServiceProviderSchema,
+  insertPetProviderSchema,
   insertGroceryProductSchema,
   insertCategorySchema,
   insertDiscountTierSchema,
@@ -1571,11 +1572,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if any existing cart item has a different category
         const hasGroceries = existingCart.some(item => item.product.categoryId === 1);
         const hasServices = existingCart.some(item => item.product.categoryId === 2);
+        const hasPetEssentials = existingCart.some(item => item.product.categoryId === 3);
         
         // Check if trying to mix categories
-        if ((hasGroceries && product.categoryId === 2) || (hasServices && product.categoryId === 1)) {
-          const currentCategory = hasGroceries ? "Groceries" : "Services";
-          const newCategory = product.categoryId === 1 ? "Groceries" : "Services";
+        if ((hasGroceries && (product.categoryId === 2 || product.categoryId === 3)) || 
+            (hasServices && (product.categoryId === 1 || product.categoryId === 3)) ||
+            (hasPetEssentials && (product.categoryId === 1 || product.categoryId === 2))) {
+          const currentCategory = hasGroceries ? "Groceries" : hasServices ? "Services" : "Pet Essentials";
+          const newCategory = product.categoryId === 1 ? "Groceries" : product.categoryId === 2 ? "Services" : "Pet Essentials";
           return res.status(400).json({ 
             message: "Cannot mix categories",
             error: `You have ${currentCategory.toLowerCase()} in your cart. Please clear your cart before adding ${newCategory.toLowerCase()} products.`,
@@ -2404,6 +2408,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Create pet provider record if this is pet essentials (category 3)
+      if (productData.categoryId === 3 && serviceProvider) {
+        // Parse date fields and JSON fields
+        const petProviderData = {
+          productId: product.id!,
+          legalName: serviceProvider.legalName,
+          displayName: serviceProvider.displayName,
+          serviceCategory: serviceProvider.serviceCategory,
+          licenseNumber: serviceProvider.licenseNumber,
+          yearsInBusiness: serviceProvider.yearsInBusiness ? parseInt(serviceProvider.yearsInBusiness) : null,
+          insuranceValidTill: serviceProvider.insuranceValidTill ? new Date(serviceProvider.insuranceValidTill) : null,
+          serviceMode: serviceProvider.serviceMode,
+          addressLine1: serviceProvider.addressLine1,
+          addressLine2: serviceProvider.addressLine2,
+          locality: serviceProvider.locality,
+          region: serviceProvider.region,
+          postalCode: serviceProvider.postalCode,
+          serviceAreaPolygon: serviceProvider.serviceAreaPolygon || null,
+          serviceName: serviceProvider.serviceName,
+          durationMinutes: serviceProvider.durationMinutes ? parseInt(serviceProvider.durationMinutes) : null,
+          pricingModel: serviceProvider.pricingModel,
+          materialsIncluded: serviceProvider.materialsIncluded || false,
+          ageRestriction: serviceProvider.ageRestriction ? parseInt(serviceProvider.ageRestriction) : null,
+          taxClass: serviceProvider.taxClass,
+          availabilityType: serviceProvider.availabilityType,
+          operatingHours: serviceProvider.operatingHours || null,
+          advanceBookingDays: serviceProvider.advanceBookingDays ? parseInt(serviceProvider.advanceBookingDays) : 7,
+          cancellationPolicyUrl: serviceProvider.cancellationPolicyUrl,
+          rescheduleAllowed: serviceProvider.rescheduleAllowed ?? true,
+          insurancePolicyNumber: serviceProvider.insurancePolicyNumber,
+          liabilityWaiverRequired: serviceProvider.liabilityWaiverRequired || false,
+          healthSafetyCert: serviceProvider.healthSafetyCert,
+        };
+        
+        // Validate pet provider data
+        const validatedPetProviderData = insertPetProviderSchema.parse(petProviderData);
+        const createdPetProvider = await storage.createPetProvider(validatedPetProviderData);
+        
+        // Handle staff members if provided
+        if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
+          for (const staffMember of serviceProvider.staff) {
+            if (staffMember.name) {
+              await storage.createPetProviderStaff({
+                petProviderId: createdPetProvider.id!,
+                name: staffMember.name,
+                skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
+                availability: staffMember.availability || null,
+                rating: staffMember.rating ? staffMember.rating.toString() : null,
+              });
+            }
+          }
+        }
+      }
+
       // Create grocery product record if this is a grocery product (category 1)
       if (productData.categoryId === 1 && groceryProduct) {
         const groceryProductData = {
@@ -2578,9 +2636,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-      } else if (productData.categoryId !== 2) {
+      }
+
+      // Update or create pet provider record if this is pet essentials (category 3)
+      if (productData.categoryId === 3 && serviceProvider) {
+        // Parse date fields and JSON fields
+        const petProviderData = {
+          productId: product.id!,
+          legalName: serviceProvider.legalName,
+          displayName: serviceProvider.displayName,
+          serviceCategory: serviceProvider.serviceCategory,
+          licenseNumber: serviceProvider.licenseNumber,
+          yearsInBusiness: serviceProvider.yearsInBusiness ? parseInt(serviceProvider.yearsInBusiness) : null,
+          insuranceValidTill: serviceProvider.insuranceValidTill ? new Date(serviceProvider.insuranceValidTill) : null,
+          serviceMode: serviceProvider.serviceMode,
+          addressLine1: serviceProvider.addressLine1,
+          addressLine2: serviceProvider.addressLine2,
+          locality: serviceProvider.locality,
+          region: serviceProvider.region,
+          postalCode: serviceProvider.postalCode,
+          serviceAreaPolygon: serviceProvider.serviceAreaPolygon || null,
+          serviceName: serviceProvider.serviceName,
+          durationMinutes: serviceProvider.durationMinutes ? parseInt(serviceProvider.durationMinutes) : null,
+          pricingModel: serviceProvider.pricingModel,
+          materialsIncluded: serviceProvider.materialsIncluded || false,
+          ageRestriction: serviceProvider.ageRestriction ? parseInt(serviceProvider.ageRestriction) : null,
+          taxClass: serviceProvider.taxClass,
+          availabilityType: serviceProvider.availabilityType,
+          operatingHours: serviceProvider.operatingHours || null,
+          advanceBookingDays: serviceProvider.advanceBookingDays ? parseInt(serviceProvider.advanceBookingDays) : 7,
+          cancellationPolicyUrl: serviceProvider.cancellationPolicyUrl,
+          rescheduleAllowed: serviceProvider.rescheduleAllowed ?? true,
+          insurancePolicyNumber: serviceProvider.insurancePolicyNumber,
+          liabilityWaiverRequired: serviceProvider.liabilityWaiverRequired || false,
+          healthSafetyCert: serviceProvider.healthSafetyCert,
+        };
+        
+        // Validate pet provider data
+        const validatedPetProviderData = insertPetProviderSchema.parse(petProviderData);
+        
+        // Check if pet provider already exists
+        const existingPetProvider = await storage.getPetProviderByProductId(productId);
+        if (existingPetProvider) {
+          await storage.updatePetProvider(existingPetProvider.id, validatedPetProviderData);
+          
+          // Update staff members
+          // First, remove existing staff
+          await storage.deletePetProviderStaff(existingPetProvider.id);
+          
+          // Then add new staff if provided
+          if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
+            for (const staffMember of serviceProvider.staff) {
+              if (staffMember.name) {
+                await storage.createPetProviderStaff({
+                  petProviderId: existingPetProvider.id,
+                  name: staffMember.name,
+                  skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
+                  availability: staffMember.availability || null,
+                  rating: staffMember.rating ? staffMember.rating.toString() : null,
+                });
+              }
+            }
+          }
+        } else {
+          const createdPetProvider = await storage.createPetProvider(validatedPetProviderData);
+          
+          // Handle staff members if provided
+          if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
+            for (const staffMember of serviceProvider.staff) {
+              if (staffMember.name) {
+                await storage.createPetProviderStaff({
+                  petProviderId: createdPetProvider.id!,
+                  name: staffMember.name,
+                  skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
+                  availability: staffMember.availability || null,
+                  rating: staffMember.rating ? staffMember.rating.toString() : null,
+                });
+              }
+            }
+          }
+        }
+      } else if (productData.categoryId !== 2 && productData.categoryId !== 3) {
         // If changing from service to non-service category, remove service provider data
         await storage.deleteServiceProviderByProductId(productId);
+        await storage.deletePetProviderByProductId(productId);
       }
       
       // Update discount tier if provided

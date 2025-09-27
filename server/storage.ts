@@ -13,6 +13,8 @@ import {
   groupPayments,
   serviceProviders,
   serviceProviderStaff,
+  petProviders,
+  petProviderStaff,
   groceryProducts,
   adminCredentials,
   sellerNotifications,
@@ -48,6 +50,10 @@ import {
   type InsertServiceProvider,
   type ServiceProviderStaff,
   type InsertServiceProviderStaff,
+  type PetProvider,
+  type InsertPetProvider,
+  type PetProviderStaff,
+  type InsertPetProviderStaff,
   type GroceryProduct,
   type InsertGroceryProduct,
   type AdminCredentials,
@@ -104,6 +110,17 @@ export interface IStorage {
   createServiceProviderStaff(staff: InsertServiceProviderStaff): Promise<ServiceProviderStaff>;
   getServiceProviderStaff(serviceProviderId: number): Promise<ServiceProviderStaff[]>;
   deleteServiceProviderStaff(serviceProviderId: number): Promise<void>;
+
+  // Pet Provider operations
+  createPetProvider(petProvider: InsertPetProvider): Promise<PetProvider>;
+  updatePetProvider(id: number, petProvider: Partial<InsertPetProvider>): Promise<PetProvider>;
+  getPetProviderByProductId(productId: number): Promise<PetProvider | undefined>;
+  deletePetProviderByProductId(productId: number): Promise<void>;
+  
+  // Pet Provider Staff operations
+  createPetProviderStaff(staff: InsertPetProviderStaff): Promise<PetProviderStaff>;
+  getPetProviderStaff(petProviderId: number): Promise<PetProviderStaff[]>;
+  deletePetProviderStaff(petProviderId: number): Promise<void>;
 
   // Grocery Product operations
   createGroceryProduct(groceryProduct: InsertGroceryProduct): Promise<GroceryProduct>;
@@ -499,6 +516,11 @@ export class DatabaseStorage implements IStorage {
             staff: true,
           },
         },
+        petProvider: {
+          with: {
+            staff: true,
+          },
+        },
       },
       where: eq(products.isActive, true),
       orderBy: desc(products.createdAt),
@@ -513,6 +535,11 @@ export class DatabaseStorage implements IStorage {
         category: true,
         discountTiers: true,
         serviceProvider: {
+          with: {
+            staff: true,
+          },
+        },
+        petProvider: {
           with: {
             staff: true,
           },
@@ -652,6 +679,11 @@ export class DatabaseStorage implements IStorage {
             staff: true,
           },
         },
+        petProvider: {
+          with: {
+            staff: true,
+          },
+        },
       },
       orderBy: desc(products.createdAt),
     });
@@ -674,6 +706,8 @@ export class DatabaseStorage implements IStorage {
   async deleteProduct(productId: number): Promise<void> {
     // Delete service provider first if exists
     await this.deleteServiceProviderByProductId(productId);
+    // Delete pet provider first if exists
+    await this.deletePetProviderByProductId(productId);
     // Delete related records
     await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
     // Delete the product
@@ -767,6 +801,58 @@ export class DatabaseStorage implements IStorage {
   
   async deleteServiceProviderStaff(serviceProviderId: number): Promise<void> {
     await db.delete(serviceProviderStaff).where(eq(serviceProviderStaff.serviceProviderId, serviceProviderId));
+  }
+
+  // Pet Provider implementations
+  async createPetProvider(petProvider: InsertPetProvider): Promise<PetProvider> {
+    const [newPetProvider] = await db.insert(petProviders).values(petProvider).returning();
+    return newPetProvider;
+  }
+  
+  async updatePetProvider(id: number, petProvider: Partial<InsertPetProvider>): Promise<PetProvider> {
+    const [updatedPetProvider] = await db
+      .update(petProviders)
+      .set({ ...petProvider, updatedAt: new Date() })
+      .where(eq(petProviders.id, id))
+      .returning();
+    return updatedPetProvider;
+  }
+  
+  async getPetProviderByProductId(productId: number): Promise<PetProvider | undefined> {
+    const [provider] = await db
+      .select()
+      .from(petProviders)
+      .where(eq(petProviders.productId, productId));
+    return provider;
+  }
+  
+  async deletePetProviderByProductId(productId: number): Promise<void> {
+    const [provider] = await db
+      .select()
+      .from(petProviders)
+      .where(eq(petProviders.productId, productId));
+    
+    if (provider) {
+      await db.delete(petProviderStaff).where(eq(petProviderStaff.petProviderId, provider.id));
+      await db.delete(petProviders).where(eq(petProviders.productId, productId));
+    }
+  }
+  
+  // Pet Provider Staff implementations
+  async createPetProviderStaff(staff: InsertPetProviderStaff): Promise<PetProviderStaff> {
+    const [newStaff] = await db.insert(petProviderStaff).values(staff).returning();
+    return newStaff;
+  }
+  
+  async getPetProviderStaff(petProviderId: number): Promise<PetProviderStaff[]> {
+    return await db
+      .select()
+      .from(petProviderStaff)
+      .where(eq(petProviderStaff.petProviderId, petProviderId));
+  }
+  
+  async deletePetProviderStaff(petProviderId: number): Promise<void> {
+    await db.delete(petProviderStaff).where(eq(petProviderStaff.petProviderId, petProviderId));
   }
 
   // Grocery Product operations

@@ -26,6 +26,7 @@ export async function seedDatabase() {
     const categoryData = [
       { name: "Groceries", slug: "groceries", icon: "ShoppingCart" },
       { name: "Services", slug: "services", icon: "Briefcase" },
+      { name: "Pet Essentials", slug: "pet-essentials", icon: "Heart" },
     ];
 
     let insertedCategories;
@@ -326,6 +327,37 @@ export async function seedDatabase() {
         originalPrice: "39.99",
         minimumParticipants: 50,
         maximumParticipants: 250,
+      },
+      // Pet Essentials products
+      {
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
+        categoryId: insertedCategories[2]?.id || insertedCategories[0].id, // Pet Essentials
+        name: "Professional Pet Grooming Service",
+        description: "Complete pet grooming service including bath, brush, nail trimming, and ear cleaning. Professional groomers with pet-friendly products.",
+        imageUrl: "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "89.99",
+        minimumParticipants: 8,
+        maximumParticipants: 30,
+      },
+      {
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[2]?.id || insertedCategories[0].id, // Pet Essentials
+        name: "Pet Training Session",
+        description: "One-on-one pet training session with certified animal behaviorist. Basic obedience, house training, and behavioral issues.",
+        imageUrl: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "119.99",
+        minimumParticipants: 5,
+        maximumParticipants: 20,
+      },
+      {
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
+        categoryId: insertedCategories[2]?.id || insertedCategories[0].id, // Pet Essentials
+        name: "Pet Sitting & Walking Service",
+        description: "Professional pet sitting and walking service for busy pet owners. Experienced caregivers with pet first aid certification.",
+        imageUrl: "https://images.unsplash.com/photo-1552053831-71594a27632d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "49.99",
+        minimumParticipants: 10,
+        maximumParticipants: 50,
       },
     ];
 
