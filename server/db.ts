@@ -26,13 +26,8 @@ export const pool = new Pool({
   application_name: 'amazon-groupon-ultra-fast',
 });
 
-// Serverless-compatible connection optimization
-pool.on('connect', (client) => {
-  // Set serverless-optimized connection parameters
-  client.query('SET statement_timeout = 5000');
-  client.query('SET idle_in_transaction_session_timeout = 10000');
-  // Note: Serverless databases don't support query_timeout, work_mem, shared_buffers, etc.
-});
+// Note: Connection event handlers removed for Neon serverless compatibility
+// Neon serverless handles connection optimization automatically
 
 export const db = drizzle({ 
   client: pool, 

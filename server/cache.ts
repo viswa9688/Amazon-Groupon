@@ -297,6 +297,10 @@ export const CacheKeys = {
   // Session data
   USER_SESSION: (userId: string) => `session:user:${userId}`,
   USER_CART: (userId: string) => `cart:user:${userId}`,
+
+  // Users
+  USERS_ALL: 'users:all',
+  USER_BY_ID: (userId: string) => `user:${userId}`,
 } as const;
 
 // Cache warming utilities
@@ -332,12 +336,19 @@ export class CacheWarmer {
         300000 // 5 minutes for serverless (longer cache to reduce DB calls)
       );
 
-      // Warm all public user groups - ULTRA-FAST
-      await ultraFastCache.warmCache(
-        () => CacheKeys.USER_GROUPS_ALL,
-        () => storage.getAllPublicCollections(),
-        120000 // 2 minutes
-      );
+          // Warm all public user groups - ULTRA-FAST
+          await ultraFastCache.warmCache(
+            () => CacheKeys.USER_GROUPS_ALL,
+            () => storage.getAllPublicCollections(),
+            120000 // 2 minutes
+          );
+
+          // Warm all users - ULTRA-FAST
+          await ultraFastCache.warmCache(
+            () => CacheKeys.USERS_ALL,
+            () => storage.getAllUsers(),
+            300000 // 5 minutes
+          );
 
       console.log('✅ Cache warming completed');
     } catch (error) {
@@ -359,13 +370,21 @@ export class CacheWarmer {
       300000  // 5 min refresh
     );
 
-    // ULTRA-FAST refresh user groups every 2 minutes
-    await ultraFastCache.backgroundRefresh(
-      CacheKeys.USER_GROUPS_ALL,
-      () => storage.getAllPublicCollections(),
-      120000, // 2 min TTL
-      120000  // 2 min refresh
-    );
+        // ULTRA-FAST refresh user groups every 2 minutes
+        await ultraFastCache.backgroundRefresh(
+          CacheKeys.USER_GROUPS_ALL,
+          () => storage.getAllPublicCollections(),
+          120000, // 2 min TTL
+          120000  // 2 min refresh
+        );
+
+        // ULTRA-FAST refresh users every 5 minutes
+        await ultraFastCache.backgroundRefresh(
+          CacheKeys.USERS_ALL,
+          () => storage.getAllUsers(),
+          300000, // 5 min TTL
+          300000  // 5 min refresh
+        );
 
     console.log('✅ Background refresh setup completed');
   }

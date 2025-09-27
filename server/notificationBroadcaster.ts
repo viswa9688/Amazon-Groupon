@@ -24,18 +24,36 @@ class NotificationBroadcaster {
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control',
+      'Access-Control-Allow-Headers': 'Cache-Control, Authorization, Content-Type',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     });
 
     // Send initial connection event
-    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Connected to notifications' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Connected to notifications', userId: userId })}\n\n`);
+
+    // Set up heartbeat for this client
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: Date.now(), userId: userId })}\n\n`);
+        console.log(`💓 Heartbeat sent to user: ${userId}`);
+      } catch (error) {
+        console.error(`❌ Heartbeat failed for user ${userId}:`, error);
+        clearInterval(heartbeat);
+        this.removeClient(userId, res);
+      }
+    }, 30000); // Send heartbeat every 30 seconds
 
     // Handle client disconnect
     req.on('close', () => {
+      clearInterval(heartbeat);
       this.removeClient(userId, res);
+      console.log(`🔌 Real-time notifications disconnected for user: ${userId}`);
     });
 
-    req.on('error', () => {
+    req.on('error', (error) => {
+      clearInterval(heartbeat);
+      console.error(`❌ SSE connection error for user ${userId}:`, error);
       this.removeClient(userId, res);
     });
   }

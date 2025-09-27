@@ -11,7 +11,7 @@ import {
   orderItems,
   sellerNotifications 
 } from "@shared/schema";
-import { notificationBroadcaster } from "./notificationBroadcaster";
+import { websocketNotificationBroadcaster } from "./websocketNotificationBroadcaster";
 
 export interface NotificationData {
   userId?: string;
@@ -459,6 +459,25 @@ export class NotificationService {
   }
 
   /**
+   * Public method to create test notifications
+   */
+  async createTestNotification(userId: string, message: string = "Test notification"): Promise<void> {
+    const notification: NotificationTemplate = {
+      type: "test_notification",
+      title: "Test Notification! 🧪",
+      message: message,
+      priority: "normal",
+      data: {
+        userId: userId,
+        testData: "This is test data",
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    await this.createNotification(userId, notification);
+  }
+
+  /**
    * Helper method to create notifications
    * Uses the existing sellerNotifications table for all notifications
    */
@@ -474,7 +493,7 @@ export class NotificationService {
     });
 
     // Broadcast the notification in real-time to connected clients
-    notificationBroadcaster.broadcastToUser(userId, {
+    websocketNotificationBroadcaster.broadcastToUser(userId, {
       type: 'new_notification',
       data: {
         id: createdNotification.id,

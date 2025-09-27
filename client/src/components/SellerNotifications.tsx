@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
+import { useWebSocketNotifications } from "@/hooks/useWebSocketNotifications";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
   const [isOpen, setIsOpen] = useState(false);
   
   // Initialize real-time notifications
-  const { isConnected, connectionError, reconnect } = useRealtimeNotifications();
+  const { isConnected, connectionError, reconnect, ping } = useWebSocketNotifications();
 
   // Fetch notifications - Real-time updates via SSE, no polling needed
   const { data: notifications = [], isLoading } = useQuery<SellerNotification[]>({
@@ -169,7 +169,6 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
     deleteNotificationMutation.mutate(notificationId);
   };
 
-  // Test notification mutation
 
   // Debug: Show component for all authenticated users for testing
   if (!isAuthenticated) {
@@ -214,14 +213,24 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
             </div>
             <div className="flex items-center gap-2">
               {connectionError && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={reconnect}
-                  className="text-xs"
-                >
-                  Reconnect
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={reconnect}
+                    className="text-xs"
+                  >
+                    Reconnect
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={ping}
+                    className="text-xs"
+                  >
+                    Ping
+                  </Button>
+                </>
               )}
               {unreadCount > 0 && (
                 <Button

@@ -267,6 +267,32 @@ class UltraFastStorage extends DatabaseStorage {
     return cart;
   }
 
+  // Override getAllUsers with ultra-fast caching
+  async getAllUsers(): Promise<any[]> {
+    const startTime = performance.now();
+    const cacheKey = CacheKeys.USERS_ALL;
+    
+    // Try cache first
+    let users = ultraFastCache.get<any[]>(cacheKey);
+    
+    if (users) {
+      const endTime = performance.now();
+      console.log(`⚡ All users from cache: ${(endTime - startTime).toFixed(2)}ms`);
+      return users;
+    }
+    
+    // Fallback to database
+    users = await super.getAllUsers();
+    
+    // Cache for next time
+    ultraFastCache.set(cacheKey, users, 300000); // 5 minutes
+    
+    const endTime = performance.now();
+    console.log(`🐌 All users from DB: ${(endTime - startTime).toFixed(2)}ms`);
+    
+    return users;
+  }
+
   // Cache invalidation methods
   invalidateProductCache(productId?: number): void {
     if (productId) {

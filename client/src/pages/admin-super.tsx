@@ -19,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { validateBCAddress, type AddressData } from "@/lib/addressValidation";
+import { FullPageLoader } from "@/components/InfiniteLoader";
 
 interface User {
   id: string;
@@ -84,6 +85,7 @@ export default function AdminSuper() {
   const [loginData, setLoginData] = useState({ userId: "", password: "" });
   const [users, setUsers] = useState<AdminUsers>({ sellers: [], buyers: [] });
   const [loading, setLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -124,6 +126,7 @@ export default function AdminSuper() {
   };
 
   const fetchUsers = async () => {
+    setUsersLoading(true);
     try {
       const response = await apiRequest("POST", "/api/admin/users", loginData);
       const data = await response.json();
@@ -134,6 +137,8 @@ export default function AdminSuper() {
         description: "Failed to fetch users",
         variant: "destructive"
       });
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -669,6 +674,7 @@ export default function AdminSuper() {
 
   return (
     <div className="min-h-screen bg-background">
+      {usersLoading && <FullPageLoader text="Loading users..." variant="spinner" />}
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
