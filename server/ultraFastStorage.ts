@@ -378,6 +378,32 @@ class UltraFastStorage extends DatabaseStorage {
   clearCache(): void {
     ultraFastCache.clear();
   }
+
+  // Override getSellerShopsBySeller with ultra-fast caching
+  async getSellerShopsBySeller(sellerId: string): Promise<any[]> {
+    const startTime = performance.now();
+    const cacheKey = `seller_shops_${sellerId}`;
+    
+    // Try cache first
+    let shops = ultraFastCache.get<any[]>(cacheKey);
+    
+    if (shops) {
+      const endTime = performance.now();
+      console.log(`⚡ Seller shops from cache: ${(endTime - startTime).toFixed(2)}ms`);
+      return shops;
+    }
+    
+    // Fallback to database
+    shops = await super.getSellerShopsBySeller(sellerId);
+    
+    // Cache for next time
+    ultraFastCache.set(cacheKey, shops, 300000); // 5 minutes
+    
+    const endTime = performance.now();
+    console.log(`🐌 Seller shops from DB: ${(endTime - startTime).toFixed(2)}ms`);
+    
+    return shops;
+  }
 }
 
 // Export the ultra-fast storage instance

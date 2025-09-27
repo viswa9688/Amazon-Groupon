@@ -604,9 +604,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/seller/products', isSellerAuthenticated, async (req: any, res) => {
+    const startTime = performance.now();
     try {
       const sellerId = req.user.claims.sub;
-      const products = await storage.getProductsBySeller(sellerId);
+      const products = await ultraFastStorage.getProductsBySeller(sellerId);
+      
+      const endTime = performance.now();
+      const responseTime = endTime - startTime;
+      
+      // Add performance headers
+      res.set('X-Response-Time', `${responseTime.toFixed(2)}ms`);
+      res.set('X-Cache-Status', responseTime < 100 ? 'FAST' : 'SLOW');
+      
       res.json(products);
     } catch (error) {
       console.error("Error fetching seller products:", error);
@@ -840,11 +849,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get current seller's shops only (or all shops if admin is impersonating)
   app.get('/api/seller/shops', isSellerAuthenticated, async (req: any, res) => {
+    const startTime = performance.now();
     try {
       const sellerId = req.user.claims.sub;
-      console.log("=== /api/seller/shops called ===");
-      console.log("Seller ID:", sellerId);
-      console.log("User object:", req.user);
       
       // Check if admin is impersonating this user
       const sessionUser = (req.session as any).user;
@@ -852,26 +859,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (req.session as any).adminImpersonation.adminUserId === 'viswa968' &&
         sessionUser.id === 'f3d84bd2-d98c-4a34-917d-c8e03a598b43';
       
-      console.log("Session user:", sessionUser);
-      console.log("Admin impersonation:", (req.session as any).adminImpersonation);
-      console.log("Is admin impersonating:", isAdminImpersonating);
-      
       let shops;
       if (isAdminImpersonating) {
         // If admin is impersonating, return all shops
-        console.log("Fetching all shops (admin impersonating)");
         shops = await storage.getSellerShops();
-        console.log("Admin impersonating - returning all shops:", shops.length);
-        console.log("Shop details:", shops.map(s => ({ id: s.id, displayName: s.displayName, legalName: s.legalName, storeId: s.storeId, isSeller: s.isSeller })));
       } else {
         // Otherwise, return only the seller's own shops
-        console.log("Fetching seller's own shops");
-        shops = await storage.getSellerShopsBySeller(sellerId);
-        console.log("Regular seller - returning own shops:", shops.length);
-        console.log("Shop details:", shops.map(s => ({ id: s.id, displayName: s.displayName, legalName: s.legalName, storeId: s.storeId, isSeller: s.isSeller })));
+        shops = await ultraFastStorage.getSellerShopsBySeller(sellerId);
       }
       
-      console.log("Final shops array:", JSON.stringify(shops, null, 2));
+      const endTime = performance.now();
+      const responseTime = endTime - startTime;
+      
+      // Add performance headers
+      res.set('X-Response-Time', `${responseTime.toFixed(2)}ms`);
+      res.set('X-Cache-Status', responseTime < 100 ? 'FAST' : 'SLOW');
+      
       res.json(shops);
     } catch (error) {
       console.error("Error fetching shops:", error);
@@ -2755,9 +2758,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/seller/metrics', isSellerAuthenticated, async (req: any, res) => {
+    const startTime = performance.now();
     try {
       const sellerId = req.user.claims.sub;
       const metrics = await storage.getSellerMetrics(sellerId);
+      
+      const endTime = performance.now();
+      const responseTime = endTime - startTime;
+      
+      // Add performance headers
+      res.set('X-Response-Time', `${responseTime.toFixed(2)}ms`);
+      res.set('X-Cache-Status', responseTime < 200 ? 'FAST' : 'SLOW');
+      
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching seller metrics:", error);

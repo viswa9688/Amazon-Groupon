@@ -359,6 +359,37 @@ export async function seedDatabase() {
         minimumParticipants: 10,
         maximumParticipants: 50,
       },
+      // Car Services products
+      {
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Services
+        name: "Professional Car Detailing Service",
+        description: "Complete car detailing service including exterior wash, wax, interior cleaning, and leather conditioning. Professional detailers with premium products.",
+        imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "129.99",
+        minimumParticipants: 8,
+        maximumParticipants: 25,
+      },
+      {
+        sellerId: sampleSeller[0]?.id || "sample-seller-123",
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Services
+        name: "Mobile Car Oil Change Service",
+        description: "Convenient mobile oil change service that comes to your location. Professional mechanics with quality oil and filters. Save time and hassle.",
+        imageUrl: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "79.99",
+        minimumParticipants: 12,
+        maximumParticipants: 40,
+      },
+      {
+        sellerId: johnSeller[0]?.id || "john-seller-456",
+        categoryId: insertedCategories[1]?.id || insertedCategories[0].id, // Services
+        name: "Car Inspection & Safety Check",
+        description: "Comprehensive car inspection and safety check service. Certified mechanics check brakes, tires, lights, and all safety systems.",
+        imageUrl: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+        originalPrice: "99.99",
+        minimumParticipants: 6,
+        maximumParticipants: 20,
+      },
     ];
 
     let insertedProducts;

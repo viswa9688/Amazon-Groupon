@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, memo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InfiniteLoader, FullPageLoader } from "@/components/InfiniteLoader";
+import { FullPageLoader } from "@/components/InfiniteLoader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -92,6 +92,7 @@ const serviceCategories = [
   "Professional Services",
   "Healthcare",
   "Events & Entertainment",
+  "Car Services",
   "Other",
 ];
 
@@ -281,41 +282,33 @@ export default function SellerDashboard() {
     queryKey: ["/api/seller/products"],
     enabled: isAuthenticated,
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
     enabled: isAuthenticated,
+    staleTime: 30 * 60 * 1000, // 30 minutes (categories rarely change)
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   // Get available shops
   const { data: shops = [], isLoading: shopsLoading } = useQuery<any[]>({
     queryKey: ["/api/seller/shops"],
     enabled: isAuthenticated,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
-  // Debug logging for shops
-  useEffect(() => {
-    console.log("=== Frontend Shops Debug ===");
-    console.log("isAuthenticated:", isAuthenticated);
-    console.log("shopsLoading:", shopsLoading);
-    console.log("shops data:", shops);
-    console.log("shops length:", shops?.length);
-    if (shops && shops.length > 0) {
-      console.log("Shop details:", shops.map(s => ({ 
-        id: s.id, 
-        displayName: s.displayName, 
-        legalName: s.legalName, 
-        storeId: s.storeId, 
-        isSeller: s.isSeller 
-      })));
-    }
-  }, [shops, isAuthenticated, shopsLoading]);
+  // Optimized queries with caching
 
   const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
     enabled: isAuthenticated,
     retry: false,
+    staleTime: 2 * 60 * 1000, // 2 minutes (orders change frequently)
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch seller metrics
@@ -330,7 +323,9 @@ export default function SellerDashboard() {
     queryKey: ["/api/seller/metrics"],
     enabled: isAuthenticated,
     retry: false,
-    refetchInterval: 15000, // Refetch every 15 seconds for more frequent updates
+    staleTime: 1 * 60 * 1000, // 1 minute (metrics change frequently)
+    gcTime: 3 * 60 * 1000, // 3 minutes
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 15s)
     refetchOnWindowFocus: true, // Refetch when user returns to tab
     refetchOnMount: true, // Always refetch when component mounts
   });
@@ -809,16 +804,29 @@ export default function SellerDashboard() {
     updateOrderStatusMutation.mutate({ orderId, status });
   };
 
+  // Show loading only for authentication, not for individual data loading
   if (authLoading) {
     return <FullPageLoader text="Loading dashboard..." variant="spinner" />;
   }
 
-  // Use metrics from API or fallback to loading state
-  const totalProducts = metrics?.totalProducts ?? 0;
-  const activeGroups = metrics?.activeGroups ?? 0;
-  const totalRevenue = metrics?.totalRevenue ?? 0;
-  const potentialRevenue = metrics?.potentialRevenue ?? 0;
-  const growthPercentage = metrics?.growthPercentage ?? 0;
+  // If not authenticated, redirect (handled by useEffect above)
+  if (!isAuthenticated) {
+    return <FullPageLoader text="Redirecting to login..." variant="spinner" />;
+  }
+
+  // Memoized metrics calculations for better performance
+  const dashboardMetrics = useMemo(() => ({
+    totalProducts: metrics?.totalProducts ?? 0,
+    activeGroups: metrics?.activeGroups ?? 0,
+    totalRevenue: metrics?.totalRevenue ?? 0,
+    potentialRevenue: metrics?.potentialRevenue ?? 0,
+    growthPercentage: metrics?.growthPercentage ?? 0,
+  }), [metrics]);
+
+  const { totalProducts, activeGroups, totalRevenue, potentialRevenue, growthPercentage } = dashboardMetrics;
+
+  // Memoized products list to prevent unnecessary re-renders
+  const memoizedProducts = useMemo(() => products || [], [products]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -2566,9 +2574,9 @@ export default function SellerDashboard() {
                     <Skeleton key={i} className="h-32 w-full" />
                   ))}
                 </div>
-              ) : products && products.length > 0 ? (
+              ) : memoizedProducts.length > 0 ? (
                 <div className="grid gap-4">
-                  {products.map((product: ProductWithDetails) => (
+                  {memoizedProducts.map((product: ProductWithDetails) => (
                     <Card key={product.id} className="p-6">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
