@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InfiniteLoader, FullPageLoader } from "@/components/InfiniteLoader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -795,19 +796,7 @@ export default function SellerDashboard() {
   };
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Skeleton className="h-8 w-64 mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <FullPageLoader text="Loading dashboard..." variant="spinner" />;
   }
 
   // Use metrics from API or fallback to loading state

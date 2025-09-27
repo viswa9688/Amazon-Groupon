@@ -11,6 +11,7 @@ import DeliveryFeeDisplay from "@/components/DeliveryFeeDisplay";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Users, Package, DollarSign, CheckCircle, Truck, Info } from "lucide-react";
+import { FullPageLoader } from "@/components/InfiniteLoader";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
@@ -505,27 +506,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
   }, [checkoutData]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="max-w-6xl mx-auto">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-300 rounded w-64 mb-8"></div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="h-64 bg-gray-300 rounded"></div>
-                  <div className="h-32 bg-gray-300 rounded"></div>
-                </div>
-                <div className="space-y-6">
-                  <div className="h-48 bg-gray-300 rounded"></div>
-                  <div className="h-32 bg-gray-300 rounded"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <FullPageLoader text="Preparing checkout..." variant="wave" />;
   }
 
   return (

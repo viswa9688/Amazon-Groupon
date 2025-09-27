@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { performanceMonitor } from "./performance";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -44,9 +45,22 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const startTime = performance.now();
+    const url = queryKey.join("/") as string;
+    
+    const res = await fetch(url, {
       credentials: "include",
     });
+
+    const endTime = performance.now();
+    const responseTime = endTime - startTime;
+    
+    // Check if response was cached
+    const cacheHit = res.headers.get('x-cache') === 'HIT' || 
+                    res.headers.get('cf-cache-status') === 'HIT';
+    
+    // Record performance metrics
+    performanceMonitor.recordApiCall(url, responseTime, cacheHit);
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
@@ -62,11 +76,25 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 2 * 60 * 1000, // 2 minutes - reduced from Infinity for better UX
+      retry: (failureCount, error: any) => {
+        // Don't retry on 4xx errors (client errors)
+        if (error?.status >= 400 && error?.status < 500) {
+          return false;
+        }
+        // Retry up to 2 times for server errors
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
     mutations: {
-      retry: false,
+      retry: (failureCount, error: any) => {
+        // Don't retry mutations on client errors
+        if (error?.status >= 400 && error?.status < 500) {
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
   },
 });

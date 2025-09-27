@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Users, ShoppingCart, Zap, Apple, Briefcase, TrendingUp, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { InfiniteLoader, GridSkeleton } from "@/components/InfiniteLoader";
 import type { UserGroupWithDetails, Category } from "@shared/schema";
 
 interface Product {
@@ -299,16 +300,7 @@ export default function Browse() {
           </div>
           
           {isLoading ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-4">
-                  <Skeleton className="h-48 w-full rounded-xl" />
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ))}
-            </div>
+            <GridSkeleton items={8} />
           ) : filteredAndSortedProducts.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
@@ -353,11 +345,7 @@ export default function Browse() {
           </div>
           
           {isLoading ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-48 w-full rounded-xl" />
-              ))}
-            </div>
+            <GridSkeleton items={6} />
           ) : filteredAndSortedCollections.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
