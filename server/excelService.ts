@@ -15,11 +15,20 @@ const excelProductSchema = z.object({
   originalPrice: z.coerce.number().positive('Price must be positive'),
   minimumParticipants: z.coerce.number().int().min(1, 'Minimum participants must be at least 1'),
   maximumParticipants: z.coerce.number().int().min(1, 'Maximum participants must be at least 1'),
-  offerValidTill: z.string().refine((date) => {
+  offerValidTill: z.string().optional().refine((date) => {
+    if (!date || date === '') return true; // Allow empty values
     const parsed = new Date(date);
     return !isNaN(parsed.getTime()) && parsed > new Date();
   }, 'Offer valid till must be a valid future date'),
-  imageUrl: z.string().url('Invalid image URL').optional().or(z.literal('')),
+  imageUrl: z.string().optional().refine((val) => {
+    if (!val || val === '') return true;
+    try {
+      new URL(val);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Invalid image URL'),
   
   // Service-specific fields (for Services category)
   serviceType: z.string().optional(),
@@ -83,19 +92,34 @@ export class ExcelService {
           'serviceDescription'
         ];
         
-        sampleData = [{
-          name: 'Professional Car Detailing Service',
-          description: 'Complete car detailing including wash, wax, and interior cleaning',
-          originalPrice: 150,
-          minimumParticipants: 5,
-          maximumParticipants: 20,
-          offerValidTill: '2024-12-31',
-          imageUrl: 'https://example.com/car-detailing.jpg',
-          serviceType: 'Car Services',
-          isOnlineService: false,
-          serviceAddress: '123 Main St, Vancouver, BC',
-          serviceDescription: 'Professional car detailing service with eco-friendly products'
-        }];
+        sampleData = [
+          {
+            name: 'Professional Car Detailing Service',
+            description: 'Complete car detailing including wash, wax, and interior cleaning',
+            originalPrice: 150,
+            minimumParticipants: 5,
+            maximumParticipants: 20,
+            offerValidTill: '2025-12-31',
+            imageUrl: 'https://example.com/car-detailing.jpg',
+            serviceType: 'Car Services',
+            isOnlineService: false,
+            serviceAddress: '123 Main St, Vancouver, BC',
+            serviceDescription: 'Professional car detailing service with eco-friendly products'
+          },
+          {
+            name: 'Mobile Car Oil Change',
+            description: 'Convenient oil change service at your location',
+            originalPrice: 80,
+            minimumParticipants: 3,
+            maximumParticipants: 15,
+            offerValidTill: '',
+            imageUrl: '',
+            serviceType: 'Car Services',
+            isOnlineService: false,
+            serviceAddress: 'Service area: Vancouver Metro',
+            serviceDescription: 'Full synthetic oil change with filter replacement'
+          }
+        ];
       } else if (shopType === 'pet-essentials') {
         headers = [
           'name',
@@ -111,19 +135,34 @@ export class ExcelService {
           'nutritionalInfo'
         ];
         
-        sampleData = [{
-          name: 'Premium Dog Food - Chicken & Rice',
-          description: 'High-quality dog food with real chicken and brown rice',
-          originalPrice: 45,
-          minimumParticipants: 10,
-          maximumParticipants: 50,
-          offerValidTill: '2024-12-31',
-          imageUrl: 'https://example.com/dog-food.jpg',
-          brand: 'PetPro',
-          weight: '15kg',
-          expiryDate: '2025-12-31',
-          nutritionalInfo: 'Protein: 25%, Fat: 12%, Fiber: 4%'
-        }];
+        sampleData = [
+          {
+            name: 'Premium Dog Food - Chicken & Rice',
+            description: 'High-quality dog food with real chicken and brown rice',
+            originalPrice: 45,
+            minimumParticipants: 10,
+            maximumParticipants: 50,
+            offerValidTill: '2025-12-31',
+            imageUrl: 'https://example.com/dog-food.jpg',
+            brand: 'PetPro',
+            weight: '15kg',
+            expiryDate: '2025-12-31',
+            nutritionalInfo: 'Protein: 25%, Fat: 12%, Fiber: 4%'
+          },
+          {
+            name: 'Cat Litter - Clumping',
+            description: 'Premium clumping cat litter for easy cleanup',
+            originalPrice: 25,
+            minimumParticipants: 5,
+            maximumParticipants: 30,
+            offerValidTill: '',
+            imageUrl: '',
+            brand: 'CatCare',
+            weight: '10kg',
+            expiryDate: '2026-12-31',
+            nutritionalInfo: 'Non-toxic, dust-free formula'
+          }
+        ];
       } else { // groceries
         headers = [
           'name',
@@ -139,19 +178,34 @@ export class ExcelService {
           'nutritionalInfo'
         ];
         
-        sampleData = [{
-          name: 'Organic Bananas - Bunch',
-          description: 'Fresh organic bananas, perfect for healthy snacking',
-          originalPrice: 8,
-          minimumParticipants: 20,
-          maximumParticipants: 100,
-          offerValidTill: '2024-12-31',
-          imageUrl: 'https://example.com/bananas.jpg',
-          brand: 'Organic Farms',
-          weight: '2kg',
-          expiryDate: '2024-12-15',
-          nutritionalInfo: 'Calories: 89 per 100g, Potassium: 358mg'
-        }];
+        sampleData = [
+          {
+            name: 'Organic Bananas - Bunch',
+            description: 'Fresh organic bananas, perfect for healthy snacking',
+            originalPrice: 8,
+            minimumParticipants: 20,
+            maximumParticipants: 100,
+            offerValidTill: '2025-12-31',
+            imageUrl: 'https://example.com/bananas.jpg',
+            brand: 'Organic Farms',
+            weight: '2kg',
+            expiryDate: '2025-12-15',
+            nutritionalInfo: 'Calories: 89 per 100g, Potassium: 358mg'
+          },
+          {
+            name: 'Fresh Apples - Red Delicious',
+            description: 'Crisp and sweet red delicious apples',
+            originalPrice: 12,
+            minimumParticipants: 15,
+            maximumParticipants: 80,
+            offerValidTill: '',
+            imageUrl: '',
+            brand: 'Local Farms',
+            weight: '3kg',
+            expiryDate: '2025-10-15',
+            nutritionalInfo: 'Vitamin C: 8mg per 100g, Fiber: 2.4g'
+          }
+        ];
       }
 
       // Create workbook
@@ -170,25 +224,36 @@ export class ExcelService {
       const instructions = [
         ['Instructions for Product Import'],
         [''],
-        ['1. Fill in the product details in the columns below'],
-        ['2. Required fields: name, description, originalPrice, minimumParticipants, maximumParticipants, offerValidTill'],
-        ['3. Optional fields: imageUrl, and category-specific fields'],
-        ['4. Date format: YYYY-MM-DD'],
-        ['5. Price format: Numbers only (no currency symbols)'],
-        ['6. Maximum 1000 rows allowed'],
+        ['REQUIRED FIELDS (must be filled):'],
+        ['- name: Product/service name'],
+        ['- description: Product/service description'],
+        ['- originalPrice: Price as number (e.g., 25.99)'],
+        ['- minimumParticipants: Minimum group size (e.g., 5)'],
+        ['- maximumParticipants: Maximum group size (e.g., 50)'],
         [''],
-        ['Category-specific fields:'],
+        ['OPTIONAL FIELDS (can be left empty):'],
+        ['- offerValidTill: Offer expiry date (YYYY-MM-DD format) - defaults to 30 days from now'],
+        ['- imageUrl: Product image URL (leave empty if no image)'],
+        [''],
+        ['CATEGORY-SPECIFIC FIELDS (optional):'],
         ...(shopType === 'services' ? [
           ['- serviceType: Type of service (e.g., "Car Services", "Home Services")'],
-          ['- isOnlineService: true/false'],
+          ['- isOnlineService: true or false'],
           ['- serviceAddress: Physical address for in-person services'],
           ['- serviceDescription: Detailed service description']
         ] : [
           ['- brand: Product brand name'],
-          ['- weight: Product weight/size'],
-          ['- expiryDate: Product expiry date (YYYY-MM-DD)'],
+          ['- weight: Product weight/size (e.g., "2kg", "500ml")'],
+          ['- expiryDate: Product expiry date (YYYY-MM-DD format)'],
           ['- nutritionalInfo: Nutritional information']
-        ])
+        ]),
+        [''],
+        ['IMPORTANT NOTES:'],
+        ['- Date format: YYYY-MM-DD (e.g., 2025-12-31)'],
+        ['- Price format: Numbers only (e.g., 25.99, not $25.99)'],
+        ['- Maximum 1000 products allowed per file'],
+        ['- Delete sample rows before adding your products'],
+        ['- All dates must be in the future']
       ];
       
       const instructionsWs = XLSX.utils.aoa_to_sheet(instructions);
@@ -259,6 +324,11 @@ export class ExcelService {
       // Get headers and data rows
       const headers = data[0] as string[];
       const rows = data.slice(1) as any[][];
+      
+      console.log('📊 Excel file parsed:');
+      console.log('Headers:', headers);
+      console.log('Number of rows:', rows.length);
+      console.log('First few rows:', rows.slice(0, 3));
 
       // Get seller's shop info for validation
       const shops = await storage.getSellerShopsBySeller(sellerId);
@@ -297,7 +367,7 @@ export class ExcelService {
             originalPrice: validatedData.originalPrice,
             minimumParticipants: validatedData.minimumParticipants,
             maximumParticipants: validatedData.maximumParticipants,
-            offerValidTill: new Date(validatedData.offerValidTill),
+            offerValidTill: validatedData.offerValidTill ? new Date(validatedData.offerValidTill) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now
             imageUrl: validatedData.imageUrl || null,
             isActive: true,
           };
@@ -345,6 +415,14 @@ export class ExcelService {
         }
       }
 
+      console.log('📋 Validation Summary:');
+      console.log('Total rows processed:', rows.length);
+      console.log('Products validated successfully:', products.length);
+      console.log('Errors found:', errors.length);
+      if (errors.length > 0) {
+        console.log('Error details:', errors);
+      }
+
       return {
         success: errors.length === 0,
         message: errors.length === 0 
@@ -352,7 +430,7 @@ export class ExcelService {
           : `Validation completed with ${errors.length} errors`,
         imported: products.length,
         errors,
-        products: products.map(p => p.product)
+        products: products
       };
 
     } catch (error) {
@@ -492,6 +570,10 @@ export class ExcelService {
     shopId: string
   ): Promise<{ success: boolean; message: string; imported: number; failed: number }> {
     try {
+      console.log('🚀 Starting import process...');
+      console.log('Validated data success:', validatedData.success);
+      console.log('Number of products to import:', validatedData.products.length);
+      
       if (!validatedData.success) {
         throw new Error('Cannot import products with validation errors');
       }
@@ -501,32 +583,49 @@ export class ExcelService {
 
       for (const productInfo of validatedData.products) {
         try {
+          console.log(`📦 Importing product: ${productInfo.product.name}`);
+          
+          // Fix offerValidTill - convert string to Date object
+          const productData = {
+            ...productInfo.product,
+            offerValidTill: new Date(productInfo.product.offerValidTill)
+          };
+          
           // Create product
-          const product = await storage.createProduct(productInfo.product);
+          const product = await storage.createProduct(productData);
+          console.log('✅ Product created successfully:', product.id);
 
-      // Create category-specific data
-      const productWithCategoryData = (validatedData as any).products.find((p: any) => p.product === productInfo);
-      const categorySpecificData = productWithCategoryData?.categorySpecific;
+          // Create category-specific data
+          const categorySpecificData = productInfo.categorySpecific;
           
           if (categorySpecificData) {
-            if (productInfo.categoryId === 2) {
+            if (productInfo.product.categoryId === 2) {
               // Service provider
               await storage.createServiceProvider({
                 productId: product.id!,
                 ...categorySpecificData
               });
-            } else if (productInfo.categoryId === 1 || productInfo.categoryId === 3) {
+            } else if (productInfo.product.categoryId === 1 || productInfo.product.categoryId === 3) {
               // Grocery product
+              // Fix expiryDate - convert null to undefined or a valid date
+              const groceryData = {
+                ...categorySpecificData,
+                expiryDate: categorySpecificData.expiryDate || undefined
+              };
               await storage.createGroceryProduct({
                 productId: product.id!,
-                ...categorySpecificData
+                ...groceryData
               });
+              console.log('✅ Grocery product created successfully');
             }
           }
 
           imported++;
+          console.log(`✅ Successfully imported: ${productInfo.product.name}`);
         } catch (error) {
-          console.error(`Failed to import product: ${productInfo.name}`, error);
+          console.error(`❌ Failed to import product: ${productInfo.product.name}`);
+          console.error('Error details:', error);
+          console.error('Product data that failed:', productInfo);
           failed++;
         }
       }
