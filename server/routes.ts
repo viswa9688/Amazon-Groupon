@@ -465,16 +465,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/create-shop', isAdminAuthenticated, async (req, res) => {
     try {
       const shopData = req.body;
+      const { assignmentType, selectedUserId } = shopData;
       
-      // Create user with shop details
-      const newUser = await storage.createUserWithPhone({
-        firstName: shopData.firstName || '',
-        lastName: shopData.lastName || '',
-        phoneNumber: shopData.phoneNumber || '',
-      });
+      let targetUserId;
       
-      // Update with all shop details
-      const updatedUser = await storage.updateUserAdmin(newUser.id, {
+      if (assignmentType === 'existing' && selectedUserId) {
+        // Assign to existing user
+        targetUserId = selectedUserId;
+        
+        // Verify user exists and is not already a seller
+        const existingUser = await storage.getUser(selectedUserId);
+        if (!existingUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        if (existingUser.isSeller) {
+          return res.status(400).json({ message: "User is already a seller" });
+        }
+      } else {
+        // Create new user (current behavior)
+        const newUser = await storage.createUserWithPhone({
+          firstName: shopData.firstName || '',
+          lastName: shopData.lastName || '',
+          phoneNumber: shopData.phoneNumber || '',
+        });
+        targetUserId = newUser.id;
+      }
+      
+      // Update user with shop details and mark as seller
+      const updatedUser = await storage.updateUserAdmin(targetUserId, {
         ...shopData,
         isSeller: true,
       });

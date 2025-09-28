@@ -373,16 +373,34 @@ export default function SellerDashboard() {
   // Automatically set category based on shop type
   useEffect(() => {
     if (selectedShop) {
+      console.log("Selected shop:", selectedShop);
+      console.log("Shop type:", selectedShop.shopType);
+      console.log("Shop type comparison:", {
+        isGroceries: selectedShop.shopType === "groceries",
+        isServices: selectedShop.shopType === "services", 
+        isPetEssentials: selectedShop.shopType === "pet-essentials"
+      });
+      
       const categoryId = selectedShop.shopType === "groceries" ? "1" : selectedShop.shopType === "services" ? "2" : selectedShop.shopType === "pet-essentials" ? "3" : "1";
-      form.setValue("categoryId", categoryId);
+      console.log("Setting categoryId to:", categoryId, "for shop type:", selectedShop.shopType);
+      form.setValue("categoryId", categoryId, { shouldValidate: true });
+      // Also trigger validation to clear any existing errors
+      form.trigger("categoryId");
     } else {
       // Reset category when no shop is selected
-      form.setValue("categoryId", "");
+      console.log("Resetting categoryId - no shop selected");
+      form.setValue("categoryId", "", { shouldValidate: true });
     }
   }, [selectedShop, form]);
 
   // Watch category to show/hide service fields
   const selectedCategoryId = form.watch("categoryId");
+  
+  // Debug: Log current form values
+  useEffect(() => {
+    console.log("Current form values:", form.getValues());
+    console.log("Current categoryId:", selectedCategoryId);
+  }, [selectedCategoryId, form]);
 
   // Check for service category - grocery shops should show product fields, service shops should show service fields
   const isServiceCategory =
@@ -492,6 +510,39 @@ export default function SellerDashboard() {
           inventoryOnHand: data.inventoryOnHand ? parseInt(data.inventoryOnHand) : undefined,
           inventoryReserved: data.inventoryReserved ? parseInt(data.inventoryReserved) : undefined,
           inventoryStatus: data.inventoryStatus,
+        };
+      }
+
+      // Add pet essentials-specific data if Pet Essentials category
+      if (data.categoryId === "3") {
+        productData.serviceProvider = {
+          legalName: data.legalName,
+          displayName: data.displayName,
+          serviceCategory: data.serviceCategory,
+          licenseNumber: data.licenseNumber,
+          yearsInBusiness: data.yearsInBusiness
+            ? parseInt(data.yearsInBusiness)
+            : undefined,
+          serviceMode: data.serviceMode,
+          addressLine1: data.addressLine1,
+          addressLine2: data.addressLine2,
+          locality: data.locality,
+          region: data.region,
+          postalCode: data.postalCode,
+          serviceName: data.serviceName,
+          durationMinutes: data.durationMinutes
+            ? parseInt(data.durationMinutes)
+            : undefined,
+          pricingModel: data.pricingModel,
+          materialsIncluded: data.materialsIncluded,
+          ageRestriction: data.ageRestriction
+            ? parseInt(data.ageRestriction)
+            : undefined,
+          availabilityType: data.availabilityType,
+          advanceBookingDays: parseInt(data.advanceBookingDays || "7"),
+          rescheduleAllowed: data.rescheduleAllowed,
+          insurancePolicyNumber: data.insurancePolicyNumber,
+          liabilityWaiverRequired: data.liabilityWaiverRequired,
         };
       }
 
@@ -635,6 +686,10 @@ export default function SellerDashboard() {
 
 
   const onSubmit = (data: ProductFormData) => {
+    console.log("Form submission data:", data);
+    console.log("CategoryId:", data.categoryId);
+    console.log("Selected shop:", selectedShop);
+    console.log("Form errors:", form.formState.errors);
     addProductMutation.mutate(data);
   };
 
@@ -1034,12 +1089,14 @@ export default function SellerDashboard() {
                       data-testid="button-add-product"
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Add Groceries/Service
+                      Add Product/Service
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Add New Groceries/Service</DialogTitle>
+                      <DialogTitle>
+                        Add New {selectedShop?.shopType === "groceries" ? "Grocery Product" : selectedShop?.shopType === "pet-essentials" ? "Pet Essential Service" : "Service"}
+                      </DialogTitle>
                     </DialogHeader>
                     <Form {...form}>
                       <form
@@ -1065,7 +1122,7 @@ export default function SellerDashboard() {
                                 <SelectContent>
                                   {shops?.map((shop: any) => (
                                     <SelectItem key={shop.id} value={shop.id}>
-                                      {shop.displayName || shop.legalName} ({shop.shopType === "groceries" ? "Groceries" : "Services"})
+                                      {shop.displayName || shop.legalName} ({shop.shopType === "groceries" ? "Groceries" : shop.shopType === "pet-essentials" ? "Pet Essentials" : "Services"})
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -1099,11 +1156,9 @@ export default function SellerDashboard() {
                                     <SelectTrigger data-testid="select-category">
                                       <SelectValue
                                         placeholder={
-                                          selectedCategory
-                                            ? selectedCategory.name
-                                            : selectedShop
-                                              ? "Auto-determined by shop"
-                                              : "Select a shop first"
+                                          selectedShop
+                                            ? "Auto-determined by shop"
+                                            : "Select a shop first"
                                         }
                                       />
                                     </SelectTrigger>

@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -103,6 +104,9 @@ export default function AdminSuper() {
     ageCheckEnabled: false,
     substitutionPolicy: "customer_opt_in"
   });
+  const [assignmentType, setAssignmentType] = useState<'new' | 'existing'>('new');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [existingUsers, setExistingUsers] = useState<User[]>([]);
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -141,6 +145,24 @@ export default function AdminSuper() {
       setUsersLoading(false);
     }
   };
+
+  const fetchExistingUsers = async () => {
+    try {
+      const response = await apiRequest("POST", "/api/admin/users", loginData);
+      const data = await response.json();
+      // Extract buyers (non-sellers) for assignment
+      setExistingUsers(data.buyers || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  // Fetch existing users when dialog opens
+  useEffect(() => {
+    if (addShopDialogOpen && isAuthenticated) {
+      fetchExistingUsers();
+    }
+  }, [addShopDialogOpen, isAuthenticated]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -401,6 +423,44 @@ export default function AdminSuper() {
         return;
       }
 
+      // Validate assignment type specific fields
+      if (assignmentType === 'existing') {
+        if (!selectedUserId) {
+          toast({
+            title: "Validation Error",
+            description: "Please select an existing user to assign the shop to",
+            variant: "destructive"
+          });
+          return;
+        }
+      } else {
+        // Validate contact fields for new user
+        if (!newShopForm.firstName?.trim()) {
+          toast({
+            title: "Validation Error",
+            description: "First Name is required for new user",
+            variant: "destructive"
+          });
+          return;
+        }
+        if (!newShopForm.lastName?.trim()) {
+          toast({
+            title: "Validation Error",
+            description: "Last Name is required for new user",
+            variant: "destructive"
+          });
+          return;
+        }
+        if (!newShopForm.phoneNumber?.trim()) {
+          toast({
+            title: "Validation Error",
+            description: "Phone Number is required for new user",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       // Validate address fields
       if (!newShopForm.addressLine1?.trim()) {
         toast({
@@ -478,14 +538,36 @@ export default function AdminSuper() {
       }
 
 
-      // Create a new user with shop details
+      // Prepare data based on assignment type
+      const submitData = {
+        ...newShopForm,
+        assignmentType,
+        selectedUserId: assignmentType === 'existing' ? selectedUserId : undefined
+      };
+
+      // Remove contact fields if assigning to existing user
+      if (assignmentType === 'existing') {
+        delete submitData.firstName;
+        delete submitData.lastName;
+        delete submitData.phoneNumber;
+        delete submitData.email;
+      }
+
+      // Create shop or assign to existing user
       await apiRequest("POST", `/api/admin/create-shop`, {
         ...loginData,
-        ...newShopForm
+        ...submitData
       });
       
-      toast({ title: "Success", description: "New shop created successfully" });
+      toast({ 
+        title: "Success", 
+        description: assignmentType === 'existing' 
+          ? "Shop assigned to existing user successfully" 
+          : "New shop created successfully" 
+      });
       setAddShopDialogOpen(false);
+      setAssignmentType('new');
+      setSelectedUserId('');
       setNewShopForm({
         isSeller: true,
         status: "active",
@@ -780,6 +862,68 @@ export default function AdminSuper() {
           
           <div className="max-h-[60vh] overflow-y-auto px-1">
             <div className="space-y-6">
+              {/* Shop Assignment */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Shop Assignment
+                </h3>
+                
+                <RadioGroup 
+                  value={assignmentType} 
+                  onValueChange={(value) => {
+                    setAssignmentType(value as 'new' | 'existing');
+                    setSelectedUserId('');
+                  }}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="new" id="new" />
+                    <Label htmlFor="new">Create New User</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="existing" id="existing" />
+                    <Label htmlFor="existing">Assign to Existing User</Label>
+                  </div>
+                </RadioGroup>
+
+                {assignmentType === 'existing' && (
+                  <div className="space-y-2">
+                    <Label>Select Existing User</Label>
+                    <Select 
+                      value={selectedUserId} 
+                      onValueChange={setSelectedUserId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a user to assign as shop owner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {existingUsers.map(user => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.firstName || 'Unknown'} {user.lastName || 'User'} ({user.phoneNumber || 'No phone'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {existingUsers.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No existing users available for assignment. All users are already sellers.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {assignmentType === 'existing' && selectedUserId && (
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                      ℹ️ Shop will be assigned to the selected user. 
+                      They will become the shop owner and can access the seller dashboard.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
               {/* Basic Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -851,12 +995,13 @@ export default function AdminSuper() {
 
               <Separator />
 
-              {/* Contact Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Contact Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
+              {/* Contact Information - Only show when creating new user */}
+              {assignmentType === 'new' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Contact Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
                     <Input
                       id="firstName"
                       value={newShopForm.firstName || ""}
@@ -889,7 +1034,8 @@ export default function AdminSuper() {
                     />
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
 
               <Separator />
 
