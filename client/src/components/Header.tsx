@@ -29,6 +29,9 @@ export default function Header() {
   const [sellerIntent, setSellerIntent] = useState(false);
   const { toast } = useToast();
 
+  // Check if admin is impersonating a user
+  const isImpersonating = (user as any)?._impersonation?.isImpersonating;
+
   // Fetch cart items to get count
   const { data: cartItems = [] } = useQuery<any[]>({
     queryKey: ["/api/cart"],
@@ -58,6 +61,12 @@ export default function Header() {
 
   return (
     <header className="bg-card/95 backdrop-blur-sm shadow-sm border-b border-border sticky top-0 z-50">
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-center py-2 text-sm font-medium">
+          🔍 Admin Impersonation Mode - Viewing as {(user as any)?.firstName} {(user as any)?.lastName}
+        </div>
+      )}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-18">
           {/* Logo */}
@@ -243,6 +252,24 @@ export default function Header() {
                         </button>
 
                         <div className="border-t border-border my-1"></div>
+
+                        {isImpersonating && (
+                          <button
+                            onClick={() => {
+                              // Stop impersonation by calling the stop endpoint
+                              fetch('/api/admin/stop-impersonation', {
+                                method: 'POST',
+                                credentials: 'include'
+                              }).then(() => {
+                                window.location.reload();
+                              });
+                            }}
+                            className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors text-orange-600"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span className="text-sm">Stop Impersonation</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={() => logoutMutation.mutate()}

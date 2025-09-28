@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { ultraFastStorage } from "./ultraFastStorage";
 import { setupPhoneAuth, isAuthenticated, isSellerAuthenticated } from "./phoneAuth";
@@ -120,6 +121,52 @@ const isAdminAuthenticated = async (req: any, res: any, next: any) => {
   return res.status(403).json({ message: "Admin access denied" });
 };
 
+// Session-based admin authentication middleware
+const isAdminAuthenticatedSession = async (req: any, res: any, next: any) => {
+  try {
+    console.log("=== ADMIN AUTH SESSION CHECK ===");
+    console.log("Session adminLogin:", (req.session as any).adminLogin);
+    console.log("Request body:", req.body);
+    
+    // Check if admin is logged in via session
+    if ((req.session as any).adminLogin && (req.session as any).adminLogin.userId) {
+      console.log("Checking session credentials for:", (req.session as any).adminLogin.userId);
+      const isValid = await storage.validateAdminCredentials(
+        (req.session as any).adminLogin.userId, 
+        (req.session as any).adminLogin.password
+      );
+      if (isValid) {
+        console.log("Session credentials valid");
+        req.admin = { userId: (req.session as any).adminLogin.userId };
+        return next();
+      } else {
+        console.log("Session credentials invalid");
+      }
+    }
+    
+    // Fallback: check request body for credentials
+    const { userId, password } = req.body;
+    if (userId && password) {
+      console.log("Checking body credentials for:", userId);
+      const isValid = await storage.validateAdminCredentials(userId, password);
+      if (isValid) {
+        console.log("Body credentials valid");
+        req.admin = { userId };
+        return next();
+      } else {
+        console.log("Body credentials invalid");
+      }
+    }
+    
+    console.log("No valid admin credentials found");
+  } catch (error: any) {
+    console.error("Admin authentication error:", error);
+    console.error("Error stack:", error.stack);
+  }
+  
+  return res.status(403).json({ message: "Admin access denied" });
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Performance monitoring middleware
   app.use(performanceMiddleware);
@@ -214,6 +261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const isValid = await storage.validateAdminCredentials(userId, password);
       if (isValid) {
+        // Store admin login in session
+        (req.session as any).adminLogin = { userId, password };
         res.json({ success: true, message: "Admin logged in" });
       } else {
         res.status(403).json({ message: "Admin access denied" });
@@ -652,32 +701,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin impersonation routes
-  app.post('/api/admin/impersonate/:userId', isAdminAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/impersonate/:userId', isAdminAuthenticatedSession, async (req: any, res) => {
     try {
+      console.log("=== IMPERSONATION REQUEST ===");
+      console.log("Target userId:", req.params.userId);
+      console.log("Admin userId:", req.admin?.userId);
+      console.log("Session:", req.session);
+      
       const targetUserId = req.params.userId;
       const targetUser = await storage.getUser(targetUserId);
       
       if (!targetUser) {
+        console.log("Target user not found:", targetUserId);
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Set impersonation in session
-      req.session.adminImpersonation = {
+      console.log("Target user found:", targetUser.firstName, targetUser.lastName);
+      
+      // Generate a temporary impersonation token
+      const impersonationToken = crypto.randomBytes(32).toString('hex');
+      console.log("Generated token:", impersonationToken.substring(0, 8) + "...");
+      
+      // Store impersonation data with token (expires in 1 hour)
+      req.session.impersonationTokens = req.session.impersonationTokens || {};
+      req.session.impersonationTokens[impersonationToken] = {
         adminUserId: req.admin.userId,
-        impersonatedUserId: targetUserId
+        impersonatedUserId: targetUserId,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (60 * 60 * 1000) // 1 hour
       };
       
+      console.log("Token stored in session");
+      
       res.json({ 
-        message: "Impersonation started", 
-        impersonatedUser: targetUser 
+        message: "Impersonation token generated", 
+        impersonatedUser: targetUser,
+        impersonationToken: impersonationToken
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error starting impersonation:", error);
-      res.status(500).json({ message: "Failed to start impersonation" });
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ message: "Failed to start impersonation", error: error.message });
     }
   });
 
-  app.post('/api/admin/stop-impersonation', isAdminAuthenticated, async (req: any, res) => {
+  // Impersonation login endpoint
+  app.post('/api/impersonation-login', async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token || !req.session.impersonationTokens || !req.session.impersonationTokens[token]) {
+        return res.status(400).json({ message: "Invalid impersonation token" });
+      }
+      
+      const impersonationData = req.session.impersonationTokens[token];
+      
+      // Check if token is expired
+      if (Date.now() > impersonationData.expiresAt) {
+        delete req.session.impersonationTokens[token];
+        return res.status(400).json({ message: "Impersonation token expired" });
+      }
+      
+      // Get the target user
+      const targetUser = await storage.getUser(impersonationData.impersonatedUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Target user not found" });
+      }
+      
+      // Create a new session for the impersonated user
+      req.session.user = {
+        id: targetUser.id,
+        firstName: targetUser.firstName,
+        lastName: targetUser.lastName,
+        phoneNumber: targetUser.phoneNumber,
+        email: targetUser.email,
+        isSeller: targetUser.isSeller,
+        storeId: targetUser.storeId
+      };
+      
+      // Set impersonation flag
+      req.session.adminImpersonation = {
+        adminUserId: impersonationData.adminUserId,
+        impersonatedUserId: targetUser.id,
+        token: token
+      };
+      
+      // Clean up the token
+      delete req.session.impersonationTokens[token];
+      
+      res.json({ 
+        message: "Impersonation login successful", 
+        user: targetUser 
+      });
+    } catch (error) {
+      console.error("Error in impersonation login:", error);
+      res.status(500).json({ message: "Failed to login with impersonation" });
+    }
+  });
+
+  app.post('/api/admin/stop-impersonation', isAdminAuthenticatedSession, async (req: any, res) => {
     try {
       delete req.session.adminImpersonation;
       res.json({ message: "Impersonation stopped" });

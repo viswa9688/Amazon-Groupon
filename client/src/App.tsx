@@ -25,6 +25,7 @@ import AdminSuper from "@/pages/admin-super";
 import SellerAnalytics from "@/pages/seller-analytics";
 import Cart from "@/pages/cart.tsx";
 import CartCheckout from "@/pages/cart-checkout";
+import ImpersonationLogin from "@/pages/impersonation-login";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +51,7 @@ function Router() {
         {() => <SellerGuard><SellerAnalytics /></SellerGuard>}
       </Route>
       <Route path="/admin-super" component={AdminSuper} />
+      <Route path="/impersonation-login" component={ImpersonationLogin} />
       
       <Route path="/cart">
         {() => <AuthGuard><Cart /></AuthGuard>}

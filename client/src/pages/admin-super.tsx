@@ -357,14 +357,18 @@ export default function AdminSuper() {
 
   const handleImpersonate = async (userId: string) => {
     try {
-      await apiRequest("POST", `/api/admin/impersonate/${userId}`, loginData);
+      const response = await apiRequest("POST", `/api/admin/impersonate/${userId}`, loginData);
+      const data = await response.json();
+      
       toast({ 
         title: "Impersonation Started", 
-        description: "You are now viewing as the selected user",
+        description: `Opening new tab as ${data.impersonatedUser?.firstName || 'user'}...`,
       });
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
+      
+      // Open in new tab with impersonation token
+      const impersonationUrl = `/impersonation-login?token=${data.impersonationToken}`;
+      window.open(impersonationUrl, '_blank');
+      
     } catch (error) {
       toast({
         title: "Error",
