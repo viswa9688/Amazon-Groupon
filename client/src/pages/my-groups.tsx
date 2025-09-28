@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Users, Clock, CheckCircle, Package, Plus, Share2, Edit, Trash2, ShoppingCart, Crown, Zap } from "lucide-react";
+import { Users, Clock, CheckCircle, Package, Plus, Share2, Edit, Trash2, ShoppingCart, Crown, Zap, Eye } from "lucide-react";
 import GroupProgress from "@/components/GroupProgress";
 import CountdownTimer from "@/components/CountdownTimer";
 import type { GroupPurchaseWithDetails, UserGroupWithDetails, InsertUserGroup } from "@shared/schema";
@@ -56,9 +56,15 @@ export default function MyGroups() {
     enabled: isAuthenticated,
   });
 
-  // Get user-created groups
+  // Get user-created groups (owned groups)
   const { data: userGroups, isLoading: userGroupsLoading } = useQuery<UserGroupWithDetails[]>({
     queryKey: ["/api/user-groups"],
+    enabled: isAuthenticated,
+  });
+
+  // Get user-joined groups (participant groups)
+  const { data: joinedGroups, isLoading: joinedGroupsLoading } = useQuery<UserGroupWithDetails[]>({
+    queryKey: ["/api/user-groups/joined"],
     enabled: isAuthenticated,
   });
 
@@ -202,7 +208,7 @@ export default function MyGroups() {
               <div className="flex items-center space-x-6">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-joined-groups-count">
-                    {myGroupPurchases.length}
+                    {myGroupPurchases.length + (joinedGroups?.length || 0)}
                   </p>
                   <p className="text-sm text-muted-foreground">Joined Groups</p>
                 </div>
@@ -289,13 +295,13 @@ export default function MyGroups() {
 
           {/* Joined Groups Tab */}
           <TabsContent value="joined" className="space-y-6">
-            {groupsLoading ? (
+            {groupsLoading || joinedGroupsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-80 w-full rounded-2xl" />
                 ))}
               </div>
-            ) : myGroupPurchases.length === 0 ? (
+            ) : myGroupPurchases.length === 0 && (!joinedGroups || joinedGroups.length === 0) ? (
               <div className="text-center py-20">
                 <div className="mb-6">
                   <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -317,8 +323,16 @@ export default function MyGroups() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {myGroupPurchases.map((groupPurchase) => {
+              <div className="space-y-8">
+                {/* Group Purchases Section */}
+                {myGroupPurchases.length > 0 && (
+                  <div>
+                    <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center space-x-2">
+                      <Package className="w-5 h-5 text-blue-600" />
+                      <span>Group Purchases</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {myGroupPurchases.map((groupPurchase) => {
                   const { product } = groupPurchase;
                   const isComplete = (groupPurchase.currentParticipants || 0) >= groupPurchase.targetParticipants;
                   
@@ -409,7 +423,149 @@ export default function MyGroups() {
                       </CardContent>
                     </Card>
                   );
-                })}
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Joined User Groups Section */}
+                {joinedGroups && joinedGroups.length > 0 && (
+                  <div>
+                    <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-purple-600" />
+                      <span>Joined Popular Groups</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {joinedGroups.map((userGroup) => {
+                        const totalItems = userGroup.items?.length || 0;
+                        const totalValue = userGroup.items?.reduce((sum, item) => {
+                          return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
+                        }, 0) || 0;
+                        
+                        // Check minimum order value requirement ($50 excluding delivery)
+                        const MINIMUM_ORDER_VALUE = 50.00;
+                        const orderValueExcludingDelivery = totalValue;
+                        
+                        const potentialSavings = (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) 
+                          ? userGroup.items?.reduce((sum, item) => {
+                              const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+                              const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
+                              return sum + savings;
+                            }, 0) || 0
+                          : 0;
+                        
+                        // Use collection-level participant count
+                        const collectionParticipants = userGroup.participantCount || 0;
+                        
+                        // Popular group-level progress - 5 people needed for discount activation
+                        const collectionProgress = Math.min((collectionParticipants / 5) * 100, 100);
+
+                        return (
+                          <Card key={userGroup.id} className="overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg" data-testid={`card-joined-group-${userGroup.id}`}>
+                            <CardHeader className="pb-3">
+                              <div className="space-y-1">
+                                <CardTitle className="text-xl font-bold text-card-foreground line-clamp-2" data-testid={`text-joined-group-name-${userGroup.id}`}>
+                                  {userGroup.name}
+                                </CardTitle>
+                                {userGroup.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-joined-group-description-${userGroup.id}`}>
+                                    {userGroup.description}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  Created by {userGroup.user?.firstName || 'Unknown'}
+                                </p>
+                              </div>
+                            </CardHeader>
+                            
+                            <CardContent className="space-y-4">
+                              {/* Popular Group Stats */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid={`text-joined-group-items-count-${userGroup.id}`}>
+                                    {totalItems}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">Items</p>
+                                </div>
+                                <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid={`text-joined-group-participants-count-${userGroup.id}`}>
+                                    {collectionParticipants}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">Members</p>
+                                </div>
+                                <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                  <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid={`text-joined-group-potential-savings-${userGroup.id}`}>
+                                    ${potentialSavings.toFixed(0)}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">Potential Savings</p>
+                                </div>
+                                <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid={`text-joined-group-collection-progress-${userGroup.id}`}>
+                                    {collectionProgress.toFixed(0)}%
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">Discount Progress</p>
+                                </div>
+                              </div>
+
+                              {/* Popular Group Status */}
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                  <span>{collectionParticipants} / 5 members</span>
+                                  <span>{collectionProgress.toFixed(0)}% complete</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${collectionProgress}%` }}
+                                  />
+                                </div>
+                                {collectionParticipants >= 5 ? (
+                                  <p className="text-sm text-green-600 dark:text-green-400 font-medium text-center">
+                                    Discounts active! 🎉
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground text-center">
+                                    {5 - collectionParticipants} more members needed for discounts
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Item Preview */}
+                              {totalItems > 0 && (
+                                <div className="space-y-2">
+                                  <h4 className="font-medium text-sm text-muted-foreground">Items in collection:</h4>
+                                  <div className="space-y-2">
+                                    {userGroup.items.slice(0, 3).map((item) => (
+                                      <div key={item.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg" data-testid={`joined-item-preview-${item.id}`}>
+                                        <span className="text-card-foreground font-medium truncate">{item.product.name}</span>
+                                        <span className="text-muted-foreground">×{item.quantity}</span>
+                                      </div>
+                                    ))}
+                                    {totalItems > 3 && (
+                                      <div className="text-center text-sm text-muted-foreground py-1">
+                                        +{totalItems - 3} more items
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Action Button */}
+                              <Button 
+                                className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
+                                onClick={() => window.location.href = `/user-group/${userGroup.id}`}
+                                data-testid={`button-view-joined-group-${userGroup.id}`}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Popular Group
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>

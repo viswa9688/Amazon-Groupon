@@ -681,7 +681,7 @@ export default function ProductDetails() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <Button 
                       size="lg" 
                       variant="outline"
@@ -692,19 +692,7 @@ export default function ProductDetails() {
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       {addToCartMutation.isPending ? "Adding..." : "Add to Cart"}
                     </Button>
-                    <Button 
-                      size="lg" 
-                      variant="outline"
-                      onClick={() => {
-                        toast({
-                          title: "Coming Soon",
-                          description: "Group purchase creation is coming soon!",
-                        });
-                      }}
-                      data-testid="button-start-group"
-                    >
-                      Start Group
-                    </Button>
+                   
                   </div>
                   
                   <p className="text-xs text-muted-foreground text-center">

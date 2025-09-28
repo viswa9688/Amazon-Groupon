@@ -159,6 +159,7 @@ export interface IStorage {
   
   // User group operations
   getUserGroups(userId: string): Promise<UserGroupWithDetails[]>;
+  getUserJoinedGroups(userId: string): Promise<UserGroupWithDetails[]>;
   getUserGroup(groupId: number): Promise<UserGroupWithDetails | undefined>;
   getUserGroupByShareToken(shareToken: string): Promise<UserGroupWithDetails | undefined>;
   createUserGroup(userGroup: InsertUserGroup & { shareToken: string }): Promise<UserGroup>;
@@ -1748,7 +1749,7 @@ export class DatabaseStorage implements IStorage {
 
   // User group operations
   async getUserGroups(userId: string): Promise<UserGroupWithDetails[]> {
-    // Get all groups where user is owner OR approved participant
+    // Get only groups where user is the owner
     const ownedGroups = await db.query.userGroups.findMany({
       where: eq(userGroups.userId, userId),
       with: {
@@ -1772,7 +1773,22 @@ export class DatabaseStorage implements IStorage {
       },
     });
 
-    // Get groups where user is an approved participant
+    // Sort by updatedAt desc
+    ownedGroups.sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    // Add participant count to each group (only approved participants)
+    return ownedGroups.map(group => ({
+      ...group,
+      participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
+    }));
+  }
+
+  async getUserJoinedGroups(userId: string): Promise<UserGroupWithDetails[]> {
+    // Get groups where user is an approved participant (but not the owner)
     const participantGroups = await db.select({
       id: userGroups.id,
       userId: userGroups.userId,
@@ -1790,7 +1806,8 @@ export class DatabaseStorage implements IStorage {
           eq(userGroupParticipants.userId, userId),
           eq(userGroupParticipants.status, 'approved')
         )
-      );
+      )
+      .where(not(eq(userGroups.userId, userId))); // Exclude groups where user is the owner
 
     // Now get full details for participant groups
     const participantGroupsWithDetails = await db.query.userGroups.findMany({
@@ -1816,21 +1833,15 @@ export class DatabaseStorage implements IStorage {
       },
     });
 
-    // Combine and deduplicate groups
-    const allGroups = [...ownedGroups, ...participantGroupsWithDetails];
-    const uniqueGroups = allGroups.filter((group, index, self) => 
-      index === self.findIndex(g => g.id === group.id)
-    );
-
     // Sort by updatedAt desc
-    uniqueGroups.sort((a, b) => {
+    participantGroupsWithDetails.sort((a, b) => {
       const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
       const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       return dateB - dateA;
     });
 
     // Add participant count to each group (only approved participants)
-    return uniqueGroups.map(group => ({
+    return participantGroupsWithDetails.map(group => ({
       ...group,
       participantCount: group.participants?.filter(p => p.status === 'approved').length || 0,
     }));

@@ -1753,6 +1753,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/user-groups/joined', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const joinedGroups = await storage.getUserJoinedGroups(userId);
+      res.json(joinedGroups);
+    } catch (error) {
+      console.error("Error fetching joined groups:", error);
+      res.status(500).json({ message: "Failed to fetch joined groups" });
+    }
+  });
+
   // Get all public collections for browsing
   app.get('/api/collections', async (req, res) => {
     const startTime = performance.now();
