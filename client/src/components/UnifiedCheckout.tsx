@@ -44,7 +44,8 @@ const PaymentForm = ({
   deliveryFee,
   originalAmount,
   potentialSavings,
-  deliveryMethod
+  deliveryMethod,
+  meetsMinimumOrder
 }: { 
   amount: number; 
   productId?: number; 
@@ -58,6 +59,7 @@ const PaymentForm = ({
   originalAmount: number;
   potentialSavings: number;
   deliveryMethod?: "pickup" | "delivery";
+  meetsMinimumOrder: boolean;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -70,6 +72,27 @@ const PaymentForm = ({
     e.preventDefault();
 
     if (!stripe || !elements) {
+      return;
+    }
+
+    // Check minimum order value ($50 excluding delivery)
+    const MINIMUM_ORDER_VALUE = 50.00;
+    let orderValueExcludingDelivery = 0;
+    
+    if (type === 'group' && groupData) {
+      orderValueExcludingDelivery = groupData.items.reduce((sum, item) => {
+        return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
+      }, 0);
+    } else if (type === 'individual') {
+      orderValueExcludingDelivery = originalAmount;
+    }
+    
+    if (orderValueExcludingDelivery < MINIMUM_ORDER_VALUE) {
+      toast({
+        title: "Minimum Order Required",
+        description: `Your order total is $${orderValueExcludingDelivery.toFixed(2)}. Please add items to reach the minimum order value of $50.00 to proceed with checkout.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -228,11 +251,11 @@ const PaymentForm = ({
       <PaymentElement />
       <Button
         type="submit"
-        disabled={!stripe || isProcessing}
-        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg"
+        disabled={!stripe || isProcessing || !meetsMinimumOrder}
+        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
         data-testid="button-checkout"
       >
-        {isProcessing ? "Processing Payment..." : "Checkout"}
+        {isProcessing ? "Processing Payment..." : !meetsMinimumOrder ? "Minimum Order Required" : "Checkout"}
       </Button>
     </form>
   );
@@ -671,6 +694,37 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                     </div>
                   </div>
                   
+                  {/* Minimum Order Warning */}
+                  {(() => {
+                    const MINIMUM_ORDER_VALUE = 50.00;
+                    let orderValueExcludingDelivery = 0;
+                    
+                    if (checkoutData.type === 'group' && groupData) {
+                      orderValueExcludingDelivery = groupData.items.reduce((sum, item) => {
+                        return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
+                      }, 0);
+                    } else if (checkoutData.type === 'individual') {
+                      orderValueExcludingDelivery = originalAmount;
+                    }
+                    
+                    if (orderValueExcludingDelivery < MINIMUM_ORDER_VALUE) {
+                      return (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-orange-600">⚠️</span>
+                              <span className="font-semibold text-orange-800 dark:text-orange-200">Minimum Order Required</span>
+                            </div>
+                            <p className="text-orange-700 dark:text-orange-300 text-sm">
+                              Your order total is ${orderValueExcludingDelivery.toFixed(2)}. You need ${(MINIMUM_ORDER_VALUE - orderValueExcludingDelivery).toFixed(2)} more to reach the minimum order value of $50.00.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
                   {/* Shipping Address */}
                   {selectedAddress && (
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -970,6 +1024,20 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                           originalAmount={originalAmount}
                           potentialSavings={potentialSavings}
                           deliveryMethod={deliveryMethod}
+                          meetsMinimumOrder={(() => {
+                            const MINIMUM_ORDER_VALUE = 50.00;
+                            let orderValueExcludingDelivery = 0;
+                            
+                            if (checkoutData.type === 'group' && groupData) {
+                              orderValueExcludingDelivery = groupData.items.reduce((sum, item) => {
+                                return sum + (parseFloat(item.product.originalPrice.toString()) * item.quantity);
+                              }, 0);
+                            } else if (checkoutData.type === 'individual') {
+                              orderValueExcludingDelivery = originalAmount;
+                            }
+                            
+                            return orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE;
+                          })()}
                         />
                       </Elements>
                     </div>

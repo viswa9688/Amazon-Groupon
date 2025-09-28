@@ -249,6 +249,17 @@ export default function Cart() {
       return;
     }
 
+    // Check minimum order value ($50)
+    const cartTotal = calculateCartTotal();
+    if (cartTotal < 50) {
+      toast({
+        title: "Minimum Order Required",
+        description: `Your cart total is $${cartTotal.toFixed(2)}. Please add items to reach the minimum order value of $50.00 to proceed to checkout.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Redirect to multi-item cart checkout page
     setLocation("/cart-checkout");
   };
@@ -553,6 +564,14 @@ export default function Cart() {
                     <span>Total</span>
                     <span data-testid="text-cart-total">${calculateCartTotal().toFixed(2)}</span>
                   </div>
+                  {calculateCartTotal() < 50 && (
+                    <div className="text-sm text-orange-600 dark:text-orange-400 text-center bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <div className="flex items-center justify-center space-x-1">
+                        <span>⚠️</span>
+                        <span>Minimum order: $50.00 (${(50 - calculateCartTotal()).toFixed(2)} more needed)</span>
+                      </div>
+                    </div>
+                  )}
                   {showSuggestions && similarGroups.length > 0 && (
                     <div className="text-sm text-green-600 text-center">
                       Save ${calculatePotentialSavings().toFixed(2)} by joining popular groups!
