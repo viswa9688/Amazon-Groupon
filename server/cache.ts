@@ -347,35 +347,12 @@ export class CacheWarmer {
 
   // Set up background refresh for dynamic data
   async setupBackgroundRefresh(): Promise<void> {
-    console.log('🔄 Setting up background refresh...');
+    console.log('🔄 Background refresh disabled for better stability...');
     
-    const { storage } = await import('./storage');
+    // Skip background refresh to prevent connection pool issues
+    // const { storage } = await import('./storage');
     
-    // ULTRA-FAST refresh products every 5 minutes (serverless optimized)
-    await ultraFastCache.backgroundRefresh(
-      CacheKeys.PRODUCTS_ALL,
-      () => storage.getProducts(),
-      300000, // 5 min TTL
-      300000  // 5 min refresh
-    );
-
-        // ULTRA-FAST refresh user groups every 2 minutes
-        await ultraFastCache.backgroundRefresh(
-          CacheKeys.USER_GROUPS_ALL,
-          () => storage.getAllPublicCollections(),
-          120000, // 2 min TTL
-          120000  // 2 min refresh
-        );
-
-        // ULTRA-FAST refresh users every 5 minutes
-        await ultraFastCache.backgroundRefresh(
-          CacheKeys.USERS_ALL,
-          () => storage.getAllUsers(),
-          300000, // 5 min TTL
-          300000  // 5 min refresh
-        );
-
-    console.log('✅ Background refresh setup completed');
+    console.log('✅ Background refresh setup completed (disabled)');
   }
 }
 

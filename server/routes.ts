@@ -269,7 +269,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Address validation endpoint
+  // Address validation endpoint - supports both single address string and structured address
+  app.post('/api/address/validate', async (req, res) => {
+    try {
+      const { address, addressLine1, addressLine2, city, state, postalCode, country, orderTotal } = req.body;
+      
+      // Handle both single address string and structured address formats
+      let addressObj;
+      if (address) {
+        // Parse single address string (e.g., "123 Main St, Vancouver, BC V6C 1T4")
+        const parts = address.split(',').map(part => part.trim());
+        if (parts.length >= 3) {
+          addressObj = {
+            addressLine: parts[0],
+            city: parts[1],
+            state: parts[2].split(' ')[0], // Extract province/state
+            pincode: parts[2].split(' ').slice(1).join(' '), // Extract postal code
+            country: 'Canada'
+          };
+        } else {
+          return res.status(400).json({ 
+            isValid: false, 
+            error: "Invalid address format. Please provide full address with city, province, and postal code." 
+          });
+        }
+      } else if (addressLine1 && city && state && postalCode && country) {
+        // Handle structured address format
+        addressObj = {
+          addressLine: addressLine1 + (addressLine2 ? `, ${addressLine2}` : ''),
+          city,
+          state,
+          pincode: postalCode,
+          country
+        };
+      } else {
+        return res.status(400).json({ 
+          isValid: false, 
+          error: "Missing required address fields. Provide either 'address' string or structured address fields." 
+        });
+      }
+
+      // Import services
+      const { geocodingService } = await import('./geocodingService');
+      const { DeliveryService } = await import('./deliveryService');
+      
+      // Validate address in BC
+      const validationResult = await geocodingService.verifyBCAddress(addressObj);
+      
+      if (!validationResult.isInBC) {
+        return res.json({
+          isValid: false,
+          formattedAddress: validationResult.formattedAddress,
+          province: validationResult.province,
+          confidence: validationResult.confidence,
+          error: validationResult.error || "Address is not in British Columbia",
+          deliveryInfo: null
+        });
+      }
+
+      // Calculate delivery information if address is valid
+      let deliveryInfo = null;
+      if (validationResult.isInBC) {
+        try {
+          const deliveryService = new DeliveryService();
+          
+          // Create a mock order for delivery calculation
+          const mockOrder = {
+            items: [{
+              sellerId: 'default-seller', // Use a default seller for calculation
+              quantity: 1,
+              price: orderTotal || 0
+            }]
+          };
+          
+          const deliveryResult = await deliveryService.calculateDeliveryCharges(
+            addressObj,
+            orderTotal || 0,
+            'individual'
+          );
+          
+          // Extract delivery info from the result
+          deliveryInfo = {
+            distance: Math.round(deliveryResult.distance * 10) / 10, // Round to 1 decimal
+            estimatedTime: Math.round(deliveryResult.duration || 0),
+            deliveryFee: deliveryResult.deliveryCharge,
+            isFreeDelivery: deliveryResult.isFreeDelivery,
+            reason: deliveryResult.reason,
+            minimumOrderValue: 50.00, // $50 minimum for all orders as shown in UI
+            deliveryRatePerKm: 5.99, // $5.99 per km beyond 10km
+            freeDeliveryDistance: 10, // 10km free delivery
+            orderTotal: orderTotal || 0,
+            meetsMinimumOrder: deliveryResult.meetsMinimumOrder ?? ((orderTotal || 0) >= 50.00)
+          };
+        } catch (deliveryError) {
+          console.warn('Delivery calculation failed:', deliveryError);
+          // Still return valid address even if delivery calculation fails
+        }
+      }
+      
+      res.json({
+        isValid: true,
+        formattedAddress: validationResult.formattedAddress,
+        province: validationResult.province,
+        confidence: validationResult.confidence,
+        error: null,
+        deliveryInfo
+      });
+    } catch (error) {
+      console.error("Error validating address:", error);
+      res.status(500).json({ 
+        isValid: false, 
+        error: "Address validation failed" 
+      });
+    }
+  });
+
+  // Legacy address validation endpoint (for backward compatibility)
   app.post('/api/validate-address', async (req, res) => {
     try {
       const { addressLine1, addressLine2, city, state, postalCode, country } = req.body;
@@ -3234,6 +3349,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public delivery calculation endpoint (for address changes and order total updates)
+  app.post('/api/delivery/calculate-public', async (req, res) => {
+    try {
+      const { address, orderTotal = 0, orderType = 'individual' } = req.body;
+      
+      if (!address) {
+        return res.status(400).json({ 
+          message: "Missing required field: address" 
+        });
+      }
+
+      // Parse address if it's a string
+      let addressObj;
+      if (typeof address === 'string') {
+        const parts = address.split(',').map(part => part.trim());
+        if (parts.length >= 3) {
+          addressObj = {
+            addressLine: parts[0],
+            city: parts[1],
+            state: parts[2].split(' ')[0],
+            pincode: parts[2].split(' ').slice(1).join(' '),
+            country: 'Canada'
+          };
+        } else {
+          return res.status(400).json({ 
+            message: "Invalid address format. Please provide full address with city, province, and postal code." 
+          });
+        }
+      } else {
+        addressObj = address;
+      }
+
+      const { DeliveryService } = await import('./deliveryService');
+      const deliveryService = new DeliveryService();
+      
+      // Create a mock order for delivery calculation
+      const mockOrder = {
+        items: [{
+          sellerId: 'default-seller',
+          quantity: 1,
+          price: orderTotal
+        }]
+      };
+      
+      const deliveryResult = await deliveryService.calculateDeliveryCharges(
+        addressObj,
+        orderTotal,
+        orderType
+      );
+      
+      // Extract delivery info from the result
+      const minimumOrderValue = 50.00; // $50 minimum for all orders
+      
+      res.json({
+        distance: Math.round(deliveryResult.distance * 10) / 10,
+        estimatedTime: Math.round(deliveryResult.duration || 0),
+        deliveryFee: deliveryResult.deliveryCharge,
+        isFreeDelivery: deliveryResult.isFreeDelivery,
+        reason: deliveryResult.reason,
+        minimumOrderValue,
+        deliveryRatePerKm: 5.99,
+        freeDeliveryDistance: 10,
+        orderTotal,
+        meetsMinimumOrder: deliveryResult.meetsMinimumOrder ?? (orderTotal >= minimumOrderValue),
+        orderType,
+        canDeliver: true // If we got here, the address is valid
+      });
+    } catch (error) {
+      console.error("Error calculating delivery charges:", error);
+      res.status(500).json({ 
+        message: "Failed to calculate delivery charges",
+        error: error.message 
+      });
+    }
+  });
+
   // Calculate delivery charges for group orders (multiple sellers)
   app.post('/api/delivery/calculate-group', isAuthenticated, async (req: any, res) => {
     try {
@@ -4515,10 +4706,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delivery fee calculation endpoint
   app.post("/api/delivery-fee", isAuthenticated, async (req: any, res) => {
     try {
-      const { addressId } = req.body;
+      const { addressId, orderTotal = 0, orderType = 'individual' } = req.body;
       const userId = req.user.claims.sub;
 
-      console.log("Delivery fee calculation request:", { addressId, userId });
+      console.log("Delivery fee calculation request:", { addressId, userId, orderTotal, orderType });
 
       if (!addressId) {
         return res.status(400).json({ message: "addressId is required" });
@@ -4538,7 +4729,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Found address:", address);
 
-
       // Format address for delivery calculation
       const buyerAddress = {
         addressLine: address.addressLine,
@@ -4548,17 +4738,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      // Calculate delivery charges (default to individual order type with $0 total for fee calculation)
-      console.log("Calculating delivery charges for address:", buyerAddress);
-      const deliveryCalculation = await deliveryService.calculateDeliveryCharges(buyerAddress, 0, 'individual', userId);
-      console.log("Delivery calculation result:", deliveryCalculation);
+      // Calculate delivery charges with actual order total
+      console.log("Calculating delivery charges for address:", buyerAddress, "with order total:", orderTotal);
+      const deliverySummary = await deliveryService.getDeliverySummary(buyerAddress, orderTotal, orderType);
+      console.log("Delivery calculation result:", deliverySummary);
+
+      // Extract delivery info from the first seller
+      const firstDelivery = deliverySummary.deliveryDetails[0];
+      if (!firstDelivery) {
+        return res.status(500).json({ 
+          message: "Failed to calculate delivery information" 
+        });
+      }
 
       res.json({
-        distance: deliveryCalculation.distance,
-        duration: deliveryCalculation.duration,
-        deliveryCharge: deliveryCalculation.deliveryCharge,
-        isFreeDelivery: deliveryCalculation.isFreeDelivery,
-        reason: deliveryCalculation.reason
+        distance: firstDelivery.distance,
+        duration: 0, // Duration not available in summary
+        deliveryCharge: firstDelivery.deliveryCharge,
+        isFreeDelivery: firstDelivery.isFreeDelivery,
+        reason: firstDelivery.reason,
+        minimumOrderValue: 50.00,
+        orderTotal: orderTotal,
+        meetsMinimumOrder: firstDelivery.meetsMinimumOrder ?? (orderTotal >= 50.00),
+        canDeliver: deliverySummary.isBCAddress
       });
     } catch (error: any) {
       console.error("Error calculating delivery fee:", error);
@@ -4791,3 +4993,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   return httpServer;
 }
+
+

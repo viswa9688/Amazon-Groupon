@@ -15,6 +15,7 @@ interface DeliveryCalculation {
   deliveryCharge: number;
   isFreeDelivery: boolean;
   reason: string;
+  meetsMinimumOrder?: boolean; // Whether the order meets the minimum order value
 }
 
 interface DeliverySummary {
@@ -26,6 +27,7 @@ interface DeliverySummary {
     deliveryCharge: number;
     isFreeDelivery: boolean;
     reason: string;
+    meetsMinimumOrder?: boolean;
   }>;
   hasDeliveryCharges: boolean;
   isBCAddress: boolean;
@@ -68,7 +70,7 @@ export class DeliveryService {
     },
     // Individual order constraints
     individual: {
-      minimumOrderValue: 25.00, // $25 minimum for individual orders
+      minimumOrderValue: 50.00, // $50 minimum for individual orders
       deliveryFee: 3.99, // $3.99 delivery fee for individual orders
       freeDeliveryThreshold: 75.00 // Free delivery for individual orders over $75
     }
@@ -166,7 +168,7 @@ export class DeliveryService {
       let shopAddress = this.STORE_ADDRESS; // Default fallback
       let shopDeliveryFee = 5.99; // Default fallback
       let shopFreeDeliveryThreshold = 75.00; // Default fallback
-      let shopMinimumOrderValue = 25.00; // Default fallback
+      let shopMinimumOrderValue = 50.00; // Default fallback
       let shopDeliveryFeePerKm = 5.99; // Default fallback
       let shopDeliveryRadiusKm = 0; // Default fallback (0 = unlimited)
 
@@ -283,7 +285,8 @@ export class DeliveryService {
         distance: calculation.distance,
         deliveryCharge: calculation.deliveryCharge,
         isFreeDelivery: calculation.isFreeDelivery,
-        reason: calculation.reason
+        reason: calculation.reason,
+        meetsMinimumOrder: calculation.meetsMinimumOrder
       }];
 
       return {
@@ -886,16 +889,8 @@ export class DeliveryService {
     shopMinimumOrderValue: number,
     shopDeliveryFeePerKm: number = 0
   ): DeliveryCalculation {
-    // Check minimum order value (only if set)
-    if (shopMinimumOrderValue > 0 && orderTotal < shopMinimumOrderValue) {
-      return {
-        distance,
-        duration,
-        deliveryCharge: 0,
-        isFreeDelivery: false,
-        reason: `Order total $${orderTotal.toFixed(2)} is below minimum $${shopMinimumOrderValue.toFixed(2)}`
-      };
-    }
+    // Check minimum order value (only if set) - but still calculate delivery fee
+    const meetsMinimumOrder = shopMinimumOrderValue <= 0 || orderTotal >= shopMinimumOrderValue;
 
     // Check if order qualifies for free delivery (only if threshold is set)
     const isFreeDelivery = shopFreeDeliveryThreshold > 0 && orderTotal >= shopFreeDeliveryThreshold;
@@ -922,12 +917,20 @@ export class DeliveryService {
       deliveryCharge = 0;
     }
 
+    // Add minimum order information to reason if not met
+    let finalReason = reason;
+    if (!meetsMinimumOrder) {
+      const minOrderMsg = `Order total $${orderTotal.toFixed(2)} is below minimum $${shopMinimumOrderValue.toFixed(2)}`;
+      finalReason = reason ? `${reason} (${minOrderMsg})` : minOrderMsg;
+    }
+
     return {
       distance,
       duration,
       deliveryCharge: Math.round(deliveryCharge * 100) / 100,
       isFreeDelivery,
-      reason
+      reason: finalReason,
+      meetsMinimumOrder
     };
   }
 
@@ -937,16 +940,8 @@ export class DeliveryService {
   private calculateBCDeliveryFee(distance: number, duration: number, orderTotal: number, orderType: 'group' | 'individual'): DeliveryCalculation {
     const constraints = this.BC_DELIVERY_CONSTRAINTS[orderType];
     
-    // Check minimum order value
-    if (orderTotal < constraints.minimumOrderValue) {
-      return {
-        distance,
-        duration,
-        deliveryCharge: 0,
-        isFreeDelivery: false,
-        reason: `Order total $${orderTotal.toFixed(2)} is below minimum $${constraints.minimumOrderValue.toFixed(2)} for ${orderType} orders`
-      };
-    }
+    // Check minimum order value - but still calculate delivery fee
+    const meetsMinimumOrder = orderTotal >= constraints.minimumOrderValue;
 
     // Check if order qualifies for free delivery
     const isFreeDelivery = orderTotal >= constraints.freeDeliveryThreshold;
@@ -961,12 +956,20 @@ export class DeliveryService {
       reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders under $${constraints.freeDeliveryThreshold.toFixed(2)}`;
     }
 
+    // Add minimum order information to reason if not met
+    let finalReason = reason;
+    if (!meetsMinimumOrder) {
+      const minOrderMsg = `Order total $${orderTotal.toFixed(2)} is below minimum $${constraints.minimumOrderValue.toFixed(2)} for ${orderType} orders`;
+      finalReason = reason ? `${reason} (${minOrderMsg})` : minOrderMsg;
+    }
+
     return {
       distance,
       duration,
       deliveryCharge: Math.round(deliveryCharge * 100) / 100, // Round to 2 decimal places
       isFreeDelivery,
-      reason
+      reason: finalReason,
+      meetsMinimumOrder
     };
   }
 
@@ -1044,3 +1047,6 @@ export class DeliveryService {
 }
 
 export const deliveryService = new DeliveryService();
+
+
+
