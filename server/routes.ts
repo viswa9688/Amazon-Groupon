@@ -2995,8 +2995,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/seller/excel/import', isSellerAuthenticated, async (req: any, res) => {
     try {
+      console.log('🚀 Excel import endpoint called');
       const sellerId = req.user.claims.sub;
       const { validatedData, shopId } = req.body;
+
+      console.log('Request data:', { sellerId, shopId, validatedDataSuccess: validatedData?.success, productsCount: validatedData?.products?.length });
 
       if (!validatedData || !shopId) {
         return res.status(400).json({ message: "Validated data and shop ID are required" });
@@ -3009,8 +3012,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Shop not found or access denied" });
       }
 
+      console.log('Shop found:', shop.displayName, 'Type:', shop.shopType);
+
       // Import products
+      console.log('Calling ExcelService.importProducts...');
       const result = await ExcelService.importProducts(validatedData, sellerId, shopId);
+      console.log('Import result:', result);
       
       // Invalidate caches after import
       apiCache.delete('products');

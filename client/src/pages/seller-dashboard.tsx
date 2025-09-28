@@ -974,7 +974,7 @@ export default function SellerDashboard() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Total Revenue
                   </p>
-                  <p
+                  <div
                     className="text-2xl font-bold text-foreground"
                     data-testid="text-revenue"
                   >
@@ -988,7 +988,7 @@ export default function SellerDashboard() {
                         })}
                       </>
                     )}
-                  </p>
+                  </div>
                 </div>
                 <DollarSign className="h-8 w-8 text-accent" />
               </div>
@@ -1002,7 +1002,7 @@ export default function SellerDashboard() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Potential Revenue
                   </p>
-                  <p
+                  <div
                     className="text-2xl font-bold text-orange-600"
                     data-testid="text-potential-revenue"
                   >
@@ -1016,7 +1016,7 @@ export default function SellerDashboard() {
                         })}
                       </>
                     )}
-                  </p>
+                  </div>
                 </div>
                 <DollarSign className="h-8 w-8 text-orange-500" />
               </div>
@@ -1030,7 +1030,7 @@ export default function SellerDashboard() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Active Groups
                   </p>
-                  <p
+                  <div
                     className="text-2xl font-bold text-foreground"
                     data-testid="text-active-groups"
                   >
@@ -1039,7 +1039,7 @@ export default function SellerDashboard() {
                     ) : (
                       activeGroups
                     )}
-                  </p>
+                  </div>
                 </div>
                 <ShoppingBag className="h-8 w-8 text-primary" />
               </div>
@@ -1053,7 +1053,7 @@ export default function SellerDashboard() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Products
                   </p>
-                  <p
+                  <div
                     className="text-2xl font-bold text-foreground"
                     data-testid="text-total-products"
                   >
@@ -1062,7 +1062,7 @@ export default function SellerDashboard() {
                     ) : (
                       totalProducts
                     )}
-                  </p>
+                  </div>
                 </div>
                 <Package className="h-8 w-8 text-secondary" />
               </div>
@@ -1076,7 +1076,7 @@ export default function SellerDashboard() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Growth
                   </p>
-                  <p
+                  <div
                     className="text-2xl font-bold text-accent"
                     data-testid="text-growth-percentage"
                   >
@@ -1088,7 +1088,7 @@ export default function SellerDashboard() {
                         {growthPercentage.toFixed(1)}%
                       </>
                     )}
-                  </p>
+                  </div>
                 </div>
                 <TrendingUp className="h-8 w-8 text-accent" />
               </div>

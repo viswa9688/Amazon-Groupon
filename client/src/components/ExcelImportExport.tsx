@@ -66,6 +66,10 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
 
   // Use the first shop if available, or fall back to selectedShop prop
   const activeShop = sellerShops && sellerShops.length > 0 ? sellerShops[0] : selectedShop;
+  
+  console.log('🔍 ExcelImportExport - sellerShops:', sellerShops);
+  console.log('🔍 ExcelImportExport - selectedShop:', selectedShop);
+  console.log('🔍 ExcelImportExport - activeShop:', activeShop);
 
   // Download template mutation
   const downloadTemplateMutation = useMutation({
@@ -125,6 +129,7 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
       return response.json();
     },
     onSuccess: (result: ValidationResult) => {
+      console.log('✅ Frontend: Validation successful, result:', result);
       setValidationResult(result);
       setIsValidating(false);
       
@@ -154,26 +159,40 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
   // Import products mutation
   const importProductsMutation = useMutation({
     mutationFn: async (validatedData: ValidationResult) => {
-      const response = await fetch('/api/seller/excel/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          validatedData,
-          shopId: activeShop.id,
-        }),
-        credentials: 'include',
-      });
+      console.log('🚀 Frontend: Calling import API with data:', { validatedData, shopId: activeShop.id });
+      
+      try {
+        const response = await fetch('/api/seller/excel/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            validatedData,
+            shopId: activeShop.id,
+          }),
+          credentials: 'include',
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Import failed');
+        console.log('🚀 Frontend: API response status:', response.status);
+        console.log('🚀 Frontend: API response ok:', response.ok);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.log('❌ Frontend: API error response:', errorData);
+          throw new Error(errorData.message || 'Import failed');
+        }
+
+        const result = await response.json();
+        console.log('✅ Frontend: API success response:', result);
+        return result;
+      } catch (error) {
+        console.log('❌ Frontend: API call failed:', error);
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: (result: ImportResult) => {
+      console.log('✅ Frontend: Import successful, result:', result);
       setIsImporting(false);
       setImportProgress(100);
       
@@ -198,6 +217,7 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
       }
     },
     onError: (error) => {
+      console.log('❌ Frontend: Import failed, error:', error);
       setIsImporting(false);
       toast({
         title: "Error",
@@ -256,12 +276,24 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
   const handleValidateFile = () => {
     if (!selectedFile) return;
     
+    console.log('🔍 Frontend: Starting file validation for file:', selectedFile.name);
     setIsValidating(true);
     validateFileMutation.mutate(selectedFile);
   };
 
-  const handleImportProducts = () => {
-    if (!validationResult || !validationResult.success) return;
+  const handleImportProducts = async () => {
+    console.log('🔍 Frontend: handleImportProducts called');
+    console.log('🔍 Frontend: validationResult:', validationResult);
+    console.log('🔍 Frontend: validationResult.success:', validationResult?.success);
+    
+    if (!validationResult || !validationResult.success) {
+      console.log('❌ Frontend: Cannot import - validation result:', validationResult);
+      return;
+    }
+    
+    console.log('🚀 Frontend: Starting import with validation result:', validationResult);
+    console.log('🚀 Frontend: activeShop:', activeShop);
+    console.log('🚀 Frontend: activeShop.id:', activeShop?.id);
     
     setIsImporting(true);
     setImportProgress(0);
@@ -277,6 +309,7 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
       });
     }, 200);
     
+    console.log('🚀 Frontend: Calling importProductsMutation.mutate...');
     importProductsMutation.mutate(validationResult);
   };
 

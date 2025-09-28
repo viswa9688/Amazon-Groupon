@@ -38,7 +38,9 @@ export function useWebSocketNotifications() {
     console.log('🔌 WebSocket: Creating connection for user:', user.id);
     
     // Create WebSocket connection
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/notifications?userId=${user.id}`;
+    const host = window.location.host || 'localhost:5000';
+    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}/ws/notifications?userId=${user.id}`;
+    console.log('🔌 WebSocket: Connecting to:', wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
