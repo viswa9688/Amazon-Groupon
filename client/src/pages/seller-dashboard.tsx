@@ -402,14 +402,14 @@ export default function SellerDashboard() {
     console.log("Current categoryId:", selectedCategoryId);
   }, [selectedCategoryId, form]);
 
-  // Check for service category - grocery shops should show product fields, service shops should show service fields
+  // Check for service category - only Services (category 2) should show service fields
   const isServiceCategory =
-    (selectedCategoryId === "2" && selectedShop?.shopType === "services") ||
-    (selectedCategoryId === "3" && selectedShop?.shopType === "pet-essentials");
+    selectedCategoryId === "2" && selectedShop?.shopType === "services";
   
-  // Check for grocery category
+  // Check for grocery category - both Groceries and Pet Essentials are product-based
   const isGroceryCategory =
-    selectedCategoryId === "1" && selectedShop?.shopType === "groceries";
+    (selectedCategoryId === "1" && selectedShop?.shopType === "groceries") ||
+    (selectedCategoryId === "3" && selectedShop?.shopType === "pet-essentials");
 
   // Edit product form
   const editForm = useForm<ProductFormData>({
@@ -513,45 +513,58 @@ export default function SellerDashboard() {
         };
       }
 
-      // Add pet essentials-specific data if Pet Essentials category
+      // Add pet essentials-specific data if Pet Essentials category (treat as products, not services)
       if (data.categoryId === "3") {
-        productData.serviceProvider = {
-          legalName: data.legalName,
-          displayName: data.displayName,
-          serviceCategory: data.serviceCategory,
-          licenseNumber: data.licenseNumber,
-          yearsInBusiness: data.yearsInBusiness
-            ? parseInt(data.yearsInBusiness)
-            : undefined,
-          serviceMode: data.serviceMode,
-          addressLine1: data.addressLine1,
-          addressLine2: data.addressLine2,
-          locality: data.locality,
-          region: data.region,
-          postalCode: data.postalCode,
-          serviceName: data.serviceName,
-          durationMinutes: data.durationMinutes
-            ? parseInt(data.durationMinutes)
-            : undefined,
-          pricingModel: data.pricingModel,
-          materialsIncluded: data.materialsIncluded,
-          ageRestriction: data.ageRestriction
-            ? parseInt(data.ageRestriction)
-            : undefined,
-          availabilityType: data.availabilityType,
-          advanceBookingDays: parseInt(data.advanceBookingDays || "7"),
-          rescheduleAllowed: data.rescheduleAllowed,
-          insurancePolicyNumber: data.insurancePolicyNumber,
-          liabilityWaiverRequired: data.liabilityWaiverRequired,
+        productData.groceryProduct = {
+          productTitle: data.productTitle,
+          productDescription: data.productDescription,
+          brand: data.brand,
+          skuId: data.skuId,
+          skuCode: data.skuCode,
+          gtin: data.gtin,
+          barcodeSymbology: data.barcodeSymbology,
+          uom: data.uom,
+          netContentValue: data.netContentValue ? parseFloat(data.netContentValue) : undefined,
+          netContentUom: data.netContentUom,
+          isVariableWeight: data.isVariableWeight,
+          pluCode: data.pluCode,
+          dietaryTags: data.dietaryTags,
+          allergens: data.allergens,
+          countryOfOrigin: data.countryOfOrigin,
+          temperatureZone: data.temperatureZone,
+          shelfLifeDays: data.shelfLifeDays ? parseInt(data.shelfLifeDays) : undefined,
+          storageInstructions: data.storageInstructions,
+          substitutable: data.substitutable,
+          grossWeightG: data.grossWeightG ? parseFloat(data.grossWeightG) : undefined,
+          listPriceCents: data.listPriceCents ? parseInt(data.listPriceCents) : undefined,
+          salePriceCents: data.salePriceCents ? parseInt(data.salePriceCents) : undefined,
+          effectiveFrom: data.effectiveFrom?.toISOString() || undefined,
+          effectiveTo: data.effectiveTo?.toISOString() || undefined,
+          taxClass: data.taxClass,
+          inventoryOnHand: data.inventoryOnHand ? parseInt(data.inventoryOnHand) : undefined,
+          inventoryReserved: data.inventoryReserved ? parseInt(data.inventoryReserved) : undefined,
+          inventoryStatus: data.inventoryStatus,
         };
       }
 
       return apiRequest("POST", "/api/seller/products", productData);
     },
     onSuccess: () => {
+      // Invalidate seller queries
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
+      
+      // Invalidate buyer/admin queries so new products are immediately visible
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/browse"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/shops"] });
+      
+      // Invalidate all product-related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
+      
       toast({
         title: "Success!",
         description: isServiceCategory
@@ -631,10 +644,21 @@ export default function SellerDashboard() {
       );
     },
     onSuccess: () => {
+      // Invalidate seller queries
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
+      
+      // Invalidate buyer/admin queries so updated products are immediately visible
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/browse"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/shops"] });
+      
+      // Invalidate all product-related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
+      
       toast({
         title: "Success!",
         description: isEditServiceCategory
@@ -814,13 +838,25 @@ export default function SellerDashboard() {
       return apiRequest("DELETE", `/api/seller/products/${productId}`);
     },
     onSuccess: () => {
+      // Invalidate seller queries
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
+      
+      // Invalidate buyer/admin queries so deleted products are immediately removed
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/browse"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/shops"] });
+      
+      // Invalidate all product-related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/group-purchases"] });
+      
       toast({
         title: "Success!",
         description: "Product deleted successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/metrics"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
     },

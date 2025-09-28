@@ -2429,58 +2429,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Create pet provider record if this is pet essentials (category 3)
-      if (productData.categoryId === 3 && serviceProvider) {
-        // Parse date fields and JSON fields
-        const petProviderData = {
+      // Create grocery product record if this is pet essentials (category 3) - treat as products, not services
+      if (productData.categoryId === 3 && groceryProduct) {
+        const groceryProductData = {
           productId: product.id!,
-          legalName: serviceProvider.legalName,
-          displayName: serviceProvider.displayName,
-          serviceCategory: serviceProvider.serviceCategory,
-          licenseNumber: serviceProvider.licenseNumber,
-          yearsInBusiness: serviceProvider.yearsInBusiness ? parseInt(serviceProvider.yearsInBusiness) : null,
-          insuranceValidTill: serviceProvider.insuranceValidTill ? new Date(serviceProvider.insuranceValidTill) : null,
-          serviceMode: serviceProvider.serviceMode,
-          addressLine1: serviceProvider.addressLine1,
-          addressLine2: serviceProvider.addressLine2,
-          locality: serviceProvider.locality,
-          region: serviceProvider.region,
-          postalCode: serviceProvider.postalCode,
-          serviceAreaPolygon: serviceProvider.serviceAreaPolygon || null,
-          serviceName: serviceProvider.serviceName,
-          durationMinutes: serviceProvider.durationMinutes ? parseInt(serviceProvider.durationMinutes) : null,
-          pricingModel: serviceProvider.pricingModel,
-          materialsIncluded: serviceProvider.materialsIncluded || false,
-          ageRestriction: serviceProvider.ageRestriction ? parseInt(serviceProvider.ageRestriction) : null,
-          taxClass: serviceProvider.taxClass,
-          availabilityType: serviceProvider.availabilityType,
-          operatingHours: serviceProvider.operatingHours || null,
-          advanceBookingDays: serviceProvider.advanceBookingDays ? parseInt(serviceProvider.advanceBookingDays) : 7,
-          cancellationPolicyUrl: serviceProvider.cancellationPolicyUrl,
-          rescheduleAllowed: serviceProvider.rescheduleAllowed ?? true,
-          insurancePolicyNumber: serviceProvider.insurancePolicyNumber,
-          liabilityWaiverRequired: serviceProvider.liabilityWaiverRequired || false,
-          healthSafetyCert: serviceProvider.healthSafetyCert,
+          productTitle: groceryProduct.productTitle,
+          productDescription: groceryProduct.productDescription,
+          brand: groceryProduct.brand,
+          skuId: groceryProduct.skuId,
+          skuCode: groceryProduct.skuCode,
+          gtin: groceryProduct.gtin,
+          barcodeSymbology: groceryProduct.barcodeSymbology,
+          uom: groceryProduct.uom,
+          netContentValue: groceryProduct.netContentValue ? groceryProduct.netContentValue.toString() : null,
+          netContentUom: groceryProduct.netContentUom,
+          isVariableWeight: groceryProduct.isVariableWeight || false,
+          pluCode: groceryProduct.pluCode,
+          dietaryTags: groceryProduct.dietaryTags,
+          allergens: groceryProduct.allergens,
+          countryOfOrigin: groceryProduct.countryOfOrigin,
+          temperatureZone: groceryProduct.temperatureZone,
+          shelfLifeDays: groceryProduct.shelfLifeDays ? parseInt(groceryProduct.shelfLifeDays) : null,
+          storageInstructions: groceryProduct.storageInstructions,
+          substitutable: groceryProduct.substitutable ?? true,
+          grossWeightG: groceryProduct.grossWeightG ? parseFloat(groceryProduct.grossWeightG) : null,
+          listPriceCents: groceryProduct.listPriceCents ? parseInt(groceryProduct.listPriceCents) : null,
+          salePriceCents: groceryProduct.salePriceCents ? parseInt(groceryProduct.salePriceCents) : null,
+          effectiveFrom: groceryProduct.effectiveFrom ? new Date(groceryProduct.effectiveFrom) : null,
+          effectiveTo: groceryProduct.effectiveTo ? new Date(groceryProduct.effectiveTo) : null,
+          taxClass: groceryProduct.taxClass,
+          inventoryOnHand: groceryProduct.inventoryOnHand ? parseInt(groceryProduct.inventoryOnHand) : null,
+          inventoryReserved: groceryProduct.inventoryReserved ? parseInt(groceryProduct.inventoryReserved) : null,
+          inventoryStatus: groceryProduct.inventoryStatus || 'in_stock',
         };
         
-        // Validate pet provider data
-        const validatedPetProviderData = insertPetProviderSchema.parse(petProviderData);
-        const createdPetProvider = await storage.createPetProvider(validatedPetProviderData);
-        
-        // Handle staff members if provided
-        if (serviceProvider.staff && Array.isArray(serviceProvider.staff) && serviceProvider.staff.length > 0) {
-          for (const staffMember of serviceProvider.staff) {
-            if (staffMember.name) {
-              await storage.createPetProviderStaff({
-                petProviderId: createdPetProvider.id!,
-                name: staffMember.name,
-                skills: staffMember.skills ? staffMember.skills.split(',').map((s: string) => s.trim()) : [],
-                availability: staffMember.availability || null,
-                rating: staffMember.rating ? staffMember.rating.toString() : null,
-              });
-            }
-          }
-        }
+        // Validate grocery product data
+        const validatedGroceryProductData = insertGroceryProductSchema.parse(groceryProductData);
+        await storage.createGroceryProduct(validatedGroceryProductData);
       }
 
       // Create grocery product record if this is a grocery product (category 1)
@@ -2546,6 +2531,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Automatically create a group purchase for this product
       const endTime = new Date();
       endTime.setDate(endTime.getDate() + 30); // 30 days from now
+      
+      // Invalidate all product-related caches so new products are immediately visible
+      console.log('🔄 Invalidating caches after product creation...');
+      
+      // Clear API cache
+      apiCache.delete('products');
+      apiCache.delete('categories');
+      apiCache.delete('browse');
+      
+      // Clear ultra-fast cache
+      ultraFastStorage.clearCache();
+      
+      // Clear group pricing cache
+      groupPricingCache.clear();
+      
+      console.log('✅ Caches invalidated - new product should be immediately visible');
       
       res.status(201).json({ product });
     } catch (error) {
@@ -2756,6 +2757,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           finalPrice: discountPrice.toString(),
         });
       }
+      
+      // Invalidate caches after product update
+      console.log('🔄 Invalidating caches after product update...');
+      apiCache.delete('products');
+      apiCache.delete('categories');
+      apiCache.delete('browse');
+      ultraFastStorage.clearCache();
+      groupPricingCache.clear();
+      console.log('✅ Caches invalidated - updated product should be immediately visible');
       
       res.json(product);
     } catch (error) {
@@ -4311,6 +4321,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Delete the product (this should cascade to related records)
       await storage.deleteProduct(productId);
+      
+      // Invalidate caches after product deletion
+      console.log('🔄 Invalidating caches after product deletion...');
+      apiCache.delete('products');
+      apiCache.delete('categories');
+      apiCache.delete('browse');
+      ultraFastStorage.clearCache();
+      groupPricingCache.clear();
+      console.log('✅ Caches invalidated - deleted product should be immediately removed');
       
       res.json({ message: "Product deleted successfully" });
     } catch (error) {
