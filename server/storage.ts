@@ -60,7 +60,7 @@ import {
   type SellerNotification,
   type InsertSellerNotification,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, queryWithRetry } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -272,36 +272,56 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    return queryWithRetry(
+      async () => {
+        const [user] = await db.select().from(users).where(eq(users.id, id));
+        return user;
+      },
+      `getUser(${id})`
+    );
   }
 
   async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
-    return user;
+    return queryWithRetry(
+      async () => {
+        const [user] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
+        return user;
+      },
+      `getUserByPhone(${phoneNumber})`
+    );
   }
 
   async createUserWithPhone(userData: CreateUserWithPhone): Promise<User> {
-    const [user] = await db.insert(users).values({
-      ...userData,
-      id: sql`gen_random_uuid()`,
-    }).returning();
-    return user;
+    return queryWithRetry(
+      async () => {
+        const [user] = await db.insert(users).values({
+          ...userData,
+          id: sql`gen_random_uuid()`,
+        }).returning();
+        return user;
+      },
+      `createUserWithPhone(${userData.phoneNumber})`
+    );
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    return queryWithRetry(
+      async () => {
+        const [user] = await db
+          .insert(users)
+          .values(userData)
+          .onConflictDoUpdate({
+            target: users.id,
+            set: {
+              ...userData,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+        return user;
+      },
+      `upsertUser(${userData.id})`
+    );
   }
 
   async updateUserProfile(id: string, updates: Partial<User>): Promise<User> {

@@ -11,24 +11,38 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// ULTRA-FAST serverless-compatible connection pool
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  // Serverless-optimized connection pool settings
-  max: 20, // Reduced for serverless compatibility
-  min: 2, // Minimal connections for serverless
-  idleTimeoutMillis: 10000, // Standard idle timeout
-  connectionTimeoutMillis: 2000, // Reasonable connection timeout
-  maxUses: 10000, // Standard connection reuse
-  allowExitOnIdle: true, // Allow exit for serverless
-  // Serverless-compatible optimizations
-  statement_timeout: 5000, // 5 second statement timeout
-  application_name: 'amazon-groupon-ultra-fast',
-});
+// Connection retry configuration
+const MAX_RETRY_ATTEMPTS = 5;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const MAX_RETRY_DELAY = 30000; // 30 seconds
+const RETRY_MULTIPLIER = 2;
 
-// Note: Connection event handlers removed for Neon serverless compatibility
-// Neon serverless handles connection optimization automatically
+// Connection state tracking
+let isConnected = false;
+let reconnectAttempts = 0;
+let reconnectTimer: NodeJS.Timeout | null = null;
 
+// Create connection pool with enhanced error handling
+function createPool(): Pool {
+  return new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    // Serverless-optimized connection pool settings
+    max: 20, // Reduced for serverless compatibility
+    min: 2, // Minimal connections for serverless
+    idleTimeoutMillis: 10000, // Standard idle timeout
+    connectionTimeoutMillis: 5000, // Increased timeout for better reliability
+    maxUses: 10000, // Standard connection reuse
+    allowExitOnIdle: true, // Allow exit for serverless
+    // Serverless-compatible optimizations
+    statement_timeout: 10000, // Increased statement timeout
+    application_name: 'amazon-groupon-ultra-fast',
+  });
+}
+
+// Initialize pool
+let pool = createPool();
+
+// Enhanced database instance with retry logic
 export const db = drizzle({ 
   client: pool, 
   schema,
@@ -41,17 +55,134 @@ export const db = drizzle({
   } : false
 });
 
-// Connection health monitoring
-setInterval(async () => {
+// Helper function to check if error is connection-related
+function isConnectionError(error: any): boolean {
+  const connectionErrorMessages = [
+    'Connection terminated',
+    'connection timeout',
+    'WebSocket was closed',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'ETIMEDOUT',
+    'Connection lost',
+    'Connection refused'
+  ];
+  
+  const errorMessage = error.message?.toLowerCase() || '';
+  return connectionErrorMessages.some(msg => errorMessage.includes(msg.toLowerCase()));
+}
+
+// Helper function to delay execution
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Function to attempt reconnection
+async function attemptReconnection(): Promise<void> {
   try {
-    const result = await pool.query('SELECT 1 as health_check');
+    console.log('🔄 Attempting to reconnect to database...');
+    
+    // Close existing pool
+    await pool.end().catch(() => {});
+    
+    // Create new pool
+    pool = createPool();
+    
+    // Test the new connection
+    await pool.query('SELECT 1 as health_check');
+    
+    isConnected = true;
+    reconnectAttempts = 0;
+    console.log('✅ Database reconnection successful');
+    
+  } catch (error) {
+    reconnectAttempts++;
+    console.error(`❌ Database reconnection failed (attempt ${reconnectAttempts}):`, error);
+    isConnected = false;
+  }
+}
+
+// Enhanced query function with retry logic
+export async function queryWithRetry<T>(operation: () => Promise<T>, operationName: string = 'database operation'): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const result = await operation();
+      // Reset retry counter on successful operation
+      if (attempt > 1) {
+        console.log(`✅ ${operationName} succeeded on attempt ${attempt}`);
+        reconnectAttempts = 0;
+      }
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if it's a connection-related error
+      const isConnError = isConnectionError(error);
+      
+      if (isConnError && attempt < MAX_RETRY_ATTEMPTS) {
+        const delayMs = Math.min(
+          INITIAL_RETRY_DELAY * Math.pow(RETRY_MULTIPLIER, attempt - 1),
+          MAX_RETRY_DELAY
+        );
+        
+        console.warn(`⚠️ ${operationName} failed (attempt ${attempt}/${MAX_RETRY_ATTEMPTS}): ${error.message}`);
+        console.log(`🔄 Retrying in ${delayMs}ms...`);
+        
+        await delay(delayMs);
+        
+        // Try to reconnect if this is a connection error
+        if (attempt === 1) {
+          await attemptReconnection();
+        }
+      } else {
+        console.error(`❌ ${operationName} failed after ${attempt} attempts:`, error.message);
+        break;
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
+// Enhanced connection health monitoring with automatic reconnection
+async function performHealthCheck(): Promise<void> {
+  try {
+    const result = await queryWithRetry(
+      () => pool.query('SELECT 1 as health_check'),
+      'health check'
+    );
+    
     if (result.rows[0]?.health_check !== 1) {
-      console.error('❌ Database health check failed');
+      console.error('❌ Database health check failed - unexpected result');
+      isConnected = false;
+    } else {
+      isConnected = true;
+      if (reconnectAttempts > 0) {
+        console.log('✅ Database health check passed - connection restored');
+        reconnectAttempts = 0;
+      }
     }
   } catch (error) {
-    console.error('❌ Database connection error:', error);
+    console.error('❌ Database health check failed:', error);
+    isConnected = false;
+    
+    // Attempt reconnection if not already in progress
+    if (!reconnectTimer) {
+      reconnectTimer = setTimeout(async () => {
+        await attemptReconnection();
+        reconnectTimer = null;
+      }, 5000); // Wait 5 seconds before attempting reconnection
+    }
   }
-}, 30000); // Check every 30 seconds
+}
+
+// Start health monitoring
+setInterval(performHealthCheck, 30000); // Check every 30 seconds
+
+// Initial health check
+performHealthCheck().catch(console.error);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
