@@ -4,7 +4,12 @@ import { insertProductSchema, insertServiceProviderSchema, insertGroceryProductS
 import { z } from 'zod';
 
 // Security: File upload validation
-const ALLOWED_FILE_TYPES = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+const ALLOWED_FILE_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+  'application/vnd.ms-excel',
+  'text/csv',
+  'application/csv'
+];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_ROWS = 1000; // Limit to prevent abuse
 
@@ -143,7 +148,7 @@ export class ExcelService {
             minimumParticipants: 10,
             maximumParticipants: 50,
             offerValidTill: '2025-12-31',
-            imageUrl: 'https://example.com/dog-food.jpg',
+            imageUrl: '',
             brand: 'PetPro',
             weight: '15kg',
             expiryDate: '2025-12-31',
@@ -161,6 +166,32 @@ export class ExcelService {
             weight: '10kg',
             expiryDate: '2026-12-31',
             nutritionalInfo: 'Non-toxic, dust-free formula'
+          },
+          {
+            name: 'Dog Treats - Training Rewards',
+            description: 'Small training treats for positive reinforcement',
+            originalPrice: 12.99,
+            minimumParticipants: 15,
+            maximumParticipants: 80,
+            offerValidTill: '2025-12-31',
+            imageUrl: '',
+            brand: 'TrainWell',
+            weight: '500g',
+            expiryDate: '2026-06-30',
+            nutritionalInfo: 'Low calorie, high protein'
+          },
+          {
+            name: 'Cat Scratching Post',
+            description: 'Multi-level cat scratching post with toys',
+            originalPrice: 89.99,
+            minimumParticipants: 3,
+            maximumParticipants: 20,
+            offerValidTill: '',
+            imageUrl: '',
+            brand: 'CatHaven',
+            weight: '15kg',
+            expiryDate: '2027-12-31',
+            nutritionalInfo: 'Sisal rope, carpeted platforms'
           }
         ];
       } else { // groceries
@@ -178,32 +209,72 @@ export class ExcelService {
           'nutritionalInfo'
         ];
         
+        // Sample data using actual grocery items from the CSV
         sampleData = [
           {
-            name: 'Organic Bananas - Bunch',
-            description: 'Fresh organic bananas, perfect for healthy snacking',
-            originalPrice: 8,
-            minimumParticipants: 20,
-            maximumParticipants: 100,
+            name: 'Blue Bubble Hand Soap',
+            description: 'Premium hand soap with blue bubble fragrance',
+            originalPrice: 4.99,
+            minimumParticipants: 10,
+            maximumParticipants: 50,
             offerValidTill: '2025-12-31',
-            imageUrl: 'https://example.com/bananas.jpg',
-            brand: 'Organic Farms',
-            weight: '2kg',
-            expiryDate: '2025-12-15',
-            nutritionalInfo: 'Calories: 89 per 100g, Potassium: 358mg'
+            imageUrl: '',
+            brand: 'Blue Bubble',
+            weight: '500ml',
+            expiryDate: '2026-12-31',
+            nutritionalInfo: 'Gentle formula, pH balanced'
           },
           {
-            name: 'Fresh Apples - Red Delicious',
-            description: 'Crisp and sweet red delicious apples',
-            originalPrice: 12,
+            name: 'Hellmanns Mayo',
+            description: 'Classic mayonnaise for sandwiches and cooking',
+            originalPrice: 6.99,
             minimumParticipants: 15,
             maximumParticipants: 80,
             offerValidTill: '',
             imageUrl: '',
-            brand: 'Local Farms',
-            weight: '3kg',
+            brand: 'Hellmanns',
+            weight: '890ml',
             expiryDate: '2025-10-15',
-            nutritionalInfo: 'Vitamin C: 8mg per 100g, Fiber: 2.4g'
+            nutritionalInfo: 'Made with real eggs, no artificial preservatives'
+          },
+          {
+            name: 'Nescafe Original',
+            description: 'Premium instant coffee blend',
+            originalPrice: 7.49,
+            minimumParticipants: 20,
+            maximumParticipants: 100,
+            offerValidTill: '2025-12-31',
+            imageUrl: '',
+            brand: 'Nescafe',
+            weight: '200g',
+            expiryDate: '2026-06-30',
+            nutritionalInfo: '100% pure coffee, no additives'
+          },
+          {
+            name: 'Bounty Kitchen Towel 16 Pack',
+            description: 'Super absorbent kitchen towels',
+            originalPrice: 23.99,
+            minimumParticipants: 5,
+            maximumParticipants: 30,
+            offerValidTill: '',
+            imageUrl: '',
+            brand: 'Bounty',
+            weight: '16 rolls',
+            expiryDate: '2027-12-31',
+            nutritionalInfo: '2-ply, extra absorbent'
+          },
+          {
+            name: 'LX Sella XL Basmati Rice 20lb',
+            description: 'Premium basmati rice, extra long grain',
+            originalPrice: 22.99,
+            minimumParticipants: 8,
+            maximumParticipants: 40,
+            offerValidTill: '2025-12-31',
+            imageUrl: '',
+            brand: 'LX Sella',
+            weight: '20lb',
+            expiryDate: '2026-12-31',
+            nutritionalInfo: 'Aged basmati rice, aromatic'
           }
         ];
       }
@@ -219,6 +290,40 @@ export class ExcelService {
       // Create worksheet with headers and sample data
       const wsData = [headers, ...sampleDataArrays];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
+      
+      // Add store information sheet for groceries and pet-essentials
+      if (shopType === 'groceries' || shopType === 'pet-essentials') {
+        const storeInfo = [
+          ['Store Information Template'],
+          [''],
+          ['Please fill in your store details below:'],
+          [''],
+          ['Field', 'Value', 'Description'],
+          ['store_id', '', 'Unique store identifier (e.g., ST001)'],
+          ['legal_name', '', 'Legal business name'],
+          ['display_name', '', 'Display name for customers'],
+          ['status', 'active', 'Store status: active, inactive, pending'],
+          ['timezone', 'America/Vancouver', 'Store timezone'],
+          ['currency', 'CAD', 'Currency code (CAD, USD, etc.)'],
+          ['languages', 'en,fr', 'Supported languages (comma-separated)'],
+          ['address_line_1', '', 'Street address line 1'],
+          ['address_line_2', '', 'Street address line 2 (optional)'],
+          ['locality', '', 'City/Town'],
+          ['region', '', 'Province/State'],
+          ['postal_code', '', 'Postal/ZIP code'],
+          ['country', 'Canada', 'Country'],
+          ['service_area', '', 'Service area description'],
+          ['operating_hours', 'Mon-Fri 9AM-9PM, Sat-Sun 10AM-8PM', 'Store operating hours'],
+          ['pickup_hours', 'Mon-Fri 9AM-9PM, Sat-Sun 10AM-8PM', 'Pickup hours'],
+          ['delivery_hours', 'Mon-Fri 9AM-9PM, Sat-Sun 10AM-8PM', 'Delivery hours'],
+          ['age_check', 'false', 'Age verification required (true/false)'],
+          ['substitution_policy', 'allow', 'Substitution policy: allow, deny, ask'],
+          ['refund_policy', '', 'Refund policy URL or description']
+        ];
+        
+        const storeInfoWs = XLSX.utils.aoa_to_sheet(storeInfo);
+        XLSX.utils.book_append_sheet(wb, storeInfoWs, 'Store Info');
+      }
       
       // Add instructions sheet
       const instructions = [
@@ -253,7 +358,23 @@ export class ExcelService {
         ['- Price format: Numbers only (e.g., 25.99, not $25.99)'],
         ['- Maximum 1000 products allowed per file'],
         ['- Delete sample rows before adding your products'],
-        ['- All dates must be in the future']
+        ['- All dates must be in the future'],
+        ...(shopType === 'groceries' ? [
+          [''],
+          ['GROCERY-SPECIFIC NOTES:'],
+          ['- Sample products are based on actual grocery items from our inventory'],
+          ['- Use the Store Info sheet to provide your store details'],
+          ['- All grocery items must have proper expiry dates'],
+          ['- Weight/size information is required for proper inventory management']
+        ] : shopType === 'pet-essentials' ? [
+          [''],
+          ['PET ESSENTIALS-SPECIFIC NOTES:'],
+          ['- Sample products include food, treats, and accessories'],
+          ['- Use the Store Info sheet to provide your store details'],
+          ['- Pet food items must have proper expiry dates'],
+          ['- Weight/size information is required for proper inventory management'],
+          ['- Nutritional information is important for pet food products']
+        ] : [])
       ];
       
       const instructionsWs = XLSX.utils.aoa_to_sheet(instructions);
@@ -273,12 +394,124 @@ export class ExcelService {
   }
 
   /**
+   * Convert grocery CSV format to expected Excel template format
+   */
+  static convertGroceryCSVToExpectedFormat(headers: string[], rows: any[][]): { headers: string[], rows: any[][] } {
+    // Expected headers for the Excel template
+    const expectedHeaders = [
+      'name',
+      'description', 
+      'originalPrice',
+      'minimumParticipants',
+      'maximumParticipants',
+      'offerValidTill',
+      'imageUrl',
+      'brand',
+      'weight',
+      'expiryDate',
+      'nutritionalInfo'
+    ];
+
+    // Map CSV headers to expected headers
+    const headerMap: { [key: string]: string } = {};
+    headers.forEach((header, index) => {
+      if (header) {
+        const lowerHeader = header.toLowerCase().trim();
+        if (lowerHeader.includes('item name')) {
+          headerMap['name'] = header;
+        } else if (lowerHeader.includes('retail price')) {
+          headerMap['originalPrice'] = header;
+        } else if (lowerHeader.includes('category')) {
+          headerMap['brand'] = header; // Use category as brand for now
+        } else if (lowerHeader.includes('size')) {
+          headerMap['weight'] = header;
+        } else if (lowerHeader.includes('upc')) {
+          headerMap['nutritionalInfo'] = header; // Use UPC as additional info
+        }
+      }
+    });
+
+    // Convert rows to expected format, filtering for grocery items only
+    const convertedRows = rows
+      .filter(row => {
+        // Only process grocery items
+        const categoryIndex = headers.findIndex(h => h && h.toLowerCase().includes('category'));
+        const category = categoryIndex >= 0 ? row[categoryIndex] : '';
+        return category && category.toLowerCase().includes('grocery');
+      })
+      .map(row => {
+        const convertedRow: any[] = [];
+        
+        expectedHeaders.forEach(expectedHeader => {
+          if (expectedHeader === 'name') {
+            // Use Item Name as name
+            const itemNameIndex = headers.findIndex(h => h && h.toLowerCase().includes('item name'));
+            convertedRow.push(itemNameIndex >= 0 ? row[itemNameIndex] || '' : '');
+          } else if (expectedHeader === 'description') {
+            // Use Item Name as description (can be enhanced later)
+            const itemNameIndex = headers.findIndex(h => h && h.toLowerCase().includes('item name'));
+            convertedRow.push(itemNameIndex >= 0 ? row[itemNameIndex] || '' : '');
+          } else if (expectedHeader === 'originalPrice') {
+            // Use Retail Price as originalPrice
+            const priceIndex = headers.findIndex(h => h && h.toLowerCase().includes('retail price'));
+            convertedRow.push(priceIndex >= 0 ? row[priceIndex] || '0' : '0');
+          } else if (expectedHeader === 'minimumParticipants') {
+            // Default minimum participants
+            convertedRow.push('10');
+          } else if (expectedHeader === 'maximumParticipants') {
+            // Default maximum participants
+            convertedRow.push('50');
+          } else if (expectedHeader === 'offerValidTill') {
+            // Default offer valid till (30 days from now)
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 30);
+            convertedRow.push(futureDate.toISOString().split('T')[0]);
+          } else if (expectedHeader === 'imageUrl') {
+            // Empty image URL
+            convertedRow.push('');
+          } else if (expectedHeader === 'brand') {
+            // Use Category as brand
+            const categoryIndex = headers.findIndex(h => h && h.toLowerCase().includes('category'));
+            convertedRow.push(categoryIndex >= 0 ? row[categoryIndex] || '' : '');
+          } else if (expectedHeader === 'weight') {
+            // Use Size as weight
+            const sizeIndex = headers.findIndex(h => h && h.toLowerCase().includes('size'));
+            convertedRow.push(sizeIndex >= 0 ? row[sizeIndex] || '' : '');
+          } else if (expectedHeader === 'expiryDate') {
+            // Default expiry date (1 year from now)
+            const futureDate = new Date();
+            futureDate.setFullYear(futureDate.getFullYear() + 1);
+            convertedRow.push(futureDate.toISOString().split('T')[0]);
+          } else if (expectedHeader === 'nutritionalInfo') {
+            // Use UPC as additional info
+            const upcIndex = headers.findIndex(h => h && h.toLowerCase().includes('upc'));
+            convertedRow.push(upcIndex >= 0 ? `UPC: ${row[upcIndex] || ''}` : '');
+          } else {
+            convertedRow.push('');
+          }
+        });
+        
+        return convertedRow;
+      });
+
+    return {
+      headers: expectedHeaders,
+      rows: convertedRows
+    };
+  }
+
+  /**
    * Validate uploaded Excel file
    */
   static validateFile(file: Express.Multer.File): void {
+    // Check if it's a CSV file by extension or MIME type
+    const isCSV = file.originalname.toLowerCase().endsWith('.csv') || 
+                  file.mimetype === 'text/csv' || 
+                  file.mimetype === 'application/csv';
+
     // Check file type
-    if (!ALLOWED_FILE_TYPES.includes(file.mimetype)) {
-      throw new Error('Invalid file type. Only Excel files (.xlsx, .xls) are allowed.');
+    if (!ALLOWED_FILE_TYPES.includes(file.mimetype) && !isCSV) {
+      throw new Error('Invalid file type. Only Excel files (.xlsx, .xls) and CSV files (.csv) are allowed.');
     }
 
     // Check file size
@@ -301,17 +534,60 @@ export class ExcelService {
     shopId: string
   ): Promise<ExcelImportResult> {
     try {
+      console.log('🔍 Starting Excel parsing for seller:', sellerId, 'shop:', shopId);
+      
       // Validate file
       this.validateFile(file);
+      console.log('✅ File validation passed');
 
-      // Read Excel file
-      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+      // Read Excel/CSV file with error handling
+      let workbook;
+      try {
+        // Check if it's a CSV file
+        const isCSV = file.originalname.toLowerCase().endsWith('.csv') || 
+                      file.mimetype === 'text/csv' || 
+                      file.mimetype === 'application/csv';
+        
+        if (isCSV) {
+          // For CSV files, read as string first
+          const csvString = file.buffer.toString('utf-8');
+          workbook = XLSX.read(csvString, { type: 'string' });
+          console.log('✅ CSV file read successfully');
+        } else {
+          // For Excel files, read as buffer
+          workbook = XLSX.read(file.buffer, { type: 'buffer' });
+          console.log('✅ Excel file read successfully');
+        }
+      } catch (excelError) {
+        console.error('❌ File parsing error:', excelError);
+        throw new Error('Invalid file format. Please ensure the file is a valid .xlsx, .xls, or .csv file.');
+      }
+
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new Error('File contains no data sheets.');
+      }
+
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      // Convert to JSON
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      if (!worksheet) {
+        throw new Error('First worksheet is empty or corrupted.');
+      }
       
+      // Convert to JSON with error handling
+      let data;
+      try {
+        data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        console.log('✅ Excel data converted to JSON');
+      } catch (jsonError) {
+        console.error('❌ JSON conversion error:', jsonError);
+        throw new Error('Failed to parse Excel data. Please check the file format.');
+      }
+      
+      if (!data || !Array.isArray(data)) {
+        throw new Error('Excel file contains no data.');
+      }
+
       if (data.length < 2) {
         throw new Error('Excel file must contain at least a header row and one data row.');
       }
@@ -322,10 +598,30 @@ export class ExcelService {
       }
 
       // Get headers and data rows
-      const headers = data[0] as string[];
-      const rows = data.slice(1) as any[][];
+      let headers = data[0] as string[];
+      let rows = data.slice(1) as any[][];
       
-      console.log('📊 Excel file parsed:');
+      if (!headers || headers.length === 0) {
+        throw new Error('File has no headers.');
+      }
+      
+      // Check if this is a CSV with grocery inventory format
+      const isGroceryCSV = (file.originalname.toLowerCase().endsWith('.csv') || 
+                           file.mimetype === 'text/csv' || 
+                           file.mimetype === 'application/csv') && 
+                          headers.some(h => 
+                            h && (h.toLowerCase().includes('item name') || h.toLowerCase().includes('retail price'))
+                          );
+      
+      if (isGroceryCSV) {
+        console.log('🛒 Detected grocery inventory CSV format, converting...');
+        // Convert grocery CSV format to expected format
+        const convertedData = this.convertGroceryCSVToExpectedFormat(headers, rows);
+        headers = convertedData.headers;
+        rows = convertedData.rows;
+      }
+      
+      console.log('📊 File parsed successfully:');
       console.log('Headers:', headers);
       console.log('Number of rows:', rows.length);
       console.log('First few rows:', rows.slice(0, 3));

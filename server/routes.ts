@@ -53,16 +53,18 @@ const upload = multer({
     files: 1, // Only one file at a time
   },
   fileFilter: (req, file, cb) => {
-    // Security: Only allow Excel files
+    // Security: Allow Excel and CSV files
     const allowedMimes = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel'
+      'application/vnd.ms-excel',
+      'text/csv',
+      'application/csv'
     ];
     
-    if (allowedMimes.includes(file.mimetype)) {
+    if (allowedMimes.includes(file.mimetype) || file.originalname.toLowerCase().endsWith('.csv')) {
       cb(null, true);
     } else {
-      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+      cb(new Error('Only Excel files (.xlsx, .xls) and CSV files (.csv) are allowed'));
     }
   }
 });
@@ -3214,34 +3216,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/seller/excel/validate', isSellerAuthenticated, upload.single('file'), async (req: any, res) => {
+    // Set a timeout for this request
+    const timeout = setTimeout(() => {
+      if (!res.headersSent) {
+        console.error('❌ Excel validation timeout');
+        res.status(408).json({ message: "Request timeout. Please try with a smaller file." });
+      }
+    }, 30000); // 30 second timeout
+
     try {
+      console.log('🔍 Excel validation request received');
+      
       if (!req.file) {
+        clearTimeout(timeout);
         return res.status(400).json({ message: "No file uploaded" });
       }
+
+      console.log('📁 File received:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
 
       const sellerId = req.user.claims.sub;
       const { shopId } = req.body;
 
+      console.log('👤 Seller ID:', sellerId, 'Shop ID:', shopId);
+
       if (!shopId) {
+        clearTimeout(timeout);
         return res.status(400).json({ message: "Shop ID is required" });
       }
 
       // Validate that the shop belongs to the seller
+      console.log('🔍 Validating shop ownership...');
       const shops = await storage.getSellerShopsBySeller(sellerId);
       const shop = shops.find(s => s.id === shopId);
       if (!shop) {
+        clearTimeout(timeout);
         return res.status(403).json({ message: "Shop not found or access denied" });
       }
 
+      console.log('✅ Shop validation passed, shop type:', shop.shopType);
+
       // Parse and validate Excel data
+      console.log('📊 Starting Excel data parsing...');
       const result = await ExcelService.parseExcelData(req.file, sellerId, shopId);
       
+      clearTimeout(timeout);
+      console.log('✅ Excel validation completed successfully');
       res.json(result);
     } catch (error) {
-      console.error("Error validating Excel file:", error);
-      res.status(400).json({ 
-        message: error instanceof Error ? error.message : "Failed to validate Excel file" 
-      });
+      clearTimeout(timeout);
+      console.error("❌ Error validating Excel file:", error);
+      
+      // Don't send response if headers already sent
+      if (!res.headersSent) {
+        res.status(400).json({ 
+          message: error instanceof Error ? error.message : "Failed to validate Excel file" 
+        });
+      }
     }
   });
 

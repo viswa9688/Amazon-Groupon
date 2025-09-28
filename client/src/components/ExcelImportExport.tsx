@@ -70,6 +70,11 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
   console.log('🔍 ExcelImportExport - sellerShops:', sellerShops);
   console.log('🔍 ExcelImportExport - selectedShop:', selectedShop);
   console.log('🔍 ExcelImportExport - activeShop:', activeShop);
+  
+  // Validate that we have a valid shop
+  if (!activeShop || !activeShop.id) {
+    console.error('❌ No valid shop found for Excel operations');
+  }
 
   // Download template mutation
   const downloadTemplateMutation = useMutation({
@@ -111,9 +116,16 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
   // Validate file mutation
   const validateFileMutation = useMutation({
     mutationFn: async (file: File) => {
+      // Validate that we have a valid shop before proceeding
+      if (!activeShop || !activeShop.id) {
+        throw new Error('No valid shop selected. Please ensure you have a shop assigned.');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('shopId', activeShop.id);
+
+      console.log('🔍 Sending validation request for shop:', activeShop.id);
 
       const response = await fetch('/api/seller/excel/validate', {
         method: 'POST',
@@ -333,11 +345,11 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
     );
   }
 
-  if (!activeShop) {
+  if (!activeShop || !activeShop.id) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="flex items-center gap-2 text-amber-600">
         <FileSpreadsheet className="w-4 h-4" />
-        <span className="text-sm">No shops found</span>
+        <span className="text-sm">No valid shop selected for Excel operations</span>
       </div>
     );
   }
@@ -369,20 +381,20 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
         </DialogTrigger>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Import Products from Excel</DialogTitle>
+            <DialogTitle>Import Products from Excel/CSV</DialogTitle>
             <DialogDescription>
-              Upload an Excel file to import products for {activeShop.displayName || activeShop.legalName}
+              Upload an Excel or CSV file to import products for {activeShop.displayName || activeShop.legalName}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {/* File Selection */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select Excel File</label>
+              <label className="text-sm font-medium">Select Excel or CSV File</label>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 onChange={handleFileSelect}
                 className="w-full p-2 border rounded-md"
                 disabled={isValidating || isImporting}
@@ -445,7 +457,7 @@ export default function ExcelImportExport({ selectedShop, onImportComplete }: Ex
             <div className="flex gap-2 pt-4">
               <Button
                 onClick={handleValidateFile}
-                disabled={!selectedFile || isValidating || isImporting}
+                disabled={!selectedFile || !activeShop?.id || isValidating || isImporting}
                 className="flex items-center gap-2"
               >
                 {isValidating ? (
