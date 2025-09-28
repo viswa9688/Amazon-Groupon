@@ -2,6 +2,7 @@ import type { Express, RequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { otpService } from "./otpService";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -28,7 +29,7 @@ export function getSession() {
 export async function setupPhoneAuth(app: Express) {
   app.use(getSession());
 
-  // Send OTP endpoint (mock)
+  // Send OTP endpoint
   app.post('/api/auth/send-otp', async (req, res) => {
     try {
       const { phoneNumber, sellerIntent } = req.body;
@@ -37,23 +38,30 @@ export async function setupPhoneAuth(app: Express) {
         return res.status(400).json({ message: "Phone number is required" });
       }
 
-      // Mock OTP generation - in real implementation, send actual SMS
-      const mockOtp = "1234";
+      // Send OTP via Twilio
+      const result = await otpService.sendOTP(phoneNumber);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: result.message,
+          error: result.error 
+        });
+      }
       
       // Store OTP in session for verification
       (req.session as any).pendingAuth = {
         phoneNumber,
-        otp: mockOtp,
-        createdAt: new Date(),
+        otp: result.otp,
+        createdAt: new Date().toISOString(), // Store as ISO string to avoid serialization issues
         sellerIntent: sellerIntent || false, // Persist seller intent in session
       };
 
-      console.log(`Mock OTP for ${phoneNumber}: ${mockOtp}`);
+      console.log(`OTP sent to ${phoneNumber}: ${result.otp}`);
       
       res.json({ 
-        message: "OTP sent successfully",
+        message: result.message,
         // In development, return the OTP for testing
-        ...(process.env.NODE_ENV === 'development' && { otp: mockOtp })
+        ...(process.env.NODE_ENV === 'development' && { otp: result.otp })
       });
     } catch (error) {
       console.error("Send OTP error:", error);
@@ -61,7 +69,7 @@ export async function setupPhoneAuth(app: Express) {
     }
   });
 
-  // Verify OTP endpoint (mock)
+  // Verify OTP endpoint
   app.post('/api/auth/verify-otp', async (req, res) => {
     try {
       const { phoneNumber, otp, sellerIntent } = req.body;
@@ -76,8 +84,14 @@ export async function setupPhoneAuth(app: Express) {
         return res.status(400).json({ message: "Invalid verification session" });
       }
 
-      // Mock OTP verification - accept any OTP for demo
-      if (otp.length >= 4) {
+      // Check if OTP is expired
+      if (otpService.isOTPExpired(pendingAuth.createdAt)) {
+        delete (req.session as any).pendingAuth;
+        return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+      }
+
+      // Verify OTP
+      if (otpService.verifyOTP(pendingAuth.otp, otp)) {
         // Boolean coercion: check request body or session-stored seller intent
         const wantsSeller = sellerIntent === true || sellerIntent === 'true' || pendingAuth?.sellerIntent === true;
         
