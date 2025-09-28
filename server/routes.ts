@@ -16,6 +16,8 @@ import compression from "compression";
 import { rateLimit } from "express-rate-limit";
 import { performance } from "perf_hooks";
 import { CacheWarmer, CachePerformanceMonitor } from "./cache";
+import { ExcelService } from "./excelService";
+import multer from "multer";
 import {
   insertProductSchema,
   insertServiceProviderSchema,
@@ -40,6 +42,28 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Enhanced caching system
 const groupPricingCache = new Map<string, { amount: number; originalAmount: number; potentialSavings: number; totalMembers: number; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Multer configuration for file uploads (Excel import)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1, // Only one file at a time
+  },
+  fileFilter: (req, file, cb) => {
+    // Security: Only allow Excel files
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+    }
+  }
+});
 
 // General API response cache
 const apiCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -67,11 +91,15 @@ function setCachedData(key: string, data: any, ttl: number = DEFAULT_CACHE_TTL):
 // Clean up expired cache entries periodically
 setInterval(() => {
   const now = Date.now();
-  for (const [key, cached] of apiCache.entries()) {
+  const keysToDelete: string[] = [];
+  
+  apiCache.forEach((cached, key) => {
     if (now - cached.timestamp >= cached.ttl) {
-      apiCache.delete(key);
+      keysToDelete.push(key);
     }
-  }
+  });
+  
+  keysToDelete.forEach(key => apiCache.delete(key));
 }, 5 * 60 * 1000); // Clean up every 5 minutes
 
 // Admin authentication middleware using database
@@ -112,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => {
+    skip: (req: any) => {
       // Skip rate limiting for performance monitoring and testing
       return req.path === '/api/performance' || 
              req.path === '/api/test-db' ||
@@ -156,9 +184,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const cacheStats = ultraFastStorage.getCacheStats();
       const dbStats = {
-        totalConnections: db.client?.totalCount || 0,
-        idleConnections: db.client?.idleCount || 0,
-        waitingCount: db.client?.waitingCount || 0
+        totalConnections: db.$client?.totalCount || 0,
+        idleConnections: db.$client?.idleCount || 0,
+        waitingCount: db.$client?.waitingCount || 0
       };
       
       res.json({
@@ -2913,6 +2941,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Excel Import/Export routes for sellers
+  app.get('/api/seller/excel/template', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      
+      // Generate Excel template
+      const buffer = await ExcelService.generateTemplate(sellerId);
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="product-import-template.xlsx"');
+      res.setHeader('Content-Length', buffer.length);
+      
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating Excel template:", error);
+      res.status(500).json({ message: "Failed to generate Excel template" });
+    }
+  });
+
+  app.post('/api/seller/excel/validate', isSellerAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const { shopId } = req.body;
+
+      if (!shopId) {
+        return res.status(400).json({ message: "Shop ID is required" });
+      }
+
+      // Validate that the shop belongs to the seller
+      const shops = await storage.getSellerShopsBySeller(sellerId);
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) {
+        return res.status(403).json({ message: "Shop not found or access denied" });
+      }
+
+      // Parse and validate Excel data
+      const result = await ExcelService.parseExcelData(req.file, sellerId, shopId);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating Excel file:", error);
+      res.status(400).json({ 
+        message: error instanceof Error ? error.message : "Failed to validate Excel file" 
+      });
+    }
+  });
+
+  app.post('/api/seller/excel/import', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const { validatedData, shopId } = req.body;
+
+      if (!validatedData || !shopId) {
+        return res.status(400).json({ message: "Validated data and shop ID are required" });
+      }
+
+      // Validate that the shop belongs to the seller
+      const shops = await storage.getSellerShopsBySeller(sellerId);
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) {
+        return res.status(403).json({ message: "Shop not found or access denied" });
+      }
+
+      // Import products
+      const result = await ExcelService.importProducts(validatedData, sellerId, shopId);
+      
+      // Invalidate caches after import
+      apiCache.delete('products');
+      apiCache.delete('categories');
+      ultraFastStorage.clearCache();
+      groupPricingCache.clear();
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error importing products:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to import products" 
+      });
+    }
+  });
+
+  app.get('/api/seller/excel/export', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const { shopId } = req.query;
+
+      if (!shopId) {
+        return res.status(400).json({ message: "Shop ID is required" });
+      }
+
+      // Validate that the shop belongs to the seller
+      const shops = await storage.getSellerShopsBySeller(sellerId);
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) {
+        return res.status(403).json({ message: "Shop not found or access denied" });
+      }
+
+      // Get products for the shop
+      const products = await storage.getProductsBySeller(sellerId);
+      const shopProducts = products.filter(p => p.sellerId === sellerId);
+
+      if (shopProducts.length === 0) {
+        return res.status(404).json({ message: "No products found for export" });
+      }
+
+      // Generate Excel export
+      const buffer = await ExcelService.generateExport(shopProducts, shop);
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="products-export-${shop.displayName || shop.legalName}-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.setHeader('Content-Length', buffer.length);
+      
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting products:", error);
+      res.status(500).json({ message: "Failed to export products" });
+    }
+  });
 
   // Process expired notifications (S5 & S6) - should be called periodically
   app.post('/api/notifications/process-expired', async (req: any, res) => {

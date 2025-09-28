@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FullPageLoader } from "@/components/InfiniteLoader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ExcelImportExport from "@/components/ExcelImportExport";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,7 @@ import {
   Phone,
   Globe,
   RefreshCw,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1113,8 +1115,19 @@ export default function SellerDashboard() {
 
           <TabsContent value="products">
             <div className="space-y-6">
-              {/* Add Product Button */}
-              <div className="flex justify-end">
+              {/* Add Product Button and Excel Import/Export */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-semibold">Product Management</h3>
+                  <ExcelImportExport 
+                    onImportComplete={() => {
+                      // Refresh products after import
+                      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+                    }}
+                  />
+                </div>
                 <Dialog
                   open={productDialogOpen}
                   onOpenChange={setProductDialogOpen}
@@ -2980,6 +2993,7 @@ export default function SellerDashboard() {
               )}
             </div>
           </TabsContent>
+
 
           {/* Potential Revenue Tab Content */}
           <TabsContent value="potential">
