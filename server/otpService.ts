@@ -1,12 +1,30 @@
 import twilio from 'twilio';
 
-// Twilio configuration
-const accountSid = process.env.TWILIO_ACCOUNT_SID || 'AC5cd318143e6b8b2855ba8477c35556ec';
-const authToken = process.env.TWILIO_AUTH_TOKEN || 'f400b3698ba22c4f512d9ef424a010df';
-const fromNumber = process.env.TWILIO_PHONE_NUMBER || '+19412063009';
+// Twilio configuration - requires environment variables
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
-// Initialize Twilio client
-const client = twilio(accountSid, authToken);
+// Check if we're in mock mode for development
+const isMockMode = process.env.TWILIO_MOCK_MODE === 'true' || process.env.NODE_ENV === 'development';
+
+// Validate required environment variables (skip if in mock mode)
+if (!isMockMode && (!accountSid || !authToken || !fromNumber)) {
+  console.error('❌ Missing required Twilio environment variables:');
+  console.error('   TWILIO_ACCOUNT_SID:', accountSid ? '✅ Set' : '❌ Missing');
+  console.error('   TWILIO_AUTH_TOKEN:', authToken ? '✅ Set' : '❌ Missing');
+  console.error('   TWILIO_PHONE_NUMBER:', fromNumber ? '✅ Set' : '❌ Missing');
+  console.error('   Please check your .env file and ensure all Twilio credentials are set.');
+  console.error('   Or set TWILIO_MOCK_MODE=true for development.');
+  process.exit(1);
+}
+
+if (isMockMode) {
+  console.log('🔧 Running in Twilio mock mode for development');
+}
+
+// Initialize Twilio client (only if not in mock mode)
+const client = isMockMode ? null : twilio(accountSid, authToken);
 
 export interface OTPResult {
   success: boolean;
@@ -63,9 +81,9 @@ export class OTPService {
       console.log(`Sending OTP ${otp} to ${formattedPhone}`);
       console.log(`From number: ${fromNumber}`);
       
-      // In development mode, check if we should use mock mode for testing
-      if (process.env.NODE_ENV === 'development' && process.env.TWILIO_MOCK_MODE === 'true') {
-        console.log('Using mock mode for development');
+      // In mock mode, return success without sending actual SMS
+      if (isMockMode) {
+        console.log(`🔧 Mock mode: Would send OTP ${otp} to ${formattedPhone}`);
         return {
           success: true,
           message: 'OTP sent successfully (mock mode)',

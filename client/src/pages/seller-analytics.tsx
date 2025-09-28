@@ -210,7 +210,7 @@ export default function SellerAnalytics() {
       name: product.name.length > 20 ? product.name.substring(0, 20) + '...' : product.name,
       revenue: product.revenue,
       orders: product.orders,
-      color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]
+      color: ['#D32F2F', '#6A1B9A', '#8E24AA', '#E53935', '#4A4A4A'][index % 5]
     }));
 
     // Customer acquisition data
@@ -224,7 +224,7 @@ export default function SellerAnalytics() {
       name: status.status.charAt(0).toUpperCase() + status.status.slice(1),
       value: status.count,
       percentage: status.percentage,
-      color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]
+      color: ['#D32F2F', '#6A1B9A', '#8E24AA', '#E53935', '#4A4A4A'][index % 5]
     }));
 
     return { revenueData, productData, customerData, trendsData };
@@ -461,8 +461,8 @@ export default function SellerAnalytics() {
                           <Area 
                             type="monotone" 
                             dataKey="revenue" 
-                            stroke="#3b82f6" 
-                            fill="#3b82f6" 
+                            stroke="#D32F2F" 
+                            fill="#D32F2F" 
                             fillOpacity={0.1}
                             strokeWidth={2} 
                           />
@@ -583,7 +583,7 @@ export default function SellerAnalytics() {
                         name === 'revenue' ? 'Revenue' : 'Orders'
                       ]} />
                       <Legend />
-                      <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" />
+                      <Bar dataKey="revenue" fill="#D32F2F" name="Revenue" />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </div>
@@ -643,14 +643,14 @@ export default function SellerAnalytics() {
                         <Line 
                           type="monotone" 
                           dataKey="newCustomers" 
-                          stroke="#10b981" 
+                          stroke="#6A1B9A" 
                           strokeWidth={2} 
                           name="New Customers"
                         />
                         <Line 
                           type="monotone" 
                           dataKey="totalCustomers" 
-                          stroke="#3b82f6" 
+                          stroke="#D32F2F" 
                           strokeWidth={2} 
                           name="Total Customers"
                         />
@@ -676,7 +676,7 @@ export default function SellerAnalytics() {
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip formatter={(value) => [`${value} orders`, 'Orders']} />
-                        <Bar dataKey="value" fill="#3b82f6" />
+                        <Bar dataKey="value" fill="#D32F2F" />
                       </RechartsBarChart>
                     </ResponsiveContainer>
                   </div>

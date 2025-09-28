@@ -7,13 +7,13 @@ This document explains how to set up Twilio for OTP verification in the OneAnt M
 Add the following environment variables to your `.env` file or environment configuration:
 
 ```env
-# Twilio Configuration
-TWILIO_ACCOUNT_SID=AC5cd318143e6b8b2855ba8477c35556ec
-TWILIO_AUTH_TOKEN=f400b3698ba22c4f512d9ef424a010df
-TWILIO_PHONE_NUMBER=+19412063009
+# Twilio Configuration (REQUIRED - no hardcoded fallbacks)
+TWILIO_ACCOUNT_SID=your_account_sid_here
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=your_twilio_phone_number_here
 
 # Development Mode (optional)
-TWILIO_MOCK_MODE=true  # Set to true to use mock mode in development
+TWILIO_MOCK_MODE=false  # Set to true to use mock mode in development
 ```
 
 ## Features Implemented

@@ -947,10 +947,10 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                         appearance: {
                           theme: 'stripe',
                           variables: {
-                            colorPrimary: '#3b82f6',
+                            colorPrimary: '#D32F2F',
                             colorBackground: '#ffffff',
-                            colorText: '#374151',
-                            colorDanger: '#ef4444',
+                            colorText: '#333333',
+                            colorDanger: '#D32F2F',
                             fontFamily: 'Inter, system-ui, sans-serif',
                             spacingUnit: '6px',
                             borderRadius: '8px'

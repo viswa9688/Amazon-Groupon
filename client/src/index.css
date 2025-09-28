@@ -4,82 +4,114 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(210, 40%, 98%);
-  --foreground: hsl(222.2, 84%, 4.9%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(222.2, 84%, 4.9%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(222.2, 84%, 4.9%);
-  --primary: hsl(221.2, 83.2%, 53.3%);
-  --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(38.7, 92%, 50%);
-  --secondary-foreground: hsl(222.2, 84%, 4.9%);
-  --muted: hsl(210, 40%, 96%);
-  --muted-foreground: hsl(215.4, 16.3%, 46.9%);
-  --accent: hsl(142.1, 76.2%, 36.3%);
-  --accent-foreground: hsl(355.7, 100%, 97.3%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(210, 40%, 98%);
-  --border: hsl(214.3, 31.8%, 91.4%);
-  --input: hsl(214.3, 31.8%, 91.4%);
-  --ring: hsl(221.2, 83.2%, 53.3%);
-  --chart-1: hsl(221.2, 83.2%, 53.3%);
-  --chart-2: hsl(142.1, 76.2%, 36.3%);
-  --chart-3: hsl(38.7, 92%, 50%);
-  --chart-4: hsl(0, 84.2%, 60.2%);
-  --chart-5: hsl(267.5, 83.2%, 53.3%);
-  --sidebar: hsl(0, 0%, 100%);
-  --sidebar-foreground: hsl(222.2, 84%, 4.9%);
-  --sidebar-primary: hsl(221.2, 83.2%, 53.3%);
-  --sidebar-primary-foreground: hsl(210, 40%, 98%);
-  --sidebar-accent: hsl(210, 40%, 96%);
-  --sidebar-accent-foreground: hsl(222.2, 84%, 4.9%);
-  --sidebar-border: hsl(214.3, 31.8%, 91.4%);
-  --sidebar-ring: hsl(221.2, 83.2%, 53.3%);
+  /* Light backgrounds and text */
+  --background: #FFFFFF;
+  --foreground: #333333;
+  --card: #FFFFFF;
+  --card-foreground: #333333;
+  --popover: #FFFFFF;
+  --popover-foreground: #333333;
+  
+  /* Primary brand color - Rich Red */
+  --primary: #D32F2F;
+  --primary-foreground: #FFFFFF;
+  
+  /* Secondary accent - Deep Purple */
+  --secondary: #6A1B9A;
+  --secondary-foreground: #FFFFFF;
+  
+  /* Neutral colors */
+  --muted: #F8F8F8;
+  --muted-foreground: #4A4A4A;
+  
+  /* Accent color - using secondary purple for variety */
+  --accent: #8E24AA;
+  --accent-foreground: #FFFFFF;
+  
+  /* Destructive/error color - using rich red */
+  --destructive: #D32F2F;
+  --destructive-foreground: #FFFFFF;
+  
+  /* Borders and inputs */
+  --border: #E0E0E0;
+  --input: #E0E0E0;
+  --ring: #D32F2F;
+  
+  /* Chart colors using theme palette */
+  --chart-1: #D32F2F;
+  --chart-2: #6A1B9A;
+  --chart-3: #8E24AA;
+  --chart-4: #E53935;
+  --chart-5: #4A4A4A;
+  
+  /* Sidebar colors */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #D32F2F;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F8F8F8;
+  --sidebar-accent-foreground: #333333;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #D32F2F;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 0.75rem;
-  --shadow-2xs: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00), 0px 1px 2px -1px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00), 0px 1px 2px -1px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00), 0px 2px 4px -1px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00), 0px 4px 6px -1px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00), 0px 8px 10px -1px hsl(221.2, 83.2%, 53.3%, 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(221.2, 83.2%, 53.3%, 0.00);
+  --shadow-2xs: 0px 2px 0px 0px rgba(211, 47, 47, 0.00);
+  --shadow-xs: 0px 2px 0px 0px rgba(211, 47, 47, 0.00);
+  --shadow-sm: 0px 2px 0px 0px rgba(211, 47, 47, 0.00), 0px 1px 2px -1px rgba(211, 47, 47, 0.00);
+  --shadow: 0px 2px 0px 0px rgba(211, 47, 47, 0.00), 0px 1px 2px -1px rgba(211, 47, 47, 0.00);
+  --shadow-md: 0px 2px 0px 0px rgba(211, 47, 47, 0.00), 0px 2px 4px -1px rgba(211, 47, 47, 0.00);
+  --shadow-lg: 0px 2px 0px 0px rgba(211, 47, 47, 0.00), 0px 4px 6px -1px rgba(211, 47, 47, 0.00);
+  --shadow-xl: 0px 2px 0px 0px rgba(211, 47, 47, 0.00), 0px 8px 10px -1px rgba(211, 47, 47, 0.00);
+  --shadow-2xl: 0px 2px 0px 0px rgba(211, 47, 47, 0.00);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
 
 .dark {
-  --background: hsl(222.2, 84%, 4.9%);
-  --foreground: hsl(210, 40%, 98%);
-  --card: hsl(222.2, 84%, 4.9%);
-  --card-foreground: hsl(210, 40%, 98%);
-  --popover: hsl(222.2, 84%, 4.9%);
-  --popover-foreground: hsl(210, 40%, 98%);
-  --primary: hsl(221.2, 83.2%, 53.3%);
-  --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(38.7, 92%, 50%);
-  --secondary-foreground: hsl(222.2, 84%, 4.9%);
-  --muted: hsl(217.2, 32.6%, 17.5%);
-  --muted-foreground: hsl(215, 20.2%, 65.1%);
-  --accent: hsl(142.1, 76.2%, 36.3%);
-  --accent-foreground: hsl(355.7, 100%, 97.3%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(210, 40%, 98%);
-  --border: hsl(217.2, 32.6%, 17.5%);
-  --input: hsl(217.2, 32.6%, 17.5%);
-  --ring: hsl(224.3, 76.3%, 94.1%);
-  --sidebar: hsl(222.2, 84%, 4.9%);
-  --sidebar-foreground: hsl(210, 40%, 98%);
-  --sidebar-primary: hsl(221.2, 83.2%, 53.3%);
-  --sidebar-primary-foreground: hsl(210, 40%, 98%);
-  --sidebar-accent: hsl(217.2, 32.6%, 17.5%);
-  --sidebar-accent-foreground: hsl(210, 40%, 98%);
-  --sidebar-border: hsl(217.2, 32.6%, 17.5%);
-  --sidebar-ring: hsl(221.2, 83.2%, 53.3%);
+  /* Dark backgrounds and light text */
+  --background: #1A1A1A;
+  --foreground: #F8F8F8;
+  --card: #2A2A2A;
+  --card-foreground: #F8F8F8;
+  --popover: #2A2A2A;
+  --popover-foreground: #F8F8F8;
+  
+  /* Primary brand color - Rich Red (slightly lighter for dark mode) */
+  --primary: #E53935;
+  --primary-foreground: #FFFFFF;
+  
+  /* Secondary accent - Deep Purple (slightly lighter for dark mode) */
+  --secondary: #8E24AA;
+  --secondary-foreground: #FFFFFF;
+  
+  /* Neutral colors for dark mode */
+  --muted: #333333;
+  --muted-foreground: #CCCCCC;
+  
+  /* Accent color - using secondary purple */
+  --accent: #9C27B0;
+  --accent-foreground: #FFFFFF;
+  
+  /* Destructive/error color - using rich red */
+  --destructive: #E53935;
+  --destructive-foreground: #FFFFFF;
+  
+  /* Borders and inputs for dark mode */
+  --border: #4A4A4A;
+  --input: #4A4A4A;
+  --ring: #E53935;
+  
+  /* Sidebar colors for dark mode */
+  --sidebar: #1A1A1A;
+  --sidebar-foreground: #F8F8F8;
+  --sidebar-primary: #E53935;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #333333;
+  --sidebar-accent-foreground: #F8F8F8;
+  --sidebar-border: #4A4A4A;
+  --sidebar-ring: #E53935;
 }
 
 @layer base {
@@ -106,7 +138,7 @@
 }
 
 .countdown-timer {
-  background: linear-gradient(135deg, hsl(0, 84.2%, 60.2%), hsl(0, 84.2%, 50.2%));
+  background: linear-gradient(135deg, #D32F2F, #E53935);
 }
 
 /* Hide any stray periods that might appear at bottom of pages */
