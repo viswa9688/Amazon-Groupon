@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import Header from "@/components/Header";
 import CustomerDeliveryTracker from "@/components/CustomerDeliveryTracker";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export default function Orders() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
       }
     },

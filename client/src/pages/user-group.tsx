@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -294,7 +294,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -327,7 +327,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -361,7 +361,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -389,7 +389,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -421,7 +421,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -455,7 +455,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -500,7 +500,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -533,7 +533,7 @@ export default function UserGroupPage() {
           variant: "destructive", 
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -566,7 +566,7 @@ export default function UserGroupPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }

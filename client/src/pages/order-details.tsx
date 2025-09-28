@@ -10,7 +10,7 @@ import CustomerDeliveryTracker from "@/components/CustomerDeliveryTracker";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import type { Order, Product } from "@shared/schema";
 
 export default function OrderDetails() {
@@ -27,9 +27,9 @@ export default function OrderDetails() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        setTimeout(() => {
+          redirectToLogin();
+        }, 500);
       return;
     }
   }, [isAuthenticated, isLoading, toast]);
@@ -51,9 +51,9 @@ export default function OrderDetails() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        setTimeout(() => {
+          redirectToLogin();
+        }, 500);
     }
   }, [error, toast]);
 

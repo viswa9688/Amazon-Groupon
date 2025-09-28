@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -105,7 +105,7 @@ export default function MyGroups() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -137,7 +137,7 @@ export default function MyGroups() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }

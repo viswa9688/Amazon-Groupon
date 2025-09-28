@@ -57,16 +57,16 @@ export default function Header() {
   });
 
   return (
-    <header className="bg-card shadow-sm border-b border-border sticky top-0 z-50">
+    <header className="bg-card/95 backdrop-blur-sm shadow-sm border-b border-border sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 lg:h-18">
           {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <div className="bg-primary text-primary-foreground w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xl">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center font-bold text-lg sm:text-xl shadow-lg">
               1A
             </div>
             <h1
-              className="text-2xl font-bold text-primary cursor-pointer"
+              className="text-xl sm:text-2xl font-bold text-primary cursor-pointer hover:text-primary/80 transition-colors"
               onClick={() => (window.location.href = "/")}
             >
               OneAnt
@@ -74,16 +74,16 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
             <a
               href="/browse"
-              className="text-foreground hover:text-primary font-medium transition-colors"
+              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
             >
               Browse
             </a>
             <a
               href="#"
-              className="text-foreground hover:text-primary font-medium transition-colors"
+              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
             >
               How it Works
             </a>
@@ -131,7 +131,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden"
+              className="lg:hidden p-2"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="button-mobile-menu"
             >
@@ -139,7 +139,7 @@ export default function Header() {
             </Button>
 
             {/* Desktop Actions */}
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="hidden lg:flex items-center space-x-3 xl:space-x-4">
               {!isAuthenticated ? (
                 <>
                   <Button
@@ -309,7 +309,7 @@ export default function Header() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border py-4 space-y-2">
+          <div className="lg:hidden border-t border-border py-4 space-y-2 bg-card/95 backdrop-blur-sm">
             <a
               href="/browse"
               className="block py-2 text-foreground hover:text-primary font-medium"
@@ -433,10 +433,10 @@ export default function Header() {
       {/* Category Tabs - Show on all pages */}
       <div className="border-t border-border bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center space-x-0">
+          <div className="flex items-center justify-center space-x-0 overflow-x-auto">
             <a
               href="/browse/groceries"
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-all relative ${
+              className={`flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap ${
                 window.location.pathname === "/browse/groceries"
                   ? "text-primary bg-white dark:bg-gray-800 shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50"
@@ -444,14 +444,15 @@ export default function Header() {
               data-testid="tab-groceries"
             >
               <Apple className="w-4 h-4" />
-              <span>Groceries</span>
+              <span className="hidden sm:inline">Groceries</span>
+              <span className="sm:hidden">Food</span>
               {window.location.pathname === "/browse/groceries" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
               )}
             </a>
             <a
               href="/browse/services"
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-all relative ${
+              className={`flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap ${
                 window.location.pathname === "/browse/services"
                   ? "text-primary bg-white dark:bg-gray-800 shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50"
@@ -466,7 +467,7 @@ export default function Header() {
             </a>
             <a
               href="/browse/pet-essentials"
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-all relative ${
+              className={`flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap ${
                 window.location.pathname === "/browse/pet-essentials"
                   ? "text-primary bg-white dark:bg-gray-800 shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50"
@@ -474,7 +475,8 @@ export default function Header() {
               data-testid="tab-pet-essentials"
             >
               <Heart className="w-4 h-4" />
-              <span>Pet Essentials</span>
+              <span className="hidden sm:inline">Pet Essentials</span>
+              <span className="sm:hidden">Pets</span>
               {window.location.pathname === "/browse/pet-essentials" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
               )}

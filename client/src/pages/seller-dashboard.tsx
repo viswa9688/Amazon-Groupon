@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState, useMemo, memo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -870,7 +870,7 @@ export default function SellerDashboard() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }

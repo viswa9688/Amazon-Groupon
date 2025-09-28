@@ -393,14 +393,14 @@ export default function Cart() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Shopping Cart</h1>
-            <p className="text-gray-600 dark:text-gray-400" data-testid="text-cart-items-count">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Shopping Cart</h1>
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base" data-testid="text-cart-items-count">
               {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={() => setShowCreateCollection(true)}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
@@ -422,22 +422,22 @@ export default function Cart() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
             {cartItems.map((item) => (
               <Card key={item.id} data-testid={`card-cart-item-${item.id}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                     <img
                       src={item.product.imageUrl}
                       alt={item.product.name}
-                      className="w-20 h-20 object-cover rounded-lg"
+                      className="w-full sm:w-20 h-32 sm:h-20 object-cover rounded-lg"
                       data-testid={`img-product-${item.product.id}`}
                     />
                     <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="flex-1">
                           <h3 className="font-semibold text-lg text-gray-900 dark:text-white" data-testid={`text-product-name-${item.product.id}`}>
                             {item.product.name}
                           </h3>
@@ -454,13 +454,14 @@ export default function Cart() {
                           onClick={() => handleRemoveItem(item.id)}
                           disabled={removeFromCartMutation.isPending}
                           data-testid={`button-remove-${item.id}`}
+                          className="self-start sm:self-auto"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                       
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center space-x-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+                        <div className="flex items-center justify-center sm:justify-start space-x-3">
                           <Button
                             variant="outline"
                             size="sm"
@@ -483,8 +484,8 @@ export default function Cart() {
                             <Plus className="h-4 w-4" />
                           </Button>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid={`text-price-${item.id}`}>
+                        <div className="text-center sm:text-right">
+                          <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white" data-testid={`text-price-${item.id}`}>
                             ${(parseFloat(item.product.originalPrice) * item.quantity).toFixed(2)}
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">

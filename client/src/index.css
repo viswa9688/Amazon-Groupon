@@ -3,6 +3,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom responsive utilities */
+@layer utilities {
+  .container-responsive {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .text-responsive-xl {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+  
+  .text-responsive-lg {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .text-responsive-base {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+  }
+  
+  .flex-responsive {
+    @apply flex flex-col sm:flex-row gap-4;
+  }
+  
+  .button-responsive {
+    @apply w-full sm:w-auto px-4 py-2 text-sm sm:text-base;
+  }
+}
+
 :root {
   /* Light backgrounds and text */
   --background: #FFFFFF;

@@ -10,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import Header from "@/components/Header";
 import { 
   TrendingUp, 
@@ -97,9 +97,9 @@ export default function SellerAnalytics() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        setTimeout(() => {
+          redirectToLogin();
+        }, 500);
       return;
     }
   }, [isAuthenticated, authLoading, toast]);

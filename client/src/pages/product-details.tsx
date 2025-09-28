@@ -4,7 +4,7 @@ import { useState } from "react";
 import CategoryConflictDialog from "@/components/CategoryConflictDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import PhoneAuthModal from "@/components/PhoneAuthModal";
 import Header from "@/components/Header";
@@ -122,7 +122,7 @@ export default function ProductDetails() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -156,7 +156,7 @@ export default function ProductDetails() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }
@@ -213,7 +213,7 @@ export default function ProductDetails() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          redirectToLogin();
         }, 500);
         return;
       }

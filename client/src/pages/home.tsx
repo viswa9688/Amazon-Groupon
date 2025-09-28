@@ -16,14 +16,14 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="space-y-4">
-                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-48 sm:h-52 w-full rounded-xl" />
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 sm:h-11 w-full" />
               </div>
             ))}
           </div>
@@ -36,18 +36,18 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="mb-6 sm:mb-8 text-center sm:text-left">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
             Welcome back, {(user as any)?.firstName || 'Shopper'}!
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Discover amazing group deals and save money by shopping together.
           </p>
         </div>
 
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-foreground mb-6">Active Group Purchases</h2>
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-4 sm:mb-6 text-center sm:text-left">Active Group Purchases</h2>
           
           {!groupPurchases || groupPurchases.length === 0 ? (
             <div className="text-center py-12">
@@ -56,7 +56,7 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
               {groupPurchases.map((groupPurchase) => (
                 <ProductCard 
                   key={groupPurchase.id} 

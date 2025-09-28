@@ -10,9 +10,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // Preserve intended destination and redirect to login
+      // Preserve intended destination and redirect to browse page (which will show login modal)
       const currentPath = window.location.pathname + window.location.search;
-      const redirectUrl = `/api/login?redirect=${encodeURIComponent(currentPath)}`;
+      const redirectUrl = `/browse?redirect=${encodeURIComponent(currentPath)}`;
       window.location.href = redirectUrl;
     }
   }, [isLoading, isAuthenticated]);
