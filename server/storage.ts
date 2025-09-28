@@ -525,48 +525,79 @@ export class DatabaseStorage implements IStorage {
     return newCategory;
   }
 
-  // Product operations
+  // Product operations - optimized for performance
   async getProducts(): Promise<ProductWithDetails[]> {
-    return await db.query.products.findMany({
-      with: {
-        seller: true,
-        category: true,
-        discountTiers: true,
-        serviceProvider: {
-          with: {
-            staff: true,
-          },
-        },
-        petProvider: {
-          with: {
-            staff: true,
-          },
-        },
-      },
-      where: eq(products.isActive, true),
-      orderBy: desc(products.createdAt),
+    // Use simpler query for better performance
+    const productList = await db
+      .select()
+      .from(products)
+      .where(eq(products.isActive, true))
+      .orderBy(desc(products.createdAt))
+      .limit(100); // Limit to 100 products for better performance
+    
+    if (productList.length === 0) return [];
+    
+    // Get unique seller and category IDs
+    const sellerIds = Array.from(new Set(productList.map(p => p.sellerId).filter(Boolean)));
+    const categoryIds = Array.from(new Set(productList.map(p => p.categoryId).filter(Boolean)));
+    const productIds = productList.map(p => p.id);
+    
+    // Fetch related data in parallel
+    const [sellers, categoriesData, allDiscountTiers] = await Promise.all([
+      db.select().from(users).where(inArray(users.id, sellerIds)),
+      db.select().from(categories).where(inArray(categories.id, categoryIds)),
+      db.select().from(discountTiers).where(inArray(discountTiers.productId, productIds))
+    ]);
+    
+    // Create lookup maps
+    const sellerMap = new Map(sellers.map(s => [s.id, s]));
+    const categoryMap = new Map(categoriesData.map(c => [c.id, c]));
+    const discountTiersMap = new Map<string, any[]>();
+    
+    allDiscountTiers.forEach(dt => {
+      const key = dt.productId.toString();
+      if (!discountTiersMap.has(key)) {
+        discountTiersMap.set(key, []);
+      }
+      discountTiersMap.get(key)!.push(dt);
     });
+    
+    // Combine data
+    return productList.map(product => ({
+      ...product,
+      seller: sellerMap.get(product.sellerId) || undefined,
+      category: categoryMap.get(product.categoryId) || undefined,
+      discountTiers: discountTiersMap.get(product.id.toString()) || [],
+      serviceProvider: undefined, // Skip for now to improve performance
+      petProvider: undefined, // Skip for now to improve performance
+    })) as ProductWithDetails[];
   }
 
   async getProduct(id: number): Promise<ProductWithDetails | undefined> {
-    return await db.query.products.findFirst({
-      where: eq(products.id, id),
-      with: {
-        seller: true,
-        category: true,
-        discountTiers: true,
-        serviceProvider: {
-          with: {
-            staff: true,
-          },
-        },
-        petProvider: {
-          with: {
-            staff: true,
-          },
-        },
-      },
-    });
+    // Use simpler query for better performance
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
+    
+    if (!product) return undefined;
+    
+    // Fetch related data separately for better performance
+    const [seller, category, discountTiersData] = await Promise.all([
+      db.select().from(users).where(eq(users.id, product.sellerId)).limit(1),
+      db.select().from(categories).where(eq(categories.id, product.categoryId)).limit(1),
+      db.select().from(discountTiers).where(eq(discountTiers.productId, product.id))
+    ]);
+    
+    return {
+      ...product,
+      seller: seller[0] || undefined,
+      category: category[0] || undefined,
+      discountTiers: discountTiersData || [],
+      serviceProvider: undefined, // Skip for now to improve performance
+      petProvider: undefined, // Skip for now to improve performance
+    } as ProductWithDetails;
   }
 
   async getProductById(id: number): Promise<Product | undefined> {
@@ -1418,20 +1449,8 @@ export class DatabaseStorage implements IStorage {
       
       console.log(`Analytics for seller ${sellerId} from ${startDate} to ${endDate}`);
 
-      // First, let's get ALL orders for this seller to debug
-      const allOrdersResult = await db
-        .select({
-          orderId: orders.id,
-          createdAt: orders.createdAt,
-          status: orders.status,
-          finalPrice: orders.finalPrice,
-        })
-        .from(orders)
-        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
-        .innerJoin(products, eq(orderItems.productId, products.id))
-        .where(eq(products.sellerId, sellerId));
-      
-      console.log(`Found ${allOrdersResult.length} total orders for seller ${sellerId}:`, allOrdersResult);
+      // Skip debug query for better performance
+      // const allOrdersResult = await db...
 
       // Revenue Analytics - Remove date restriction to get all historical data
       const revenueResult = await db

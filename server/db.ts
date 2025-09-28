@@ -11,11 +11,11 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Connection retry configuration
-const MAX_RETRY_ATTEMPTS = 5;
-const INITIAL_RETRY_DELAY = 1000; // 1 second
-const MAX_RETRY_DELAY = 30000; // 30 seconds
-const RETRY_MULTIPLIER = 2;
+// Connection retry configuration - optimized for performance
+const MAX_RETRY_ATTEMPTS = 3; // Reduced retry attempts
+const INITIAL_RETRY_DELAY = 500; // Faster initial retry
+const MAX_RETRY_DELAY = 5000; // Reduced max delay
+const RETRY_MULTIPLIER = 1.5; // Slower backoff
 
 // Connection state tracking
 let isConnected = false;
@@ -26,16 +26,19 @@ let reconnectTimer: NodeJS.Timeout | null = null;
 function createPool(): Pool {
   return new Pool({ 
     connectionString: process.env.DATABASE_URL,
-    // Serverless-optimized connection pool settings
-    max: 20, // Reduced for serverless compatibility
-    min: 2, // Minimal connections for serverless
-    idleTimeoutMillis: 10000, // Standard idle timeout
-    connectionTimeoutMillis: 5000, // Increased timeout for better reliability
-    maxUses: 10000, // Standard connection reuse
+    // Optimized for serverless performance
+    max: 10, // Reduced for better serverless performance
+    min: 1, // Minimal connections for serverless
+    idleTimeoutMillis: 30000, // Longer idle timeout
+    connectionTimeoutMillis: 10000, // Longer connection timeout
+    maxUses: 1000, // Reduced connection reuse for stability
     allowExitOnIdle: true, // Allow exit for serverless
-    // Serverless-compatible optimizations
-    statement_timeout: 10000, // Increased statement timeout
-    application_name: 'amazon-groupon-ultra-fast',
+    // Performance optimizations
+    statement_timeout: 30000, // Longer statement timeout
+    application_name: 'amazon-groupon-optimized',
+    // Connection pool optimizations
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 0,
   });
 }
 
@@ -43,7 +46,7 @@ function createPool(): Pool {
 let pool = createPool();
 
 // Enhanced database instance with retry logic
-export const db = drizzle({ 
+let db = drizzle({ 
   client: pool, 
   schema,
   // Disable logging in production for speed
@@ -54,6 +57,22 @@ export const db = drizzle({
     }
   } : false
 });
+
+// Function to update database instance when pool changes
+function updateDbInstance() {
+  db = drizzle({ 
+    client: pool, 
+    schema,
+    logger: process.env.NODE_ENV === 'development' ? {
+      logQuery: (query, params) => {
+        console.log(`🔍 Query: ${query}`);
+        if (params.length > 0) console.log(`📝 Params:`, params);
+      }
+    } : false
+  });
+}
+
+export { db };
 
 // Helper function to check if error is connection-related
 function isConnectionError(error: any): boolean {
@@ -82,14 +101,18 @@ async function attemptReconnection(): Promise<void> {
   try {
     console.log('🔄 Attempting to reconnect to database...');
     
-    // Close existing pool
-    await pool.end().catch(() => {});
-    
-    // Create new pool
-    pool = createPool();
+    // Create new pool first
+    const newPool = createPool();
     
     // Test the new connection
-    await pool.query('SELECT 1 as health_check');
+    await newPool.query('SELECT 1 as health_check');
+    
+    // Only close old pool after new one is working
+    await pool.end().catch(() => {});
+    
+    // Replace the pool and update database instance
+    pool = newPool;
+    updateDbInstance();
     
     isConnected = true;
     reconnectAttempts = 0;
@@ -178,11 +201,11 @@ async function performHealthCheck(): Promise<void> {
   }
 }
 
-// Start health monitoring
-setInterval(performHealthCheck, 30000); // Check every 30 seconds
+// Start health monitoring - reduced frequency for better performance
+setInterval(performHealthCheck, 300000); // Check every 5 minutes for better stability
 
-// Initial health check
-performHealthCheck().catch(console.error);
+// Skip initial health check to prevent startup issues
+// performHealthCheck().catch(console.error);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

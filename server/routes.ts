@@ -16,6 +16,7 @@ import compression from "compression";
 import { rateLimit } from "express-rate-limit";
 import { performance } from "perf_hooks";
 import { CacheWarmer, CachePerformanceMonitor } from "./cache";
+import { performanceMiddleware, performanceMonitor } from "./performance-monitor";
 import { ExcelService } from "./excelService";
 import multer from "multer";
 import {
@@ -120,6 +121,9 @@ const isAdminAuthenticated = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Performance monitoring middleware
+  app.use(performanceMiddleware);
+  
   // ULTRA-FAST performance middleware
   app.use(compression({
     level: 6, // Balanced compression

@@ -30,14 +30,14 @@ class UltraFastCache {
     hitRate: 0
   };
 
-  constructor(maxSize: number = 200000) { // 20x larger cache for serverless
+  constructor(maxSize: number = 50000) { // Reduced cache size for better performance
     this.maxSize = maxSize;
     
-    // ULTRA-FAST cleanup every 10 seconds
-    setInterval(() => this.cleanup(), 10000);
+    // Optimized cleanup every 30 seconds
+    setInterval(() => this.cleanup(), 30000);
     
-    // Update stats every 3 seconds
-    setInterval(() => this.updateStats(), 3000);
+    // Update stats every 10 seconds
+    setInterval(() => this.updateStats(), 10000);
   }
 
   // Ultra-fast get operation - optimized for speed
@@ -268,7 +268,7 @@ class UltraFastCache {
 }
 
 // ULTRA-SCALED cache instance for 1000+ concurrent users (serverless optimized)
-export const ultraFastCache = new UltraFastCache(200000); // 200k entries max
+export const ultraFastCache = new UltraFastCache(50000); // 50k entries max for better performance
 
 // Cache key generators for consistent naming
 export const CacheKeys = {
@@ -336,19 +336,8 @@ export class CacheWarmer {
         300000 // 5 minutes for serverless (longer cache to reduce DB calls)
       );
 
-          // Warm all public user groups - ULTRA-FAST
-          await ultraFastCache.warmCache(
-            () => CacheKeys.USER_GROUPS_ALL,
-            () => storage.getAllPublicCollections(),
-            120000 // 2 minutes
-          );
-
-          // Warm all users - ULTRA-FAST
-          await ultraFastCache.warmCache(
-            () => CacheKeys.USERS_ALL,
-            () => storage.getAllUsers(),
-            300000 // 5 minutes
-          );
+          // Skip warming user groups and users for faster startup
+          // These will be loaded on-demand
 
       console.log('✅ Cache warming completed');
     } catch (error) {
