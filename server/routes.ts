@@ -3966,8 +3966,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "This user has already paid for this product in this group" });
       }
 
-      // Get address for BC validation
-      const addresses = await storage.getUserAddresses(finalBeneficiaryId);
+      // Get payer billing address (used for compliance & payment even for pickup)
+      const addresses = await storage.getUserAddresses(finalPayerId);
       const address = addresses.find(addr => addr.id === addressId);
       if (!address) {
         return res.status(404).json({ message: "Address not found" });
@@ -4001,32 +4001,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Could not fetch product details for group payment intent");
       }
 
-      // Create customer with billing address
+      // Create customer with payer's billing address
       const customer = await stripe.customers.create({
-        name: "Group Purchase Customer",
+        name: address.fullName || "Group Purchase Customer",
         address: {
-          line1: "Customer Address",
-          city: "Customer City",
-          state: "CA",
-          postal_code: "90210",
-          country: "US"
+          line1: buyerAddress.addressLine,
+          city: buyerAddress.city,
+          state: buyerAddress.state || "CA",
+          postal_code: buyerAddress.pincode,
+          country: buyerAddress.country || "US"
         }
       });
 
-      // Create payment intent for group purchase
+      // Create payment intent for group purchase (shipping info still required by Stripe)
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency,
         customer: customer.id,
         description: `Group Purchase: ${productName}`,
         shipping: {
-          name: "Group Purchase Customer",
+          name: address.fullName || "Group Purchase Customer",
           address: {
-            line1: "Shipping Address",
-            city: "Shipping City", 
-            state: "CA",
-            postal_code: "90210",
-            country: "US"
+            line1: buyerAddress.addressLine,
+            city: buyerAddress.city,
+            state: buyerAddress.state || "CA",
+            postal_code: buyerAddress.pincode,
+            country: buyerAddress.country || "US"
           }
         },
         metadata: {

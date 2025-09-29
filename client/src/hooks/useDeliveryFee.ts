@@ -13,18 +13,20 @@ interface DeliveryFeeData {
 interface UseDeliveryFeeOptions {
   addressId: number | null;
   enabled?: boolean;
+  orderType?: 'individual' | 'group';
+  orderTotal?: number;
 }
 
-export function useDeliveryFee({ addressId, enabled = true }: UseDeliveryFeeOptions) {
+export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0 }: UseDeliveryFeeOptions) {
   const [deliveryData, setDeliveryData] = useState<DeliveryFeeData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading: queryLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['/api/delivery-fee', addressId],
+    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal],
     queryFn: async () => {
       if (!addressId) return null;
-      const response = await apiRequest('POST', '/api/delivery-fee', { addressId });
+      const response = await apiRequest('POST', '/api/delivery-fee', { addressId, orderType, orderTotal });
       const data = await response.json();
       return data;
     },

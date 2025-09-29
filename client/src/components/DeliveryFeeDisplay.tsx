@@ -8,10 +8,12 @@ interface DeliveryFeeDisplayProps {
   addressId: number | null;
   className?: string;
   onDeliveryFeeChange?: (fee: number) => void;
+  orderType?: 'individual' | 'group';
+  orderTotal?: number;
 }
 
-export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFeeChange }: DeliveryFeeDisplayProps) {
-  const { deliveryData, isLoading, error } = useDeliveryFee({ addressId });
+export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFeeChange, orderType = 'individual', orderTotal = 0 }: DeliveryFeeDisplayProps) {
+  const { deliveryData, isLoading, error } = useDeliveryFee({ addressId, orderType, orderTotal });
 
   // Notify parent component when delivery fee changes
   useEffect(() => {

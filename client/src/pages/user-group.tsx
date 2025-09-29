@@ -45,6 +45,7 @@ import {
   Truck
 } from "lucide-react";
 import type { UserGroupWithDetails, ProductWithDetails, UserGroupParticipant, User } from "@shared/schema";
+import AddressManager from "@/components/AddressManager";
 
 // Form schemas
 const editGroupSchema = z.object({
@@ -73,6 +74,8 @@ export default function UserGroupPage() {
   const [activeTab, setActiveTab] = useState("products");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleteConfirmDialogOpen, setIsDeleteConfirmDialogOpen] = useState(false);
+  const [isPickupAddressDialogOpen, setIsPickupAddressDialogOpen] = useState(false);
+  const [selectedPickupAddressId, setSelectedPickupAddressId] = useState<number | null>(null);
 
   const groupId = id ? parseInt(id) : null;
 
@@ -839,7 +842,13 @@ export default function UserGroupPage() {
                   </div>
                 </div>
                 <Form {...deliveryMethodForm}>
-                  <form onSubmit={deliveryMethodForm.handleSubmit((data) => deliveryMethodMutation.mutate(data))} className="flex items-center space-x-3">
+                  <form onSubmit={deliveryMethodForm.handleSubmit((data) => {
+                    if (data.deliveryMethod === "pickup" && isOwner) {
+                      setIsPickupAddressDialogOpen(true);
+                      return;
+                    }
+                    deliveryMethodMutation.mutate(data);
+                  })} className="flex items-center space-x-3">
                     <FormField
                       control={deliveryMethodForm.control}
                       name="deliveryMethod"
@@ -871,6 +880,39 @@ export default function UserGroupPage() {
                 </Form>
               </div>
             </div>
+          )}
+          {isOwner && (
+            <Dialog open={isPickupAddressDialogOpen} onOpenChange={setIsPickupAddressDialogOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Confirm pickup address</DialogTitle>
+                  <DialogDescription>
+                    Select or edit the address where members will pick up their orders. This address is shown to members and used for delivery cost calculations.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="mt-2">
+                  <AddressManager
+                    selectedAddressId={selectedPickupAddressId}
+                    onAddressSelect={setSelectedPickupAddressId}
+                    showSelection={true}
+                    deliveryMethod="pickup"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsPickupAddressDialogOpen(false)}>Cancel</Button>
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700"
+                    disabled={!selectedPickupAddressId || deliveryMethodMutation.isPending}
+                    onClick={() => {
+                      deliveryMethodMutation.mutate({ deliveryMethod: "pickup" });
+                      setIsPickupAddressDialogOpen(false);
+                    }}
+                  >
+                    {deliveryMethodMutation.isPending ? "Saving..." : "Use this address"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
 

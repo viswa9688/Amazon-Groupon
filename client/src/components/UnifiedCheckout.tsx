@@ -403,6 +403,30 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
     }
   }, [selectedAddressId, checkoutData.type, clientSecret]);
 
+  // For pickup, auto-select a billing address so Stripe can render
+  useEffect(() => {
+    const ensureBillingAddressForPickup = async () => {
+      if (deliveryMethod !== "pickup") return;
+      if (clientSecret) return; // already prepared
+      if (selectedAddressId) return; // already chosen
+
+      try {
+        const resp = await apiRequest("GET", "/api/addresses");
+        const addresses = await resp.json();
+        if (Array.isArray(addresses) && addresses.length > 0) {
+          const defaultAddress = addresses.find((a: any) => a.isDefault) || addresses[0];
+          if (defaultAddress?.id) {
+            setSelectedAddressId(defaultAddress.id);
+          }
+        }
+      } catch (e) {
+        console.log("Could not auto-select billing address for pickup", e);
+      }
+    };
+
+    ensureBillingAddressForPickup();
+  }, [deliveryMethod, clientSecret, selectedAddressId]);
+
   // Initialize checkout data
   useEffect(() => {
     if (initRef.current) return;
