@@ -845,7 +845,7 @@ export default function UserGroupPage() {
                       name="deliveryMethod"
                       render={({ field }) => (
                         <FormItem>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="w-48">
                                 <SelectValue placeholder="Select delivery method" />

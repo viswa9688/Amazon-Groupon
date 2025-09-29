@@ -5,8 +5,8 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
-// Check if we're in mock mode for development
-const isMockMode = process.env.TWILIO_MOCK_MODE === 'true' || process.env.NODE_ENV === 'development';
+// Check if we're in mock mode (explicit opt-in only)
+const isMockMode = process.env.TWILIO_MOCK_MODE === 'true';
 
 // Validate required environment variables (skip if in mock mode)
 if (!isMockMode && (!accountSid || !authToken || !fromNumber)) {
