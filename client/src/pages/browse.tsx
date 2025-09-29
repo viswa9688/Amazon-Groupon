@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Users, ShoppingCart, Zap, Apple, Briefcase, TrendingUp, ArrowRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { InfiniteLoader, GridSkeleton } from "@/components/InfiniteLoader";
+import {  GridSkeleton } from "@/components/InfiniteLoader";
 import type { UserGroupWithDetails, Category } from "@shared/schema";
 
 interface Product {
@@ -48,7 +48,7 @@ export default function Browse() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
-    
+
     if (redirectPath && isAuthenticated) {
       // Clean up the URL and redirect to the intended destination
       window.history.replaceState({}, '', '/browse');
@@ -82,8 +82,8 @@ export default function Browse() {
       const matchesSearch = product.name
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
-      const matchesCategory = 
-        selectedCategory === "all" || 
+      const matchesCategory =
+        selectedCategory === "all" ||
         product.category?.id.toString() === selectedCategory;
       return matchesSearch && matchesCategory;
     })
@@ -103,12 +103,12 @@ export default function Browse() {
   const filteredAndSortedCollections = collections
     ?.filter((collection) => {
       // Check if any product in collection matches search
-      const matchesSearch = collection.items.some(item => 
+      const matchesSearch = collection.items.some(item =>
         item.product.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
       // Check if any product in collection matches category
-      const matchesCategory = selectedCategory === "all" || 
-        collection.items.some(item => 
+      const matchesCategory = selectedCategory === "all" ||
+        collection.items.some(item =>
           item.product.category?.id.toString() === selectedCategory
         );
       // Hide collections owned by current user
@@ -128,13 +128,14 @@ export default function Browse() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8 text-center px-4">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent" data-testid="text-browse-title">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 bg-gradient-to-r from-[#D91C26] to-[#D91C26] bg-clip-text text-transparent" data-testid="text-browse-title">
             OneAnt Marketplace
           </h1>
+
           <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
             Join popular groups to unlock amazing bulk discounts on everyday essentials and premium services
           </p>
@@ -145,20 +146,20 @@ export default function Browse() {
           <div className="mb-12">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-7xl mx-auto">
               {/* Groceries Category */}
-              <div 
+              <div
                 className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
                 onClick={() => window.location.href = '/browse/groceries'}
                 data-testid="card-category-groceries"
               >
                 <div className="relative aspect-[4/3]">
-                  <img 
-                    src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80" 
+                  <img
+                    src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"
                     alt="Groceries"
                     className="w-full h-full object-cover"
                   />
                   {/* Gradient overlay for text readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  
+
                   {/* Category Title */}
                   <div className="absolute bottom-0 left-0 right-0 p-6">
                     <h3 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Groceries</h3>
@@ -166,27 +167,27 @@ export default function Browse() {
                       Fresh produce & daily essentials
                     </p>
                   </div>
-                  
+
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
               </div>
 
               {/* Services Category */}
-              <div 
+              <div
                 className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
                 onClick={() => window.location.href = '/browse/services'}
                 data-testid="card-category-services"
               >
                 <div className="relative aspect-[4/3]">
-                  <img 
-                    src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80" 
+                  <img
+                    src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80"
                     alt="Services"
                     className="w-full h-full object-cover"
                   />
                   {/* Gradient overlay for text readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  
+
                   {/* Category Title */}
                   <div className="absolute bottom-0 left-0 right-0 p-6">
                     <h3 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Services</h3>
@@ -194,27 +195,27 @@ export default function Browse() {
                       Professional & premium services
                     </p>
                   </div>
-                  
+
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
               </div>
 
               {/* Pet Essentials Category */}
-              <div 
+              <div
                 className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
                 onClick={() => window.location.href = '/browse/pet-essentials'}
                 data-testid="card-category-pet-essentials"
               >
                 <div className="relative aspect-[4/3]">
-                  <img 
-                    src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&q=80" 
+                  <img
+                    src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&q=80"
                     alt="Pet Essentials"
                     className="w-full h-full object-cover"
                   />
                   {/* Gradient overlay for text readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  
+
                   {/* Category Title */}
                   <div className="absolute bottom-0 left-0 right-0 p-6">
                     <h3 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Pet Essentials</h3>
@@ -222,7 +223,7 @@ export default function Browse() {
                       Pet care & grooming services
                     </p>
                   </div>
-                  
+
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
@@ -256,264 +257,263 @@ export default function Browse() {
 
         {/* Search and Filters - Only show when not showing categories */}
         {!showCategories && (
-        <div className="mb-8 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search"
-              />
+          <div className="mb-8 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Search */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search"
+                />
+              </div>
+
+              {/* Category Filter */}
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full sm:w-48" data-testid="select-category">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories?.map((category) => (
+                    <SelectItem key={category.id} value={category.id.toString()}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort Filter */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-48" data-testid="select-sort">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="popular">Most Popular</SelectItem>
+                  <SelectItem value="ending-soon">Ending Soon</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Category Filter */}
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full sm:w-48" data-testid="select-category">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories?.map((category) => (
-                  <SelectItem key={category.id} value={category.id.toString()}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Filter Summary */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                <span data-testid="text-results-count">
+                  {filteredAndSortedProducts.length} products, {filteredAndSortedCollections.length} popular group{filteredAndSortedCollections.length === 1 ? '' : 's'} found
+                </span>
+                {searchTerm && (
+                  <span>for "{searchTerm}"</span>
+                )}
+                {selectedCategory !== "all" && (
+                  <span>in {categories?.find(c => c.id.toString() === selectedCategory)?.name}</span>
+                )}
+              </div>
 
-            {/* Sort Filter */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-48" data-testid="select-sort">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="popular">Most Popular</SelectItem>
-                <SelectItem value="ending-soon">Ending Soon</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Filter Summary */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <span data-testid="text-results-count">
-                {filteredAndSortedProducts.length} products, {filteredAndSortedCollections.length} popular group{filteredAndSortedCollections.length === 1 ? '' : 's'} found
-              </span>
-              {searchTerm && (
-                <span>for "{searchTerm}"</span>
-              )}
-              {selectedCategory !== "all" && (
-                <span>in {categories?.find(c => c.id.toString() === selectedCategory)?.name}</span>
+              {(searchTerm || selectedCategory !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedCategory("all");
+                  }}
+                  data-testid="button-clear-filters"
+                >
+                  Clear Filters
+                </Button>
               )}
             </div>
-            
-            {(searchTerm || selectedCategory !== "all") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedCategory("all");
-                }}
-                data-testid="button-clear-filters"
-              >
-                Clear Filters
-              </Button>
-            )}
           </div>
-        </div>
         )}
 
         {/* Individual Products Section - Only show when not showing categories */}
         {!showCategories && (
-        <div className="mb-12">
-          <div className="flex items-center space-x-2 mb-6">
-            <ShoppingCart className="h-6 w-6 text-blue-600" />
-            <h2 className="text-2xl font-bold text-foreground">Individual Products</h2>
-            <Badge variant="secondary">{filteredAndSortedProducts.length} products</Badge>
-          </div>
-          
-          {isLoading ? (
-            <GridSkeleton items={8} />
-          ) : filteredAndSortedProducts.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-                <ShoppingCart className="w-6 h-6 text-muted-foreground" />
+          <div className="mb-12">
+            <div className="flex items-center space-x-2 mb-6">
+              <ShoppingCart className="h-6 w-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-foreground">Individual Products</h2>
+              <Badge variant="secondary">{filteredAndSortedProducts.length} products</Badge>
+            </div>
+
+            {isLoading ? (
+              <GridSkeleton items={8} />
+            ) : filteredAndSortedProducts.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                  <ShoppingCart className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No products found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your search or filters to find what you're looking for.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedCategory("all");
+                  }}
+                  data-testid="button-reset-filters"
+                >
+                  Reset Filters
+                </Button>
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No products found</h3>
-              <p className="text-muted-foreground mb-4">
-                Try adjusting your search or filters to find what you're looking for.
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedCategory("all");
-                }}
-                data-testid="button-reset-filters"
-              >
-                Reset Filters
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {filteredAndSortedProducts.map((product) => (
-                <ServiceProductCard 
-                  key={product.id} 
-                  product={product}
-                  testId={`product-card-${product.id}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                {filteredAndSortedProducts.map((product) => (
+                  <ServiceProductCard
+                    key={product.id}
+                    product={product}
+                    testId={`product-card-${product.id}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Other Popular Groups Section - Only show when not showing categories */}
         {!showCategories && (
-        <div>
-          <div className="flex items-center space-x-2 mb-6">
-            <Users className="h-6 w-6 text-purple-600" />
-            <h2 className="text-2xl font-bold text-foreground">Other Popular Groups</h2>
-            <Badge variant="secondary">{filteredAndSortedCollections.length} popular groups</Badge>
-          </div>
-          
-          {isLoading ? (
-            <GridSkeleton items={6} />
-          ) : filteredAndSortedCollections.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-                <Users className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No popular groups found</h3>
-              <p className="text-muted-foreground mb-4">
-                Start your own popular group to get others to join for discounts!
-              </p>
-              <Link href="/my-groups">
-                <Button variant="outline" data-testid="button-create-group">
-                  Create a Popular Group
-                </Button>
-              </Link>
+          <div>
+            <div className="flex items-center space-x-2 mb-6">
+              <Users className="h-6 w-6 text-purple-600" />
+              <h2 className="text-2xl font-bold text-foreground">Other Popular Groups</h2>
+              <Badge variant="secondary">{filteredAndSortedCollections.length} popular groups</Badge>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredAndSortedCollections.map((collection) => {
-                const potentialSavings = collection.items.reduce((sum, item) => {
-                  const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-                  const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
-                  return sum + savings;
-                }, 0);
 
-                const participantsNeeded = Math.max(0, 5 - (collection.participantCount || 0));
-                const progress = Math.min(((collection.participantCount || 0) / 5) * 100, 100);
+            {isLoading ? (
+              <GridSkeleton items={6} />
+            ) : filteredAndSortedCollections.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No popular groups found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start your own popular group to get others to join for discounts!
+                </p>
+                <Link href="/my-groups">
+                  <Button variant="outline" data-testid="button-create-group">
+                    Create a Popular Group
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {filteredAndSortedCollections.map((collection) => {
+                  const potentialSavings = collection.items.reduce((sum, item) => {
+                    const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
+                    const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
+                    return sum + savings;
+                  }, 0);
 
-                return (
-                  <Card 
-                    key={collection.id} 
-                    className="hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => window.location.href = `/shared/${collection.shareToken}`}
-                    data-testid={`collection-card-${collection.id}`}
-                  >
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg" data-testid={`collection-name-${collection.id}`}>
-                            {collection.name}
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            By {collection.user?.firstName || 'Unknown'} {collection.user?.lastName || ''}
-                          </p>
+                  const participantsNeeded = Math.max(0, 5 - (collection.participantCount || 0));
+                  const progress = Math.min(((collection.participantCount || 0) / 5) * 100, 100);
+
+                  return (
+                    <Card
+                      key={collection.id}
+                      className="hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => window.location.href = `/shared/${collection.shareToken}`}
+                      data-testid={`collection-card-${collection.id}`}
+                    >
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-lg" data-testid={`collection-name-${collection.id}`}>
+                              {collection.name}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              By {collection.user?.firstName || 'Unknown'} {collection.user?.lastName || ''}
+                            </p>
+                          </div>
+                          {potentialSavings > 0 && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-700">
+                              Save ${potentialSavings.toFixed(2)}
+                            </Badge>
+                          )}
                         </div>
-                        {potentialSavings > 0 && (
-                          <Badge variant="secondary" className="bg-green-100 text-green-700">
-                            Save ${potentialSavings.toFixed(2)}
-                          </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Product Preview */}
-                      <div className="flex -space-x-2">
-                        {collection.items.slice(0, 4).map((item) => (
-                          <div 
-                            key={item.id} 
-                            className="w-10 h-10 rounded-full border-2 border-white overflow-hidden"
-                          >
-                            <img 
-                              src={item.product.imageUrl || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100"} 
-                              alt={item.product.name}
-                              className="w-full h-full object-cover"
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Product Preview */}
+                        <div className="flex -space-x-2">
+                          {collection.items.slice(0, 4).map((item) => (
+                            <div
+                              key={item.id}
+                              className="w-10 h-10 rounded-full border-2 border-white overflow-hidden"
+                            >
+                              <img
+                                src={item.product.imageUrl || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100"}
+                                alt={item.product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ))}
+                          {collection.items.length > 4 && (
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                              +{collection.items.length - 4}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Progress */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              {collection.participantCount || 0} / 5 members
+                            </span>
+                            {participantsNeeded > 0 ? (
+                              <span className="text-orange-600 font-medium">
+                                {participantsNeeded} more needed
+                              </span>
+                            ) : (
+                              <span className="text-green-600 font-medium flex items-center">
+                                <Zap className="w-3 h-3 mr-1" />
+                                Active!
+                              </span>
+                            )}
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${progress >= 100
+                                  ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                                  : 'bg-gradient-to-r from-orange-400 to-yellow-400'
+                                }`}
+                              style={{ width: `${progress}%` }}
                             />
                           </div>
-                        ))}
-                        {collection.items.length > 4 && (
-                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                            +{collection.items.length - 4}
-                          </div>
-                        )}
-                      </div>
+                        </div>
 
-                      {/* Progress */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            {collection.participantCount || 0} / 5 members
+                        {/* Stats */}
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>{collection.items.length} items</span>
+                          <span>
+                            {collection.isPublic ? (
+                              <Badge variant="outline" className="text-xs">Public</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">Private</Badge>
+                            )}
                           </span>
-                          {participantsNeeded > 0 ? (
-                            <span className="text-orange-600 font-medium">
-                              {participantsNeeded} more needed
-                            </span>
-                          ) : (
-                            <span className="text-green-600 font-medium flex items-center">
-                              <Zap className="w-3 h-3 mr-1" />
-                              Active!
-                            </span>
-                          )}
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full transition-all ${
-                              progress >= 100 
-                                ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
-                                : 'bg-gradient-to-r from-orange-400 to-yellow-400'
-                            }`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>{collection.items.length} items</span>
-                        <span>
-                          {collection.isPublic ? (
-                            <Badge variant="outline" className="text-xs">Public</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Private</Badge>
-                          )}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
-        
+
         {/* Back to Categories Button */}
         {!showCategories && (
           <div className="text-center mt-8">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => setShowCategories(true)}
               data-testid="button-back-to-categories"
             >
