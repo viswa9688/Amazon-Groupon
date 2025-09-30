@@ -252,16 +252,8 @@ export class DeliveryService {
       // Calculate distance using Google Distance Matrix API
       const distanceData = await this.getDistanceFromGoogle(shopAddressFormatted, buyerAddressFormatted);
 
-      // Check delivery radius (only if set)
-      if (shopDeliveryRadiusKm !== null && shopDeliveryRadiusKm > 0 && distanceData.distance > shopDeliveryRadiusKm) {
-        return {
-          distance: distanceData.distance,
-          duration: distanceData.duration,
-          deliveryCharge: 0,
-          isFreeDelivery: false,
-          reason: `Delivery not available: Address is ${distanceData.distance.toFixed(1)}km away, exceeds ${shopDeliveryRadiusKm}km delivery radius`
-        };
-      }
+      // Note: We no longer reject delivery for distances beyond the radius
+      // Instead, we calculate the delivery fee based on the per-km rate for distances beyond the free delivery radius
 
       // Calculate delivery charges based on distance and shop-specific settings
       const deliveryCalculation = this.calculateShopDeliveryFee(
