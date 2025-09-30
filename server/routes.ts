@@ -4862,10 +4862,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delivery fee calculation endpoint
   app.post("/api/delivery-fee", isAuthenticated, async (req: any, res) => {
     try {
-      const { addressId, orderTotal = 0, orderType = 'individual', productId } = req.body;
+      const { addressId, orderTotal = 0, orderType = 'individual', productId, userGroupId } = req.body;
       const userId = req.user.claims.sub;
 
-      console.log("Delivery fee calculation request:", { addressId, userId, orderTotal, orderType });
+      console.log("Delivery fee calculation request:", { addressId, userId, orderTotal, orderType, userGroupId, productId });
 
       if (!addressId) {
         return res.status(400).json({ message: "addressId is required" });
@@ -4898,7 +4898,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let sellerId: string | undefined;
       let selectedSeller: any = null;
       
-      if (productId) {
+      if (userGroupId) {
+        // If userGroupId is provided, get the seller from the group's products
+        try {
+          const userGroup = await storage.getUserGroup(userGroupId);
+          if (userGroup && userGroup.items && userGroup.items.length > 0) {
+            // Get the seller from the first product in the group
+            // (assuming all products in a group are from the same seller)
+            const firstItem = userGroup.items[0];
+            if (firstItem.product && firstItem.product.sellerId) {
+              sellerId = firstItem.product.sellerId;
+              selectedSeller = await storage.getUser(sellerId);
+              console.log('🎯 Using seller from group:', {
+                userGroupId,
+                sellerId,
+                sellerName: selectedSeller?.displayName || selectedSeller?.legalName,
+                deliveryFeePerKm: selectedSeller?.deliveryFeePerKm,
+                deliveryRadiusKm: selectedSeller?.deliveryRadiusKm,
+                groupName: userGroup.name,
+                productCount: userGroup.items?.length || 0
+              });
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to get group for seller ID:', error);
+        }
+      } else if (productId) {
         // If productId is provided, get the seller from the product
         try {
           const product = await storage.getProduct(productId);

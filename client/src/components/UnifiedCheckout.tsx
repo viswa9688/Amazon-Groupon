@@ -279,6 +279,11 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [amountLocked, setAmountLocked] = useState(false);
   const [userGroupId, setUserGroupId] = useState<number | null>(null);
+  
+  // Debug userGroupId changes
+  useEffect(() => {
+    console.log('🔄 userGroupId state changed to:', userGroupId);
+  }, [userGroupId]);
   const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery">("delivery");
   const initRef = useRef(false);
 
@@ -443,6 +448,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
             const groupResponse = await apiRequest("GET", `/api/shared/${checkoutData.groupToken}`);
             const groupDataResponse = await groupResponse.json();
             setGroupData(groupDataResponse);
+            console.log('🎯 Setting userGroupId to:', groupDataResponse.id);
             setUserGroupId(groupDataResponse.id); // Set the userGroupId
             
             // Fetch the full user group details
@@ -975,6 +981,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                   orderType={deliveryMethod === "pickup" ? 'group' : 'individual'}
                   orderTotal={amount}
                   productId={checkoutData.productId}
+                  userGroupId={userGroupId}
                 />
               )}
               

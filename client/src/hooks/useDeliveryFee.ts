@@ -18,22 +18,28 @@ interface UseDeliveryFeeOptions {
   orderType?: 'individual' | 'group';
   orderTotal?: number;
   productId?: number;
+  userGroupId?: number;
 }
 
-export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0, productId }: UseDeliveryFeeOptions) {
+export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0, productId, userGroupId }: UseDeliveryFeeOptions) {
   const [deliveryData, setDeliveryData] = useState<DeliveryFeeData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const queryEnabled = enabled && !!addressId && (orderType === 'individual' || (orderType === 'group' && userGroupId !== null));
+  console.log('🔍 useDeliveryFee query enabled:', queryEnabled, { enabled, addressId, orderType, userGroupId });
+
   const { data, isLoading: queryLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal, productId],
+    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal, productId, userGroupId],
     queryFn: async () => {
       if (!addressId) return null;
-      const response = await apiRequest('POST', '/api/delivery-fee', { addressId, orderType, orderTotal, productId });
+      console.log('🚀 useDeliveryFee API request:', { addressId, orderType, orderTotal, productId, userGroupId });
+      const response = await apiRequest('POST', '/api/delivery-fee', { addressId, orderType, orderTotal, productId, userGroupId });
       const data = await response.json();
+      console.log('📥 useDeliveryFee API response:', data);
       return data;
     },
-    enabled: enabled && !!addressId,
+    enabled: queryEnabled,
     retry: 1,
     staleTime: 0, // Don't cache to ensure fresh data
   });
