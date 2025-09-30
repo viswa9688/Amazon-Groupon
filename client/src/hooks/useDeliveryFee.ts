@@ -8,6 +8,8 @@ interface DeliveryFeeData {
   deliveryCharge: number;
   isFreeDelivery: boolean;
   reason: string;
+  deliveryFeePerKm?: number;
+  deliveryRadiusKm?: number;
 }
 
 interface UseDeliveryFeeOptions {
@@ -15,18 +17,19 @@ interface UseDeliveryFeeOptions {
   enabled?: boolean;
   orderType?: 'individual' | 'group';
   orderTotal?: number;
+  productId?: number;
 }
 
-export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0 }: UseDeliveryFeeOptions) {
+export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0, productId }: UseDeliveryFeeOptions) {
   const [deliveryData, setDeliveryData] = useState<DeliveryFeeData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading: queryLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal],
+    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal, productId],
     queryFn: async () => {
       if (!addressId) return null;
-      const response = await apiRequest('POST', '/api/delivery-fee', { addressId, orderType, orderTotal });
+      const response = await apiRequest('POST', '/api/delivery-fee', { addressId, orderType, orderTotal, productId });
       const data = await response.json();
       return data;
     },

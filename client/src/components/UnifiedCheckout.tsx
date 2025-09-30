@@ -966,12 +966,15 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
               )}
 
 
-              {/* Delivery Fee Display - Only show for delivery */}
-              {deliveryMethod === "delivery" && (
+              {/* Delivery Fee / Pickup Logistics Display */}
+              {(deliveryMethod === "delivery" || deliveryMethod === "pickup") && (
                 <DeliveryFeeDisplay
                   addressId={selectedAddressId}
                   className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
                   onDeliveryFeeChange={handleDeliveryFeeUpdate}
+                  orderType={deliveryMethod === "pickup" ? 'group' : 'individual'}
+                  orderTotal={amount}
+                  productId={checkoutData.productId}
                 />
               )}
               

@@ -38,11 +38,34 @@ export function useWebSocketNotifications() {
     console.log('🔌 WebSocket: Creating connection for user:', user.id);
     
     // Create WebSocket connection
-    const host = window.location.host || 'localhost:5000';
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}/ws/notifications?userId=${user.id}`;
+    // Use environment variable if available, otherwise construct from current location
+    let wsUrl: string;
+    
+    if (import.meta.env.VITE_WEBSOCKET_URL) {
+      // Use explicit WebSocket URL from environment variable
+      wsUrl = `${import.meta.env.VITE_WEBSOCKET_URL}/ws/notifications?userId=${user.id}`;
+    } else {
+      // Fallback to constructing from current location
+      let host = window.location.host;
+      
+      // If host is undefined or doesn't contain a port, use localhost:5000 as fallback
+      if (!host || host === 'localhost' || !host.includes(':')) {
+        host = 'localhost:5000';
+      }
+      
+      wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}/ws/notifications?userId=${user.id}`;
+    }
     console.log('🔌 WebSocket: Connecting to:', wsUrl);
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('🔌 WebSocket: Failed to create WebSocket connection:', error);
+      setConnectionError('Failed to create WebSocket connection');
+      return;
+    }
 
     // Connection opened
     ws.onopen = () => {

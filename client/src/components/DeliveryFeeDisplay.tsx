@@ -10,10 +10,11 @@ interface DeliveryFeeDisplayProps {
   onDeliveryFeeChange?: (fee: number) => void;
   orderType?: 'individual' | 'group';
   orderTotal?: number;
+  productId?: number;
 }
 
-export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFeeChange, orderType = 'individual', orderTotal = 0 }: DeliveryFeeDisplayProps) {
-  const { deliveryData, isLoading, error } = useDeliveryFee({ addressId, orderType, orderTotal });
+export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFeeChange, orderType = 'individual', orderTotal = 0, productId }: DeliveryFeeDisplayProps) {
+  const { deliveryData, isLoading, error } = useDeliveryFee({ addressId, orderType, orderTotal, productId });
 
   // Notify parent component when delivery fee changes
   useEffect(() => {
@@ -97,8 +98,32 @@ export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFee
     );
   }
 
-  const { distance, duration, deliveryCharge, isFreeDelivery, reason } = deliveryData || {};
+  const { distance, duration, deliveryCharge, isFreeDelivery, reason, deliveryFeePerKm, deliveryRadiusKm } = deliveryData || {};
 
+  // Check if required delivery settings are missing
+  if (deliveryFeePerKm === null || deliveryFeePerKm === undefined || deliveryRadiusKm === null || deliveryRadiusKm === undefined) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Truck className="w-5 h-5 text-blue-600" />
+            <span>Delivery Information</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-4 text-red-600">
+            <AlertCircle className="w-6 h-6 mr-2" />
+            <div className="text-center">
+              <p className="font-medium">Delivery settings not configured</p>
+              <p className="text-sm text-red-500 mt-1">
+                The seller has not configured their delivery settings. Please contact the seller to set up delivery fees and radius.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={className}>
@@ -152,7 +177,7 @@ export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFee
               ) : (
                 <div>
                   <p className="text-lg font-bold text-gray-900">${deliveryCharge ? deliveryCharge.toFixed(2) : '0.00'}</p>
-                  <p className="text-xs text-muted-foreground">$5.99 per km beyond 10km</p>
+                  <p className="text-xs text-muted-foreground">${deliveryFeePerKm.toFixed(2)} per km beyond {deliveryRadiusKm}km</p>
                 </div>
               )}
             </div>
@@ -163,8 +188,8 @@ export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFee
         {!isFreeDelivery && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              <strong>Delivery Policy:</strong> Free delivery for orders within 10km. 
-              Orders beyond 10km are charged $5.99 per additional kilometer.
+              <strong>Delivery Policy:</strong> Free delivery for orders within {deliveryRadiusKm}km. 
+              Orders beyond {deliveryRadiusKm}km are charged ${deliveryFeePerKm.toFixed(2)} per additional kilometer.
             </p>
           </div>
         )}

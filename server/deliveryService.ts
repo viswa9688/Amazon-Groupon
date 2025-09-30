@@ -32,6 +32,13 @@ interface DeliverySummary {
   hasDeliveryCharges: boolean;
   isBCAddress: boolean;
   bcValidationError?: string;
+  shopSettings?: {
+    deliveryFeePerKm: number | null;
+    deliveryRadiusKm: number | null;
+    deliveryFee: number | null;
+    freeDeliveryThreshold: number | null;
+    minimumOrderValue: number | null;
+  };
 }
 
 interface BCValidationResult {
@@ -43,21 +50,19 @@ interface BCValidationResult {
 
 export class DeliveryService {
   private readonly GOOGLE_API_KEY = process.env.GOOGLE_DISTANCE_MATRIX_API_KEY;
-  private readonly FREE_DELIVERY_DISTANCE_KM = 10;
-  private readonly DELIVERY_RATE_PER_KM = 5.99; // $5.99 per km beyond 10km
   private readonly BC_PROVINCE_NAMES = [
     'British Columbia',
     'BC',
     'Colombie-Britannique', // French name
     'Colombie Britannique'
   ];
-  // Fixed store location - configured for British Columbia operations
-  private readonly STORE_ADDRESS = {
-    addressLine: "456 Granville Street",
-    city: "Vancouver",
+  // Default store location - will be overridden by shop-specific addresses from database
+  private readonly DEFAULT_STORE_ADDRESS = {
+    addressLine: "5678 Douglas Street",
+    city: "Victoria",
     state: "British Columbia",
     country: "Canada",
-    pincode: "V6C 1T4"
+    pincode: "V8W 2B7"
   };
 
   // BC-specific delivery constraints
@@ -66,7 +71,7 @@ export class DeliveryService {
     group: {
       minimumOrderValue: 50.00, // $50 minimum for group orders
       deliveryFee: 5.99, // $5.99 delivery fee for group orders
-      freeDeliveryThreshold: 100.00 // Free delivery for group orders over $100
+      freeDeliveryThreshold: null // No free delivery threshold for group orders
     },
     // Individual order constraints
     individual: {
@@ -165,12 +170,12 @@ export class DeliveryService {
       }
 
       // Get shop-specific address and settings
-      let shopAddress = this.STORE_ADDRESS; // Default fallback
-      let shopDeliveryFee = 5.99; // Default fallback
-      let shopFreeDeliveryThreshold = 75.00; // Default fallback
-      let shopMinimumOrderValue = 50.00; // Default fallback
-      let shopDeliveryFeePerKm = 5.99; // Default fallback
-      let shopDeliveryRadiusKm = 0; // Default fallback (0 = unlimited)
+      let shopAddress = this.DEFAULT_STORE_ADDRESS; // Default fallback
+      let shopDeliveryFee: number | null = null;
+      let shopFreeDeliveryThreshold: number | null = null;
+      let shopMinimumOrderValue: number | null = null;
+      let shopDeliveryFeePerKm: number | null = null;
+      let shopDeliveryRadiusKm: number | null = null;
 
       if (sellerId) {
         try {
@@ -181,8 +186,13 @@ export class DeliveryService {
           if (seller && seller.isSeller) {
             // Use shop-specific address if available
             if (seller.addressLine1 && seller.locality && seller.region && seller.country) {
+              // Combine addressLine1 and addressLine2 if both exist
+              const fullAddressLine = seller.addressLine2 
+                ? `${seller.addressLine1}, ${seller.addressLine2}`
+                : seller.addressLine1;
+              
               shopAddress = {
-                addressLine: seller.addressLine1,
+                addressLine: fullAddressLine,
                 city: seller.locality,
                 state: seller.region,
                 country: seller.country,
@@ -191,7 +201,7 @@ export class DeliveryService {
               console.log('Using shop-specific address:', shopAddress);
             }
 
-            // Use shop-specific delivery settings
+            // Use shop-specific delivery settings from database
             if (seller.deliveryFee !== undefined && seller.deliveryFee !== null) {
               shopDeliveryFee = parseFloat(seller.deliveryFee.toString());
             }
@@ -201,11 +211,23 @@ export class DeliveryService {
             if (seller.minimumOrderValue !== undefined && seller.minimumOrderValue !== null) {
               shopMinimumOrderValue = parseFloat(seller.minimumOrderValue.toString());
             }
+            
+            // Use deliveryRadiusKm from database (this is the free delivery radius in km)
+            if (seller.deliveryRadiusKm !== undefined && seller.deliveryRadiusKm !== null) {
+              shopDeliveryRadiusKm = parseInt(seller.deliveryRadiusKm.toString());
+            }
+            
+            // Use deliveryFeePerKm from database (this is the per-km rate beyond the free delivery radius)
             if (seller.deliveryFeePerKm !== undefined && seller.deliveryFeePerKm !== null) {
               shopDeliveryFeePerKm = parseFloat(seller.deliveryFeePerKm.toString());
             }
-            if (seller.deliveryRadiusKm !== undefined && seller.deliveryRadiusKm !== null) {
-              shopDeliveryRadiusKm = parseFloat(seller.deliveryRadiusKm.toString());
+            
+            // Validate that required delivery settings are configured
+            if (shopDeliveryFeePerKm === null) {
+              throw new Error(`Seller ${sellerId} has not configured deliveryFeePerKm. Please set this value in the seller settings.`);
+            }
+            if (shopDeliveryRadiusKm === null) {
+              throw new Error(`Seller ${sellerId} has not configured deliveryRadiusKm. Please set this value in the seller settings.`);
             }
             
             console.log('Using shop-specific delivery settings:', {
@@ -231,7 +253,7 @@ export class DeliveryService {
       const distanceData = await this.getDistanceFromGoogle(shopAddressFormatted, buyerAddressFormatted);
 
       // Check delivery radius (only if set)
-      if (shopDeliveryRadiusKm > 0 && distanceData.distance > shopDeliveryRadiusKm) {
+      if (shopDeliveryRadiusKm !== null && shopDeliveryRadiusKm > 0 && distanceData.distance > shopDeliveryRadiusKm) {
         return {
           distance: distanceData.distance,
           duration: distanceData.duration,
@@ -249,7 +271,8 @@ export class DeliveryService {
         shopDeliveryFee,
         shopFreeDeliveryThreshold,
         shopMinimumOrderValue,
-        shopDeliveryFeePerKm
+        shopDeliveryFeePerKm,
+        shopDeliveryRadiusKm
       );
 
       return deliveryCalculation;
@@ -262,7 +285,7 @@ export class DeliveryService {
   /**
    * Get delivery summary for group orders (single store location)
    */
-  async getDeliverySummary(buyerAddress: Address, orderTotal: number = 0, orderType: 'group' | 'individual' = 'group'): Promise<DeliverySummary> {
+  async getDeliverySummary(buyerAddress: Address, orderTotal: number = 0, orderType: 'group' | 'individual' = 'group', sellerId?: string): Promise<DeliverySummary> {
     try {
       // First validate BC address
       const bcValidation = await this.validateBCAddress(buyerAddress);
@@ -277,7 +300,51 @@ export class DeliveryService {
         };
       }
 
-      const calculation = await this.calculateDeliveryCharges(buyerAddress, orderTotal, orderType);
+      const calculation = await this.calculateDeliveryCharges(buyerAddress, orderTotal, orderType, sellerId);
+      
+      // Get shop settings for response
+      let shopSettings = {
+        deliveryFeePerKm: null as number | null,
+        deliveryRadiusKm: null as number | null,
+        deliveryFee: null as number | null,
+        freeDeliveryThreshold: null as number | null,
+        minimumOrderValue: null as number | null
+      };
+
+      if (sellerId) {
+        try {
+          const { storage } = await import('./storage');
+          const seller = await storage.getUser(sellerId);
+          
+          if (seller && seller.isSeller) {
+            console.log('🔍 Seller data from database:', {
+              id: seller.id,
+              deliveryFeePerKm: seller.deliveryFeePerKm,
+              deliveryFeePerKmType: typeof seller.deliveryFeePerKm,
+              deliveryRadiusKm: seller.deliveryRadiusKm
+            });
+            
+            if (seller.deliveryFeePerKm !== undefined && seller.deliveryFeePerKm !== null) {
+              shopSettings.deliveryFeePerKm = parseFloat(seller.deliveryFeePerKm.toString());
+              console.log('✅ Updated shopSettings.deliveryFeePerKm to:', shopSettings.deliveryFeePerKm);
+            }
+            if (seller.deliveryRadiusKm !== undefined && seller.deliveryRadiusKm !== null) {
+              shopSettings.deliveryRadiusKm = parseInt(seller.deliveryRadiusKm.toString());
+            }
+            if (seller.deliveryFee !== undefined && seller.deliveryFee !== null) {
+              shopSettings.deliveryFee = parseFloat(seller.deliveryFee.toString());
+            }
+            if (seller.freeDeliveryThreshold !== undefined && seller.freeDeliveryThreshold !== null) {
+              shopSettings.freeDeliveryThreshold = parseFloat(seller.freeDeliveryThreshold.toString());
+            }
+            if (seller.minimumOrderValue !== undefined && seller.minimumOrderValue !== null) {
+              shopSettings.minimumOrderValue = parseFloat(seller.minimumOrderValue.toString());
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to fetch shop settings for delivery summary:', error);
+        }
+      }
       
       const deliveryDetails = [{
         sellerId: "store",
@@ -293,7 +360,8 @@ export class DeliveryService {
         totalDeliveryCharge: calculation.deliveryCharge,
         deliveryDetails,
         hasDeliveryCharges: calculation.deliveryCharge > 0,
-        isBCAddress: true
+        isBCAddress: true,
+        shopSettings
       };
     } catch (error) {
       console.error("Error getting delivery summary:", error);
@@ -849,23 +917,26 @@ export class DeliveryService {
   }
 
   /**
-   * Calculate delivery fee based on distance
+   * Calculate delivery fee based on distance (legacy method - use calculateShopDeliveryFee instead)
    * Free delivery for distances up to 10 km, $5 per km beyond 10 km
    */
   private calculateDeliveryFee(distance: number, duration: number, orderTotal: number): DeliveryCalculation {
-    const isWithinFreeDeliveryDistance = distance <= this.FREE_DELIVERY_DISTANCE_KM;
+    const FREE_DELIVERY_DISTANCE_KM = 10;
+    const DEFAULT_DELIVERY_RATE_PER_KM = 5.99;
+    
+    const isWithinFreeDeliveryDistance = distance <= FREE_DELIVERY_DISTANCE_KM;
     const isFreeDelivery = isWithinFreeDeliveryDistance;
 
     let deliveryCharge = 0;
     let reason = '';
 
     if (isFreeDelivery) {
-      reason = `Free delivery: ${distance}km ≤ ${this.FREE_DELIVERY_DISTANCE_KM}km`;
+      reason = `Free delivery: ${distance}km ≤ ${FREE_DELIVERY_DISTANCE_KM}km`;
     } else {
       // Calculate charge for distance beyond 10km
-      const excessDistance = distance - this.FREE_DELIVERY_DISTANCE_KM;
-      deliveryCharge = excessDistance * this.DELIVERY_RATE_PER_KM;
-      reason = `Delivery charge: ${distance}km > ${this.FREE_DELIVERY_DISTANCE_KM}km free delivery limit. Charge: $${this.DELIVERY_RATE_PER_KM} per km for ${excessDistance.toFixed(1)}km`;
+      const excessDistance = distance - FREE_DELIVERY_DISTANCE_KM;
+      deliveryCharge = excessDistance * DEFAULT_DELIVERY_RATE_PER_KM;
+      reason = `Delivery charge: ${distance}km > ${FREE_DELIVERY_DISTANCE_KM}km free delivery limit. Charge: $${DEFAULT_DELIVERY_RATE_PER_KM} per km for ${excessDistance.toFixed(1)}km`;
     }
 
     return {
@@ -884,42 +955,51 @@ export class DeliveryService {
     distance: number, 
     duration: number, 
     orderTotal: number,
-    shopDeliveryFee: number,
-    shopFreeDeliveryThreshold: number,
-    shopMinimumOrderValue: number,
-    shopDeliveryFeePerKm: number = 0
+    shopDeliveryFee: number | null,
+    shopFreeDeliveryThreshold: number | null,
+    shopMinimumOrderValue: number | null,
+    shopDeliveryFeePerKm: number | null,
+    shopDeliveryRadiusKm: number | null
   ): DeliveryCalculation {
+    // Validate required parameters
+    if (shopDeliveryFeePerKm === null) {
+      throw new Error('deliveryFeePerKm is required but not configured');
+    }
+    if (shopDeliveryRadiusKm === null) {
+      throw new Error('deliveryRadiusKm is required but not configured');
+    }
+
     // Check minimum order value (only if set) - but still calculate delivery fee
-    const meetsMinimumOrder = shopMinimumOrderValue <= 0 || orderTotal >= shopMinimumOrderValue;
+    const meetsMinimumOrder = shopMinimumOrderValue === null || shopMinimumOrderValue <= 0 || orderTotal >= shopMinimumOrderValue;
 
     // Check if order qualifies for free delivery (only if threshold is set)
-    const isFreeDelivery = shopFreeDeliveryThreshold > 0 && orderTotal >= shopFreeDeliveryThreshold;
+    const isFreeDelivery = shopFreeDeliveryThreshold !== null && shopFreeDeliveryThreshold > 0 && orderTotal >= shopFreeDeliveryThreshold;
 
     let deliveryCharge = 0;
     let reason = '';
 
-    // NEW MODEL: First 10km is always free, only charge per-km beyond 10km
-    if (distance <= 10) {
-      // Within 10km - always free delivery
+    // NEW MODEL: First X km (shopDeliveryRadiusKm) is always free, only charge per-km beyond that
+    if (distance <= shopDeliveryRadiusKm) {
+      // Within free delivery radius - always free delivery
       deliveryCharge = 0;
-      reason = `Free delivery: Within 10km radius`;
+      reason = `Free delivery: Within ${shopDeliveryRadiusKm}km radius`;
     } else {
-      // Beyond 10km - charge per-km
-      const extraKm = distance - 10;
+      // Beyond free delivery radius - charge per-km
+      const extraKm = distance - shopDeliveryRadiusKm;
       const extraKmFee = extraKm * shopDeliveryFeePerKm;
       deliveryCharge = extraKmFee;
-      reason = `$${extraKmFee.toFixed(2)} for ${extraKm.toFixed(1)}km beyond 10km radius ($${shopDeliveryFeePerKm.toFixed(2)}/km)`;
+      reason = `$${extraKmFee.toFixed(2)} for ${extraKm.toFixed(1)}km beyond ${shopDeliveryRadiusKm}km radius ($${shopDeliveryFeePerKm.toFixed(2)}/km)`;
     }
 
     // Apply free delivery threshold override
-    if (isFreeDelivery && deliveryCharge > 0) {
+    if (isFreeDelivery && deliveryCharge > 0 && shopFreeDeliveryThreshold !== null) {
       reason = `Free delivery: Order total $${orderTotal.toFixed(2)} ≥ $${shopFreeDeliveryThreshold.toFixed(2)} threshold (overrides distance charges)`;
       deliveryCharge = 0;
     }
 
     // Add minimum order information to reason if not met
     let finalReason = reason;
-    if (!meetsMinimumOrder) {
+    if (!meetsMinimumOrder && shopMinimumOrderValue !== null) {
       const minOrderMsg = `Order total $${orderTotal.toFixed(2)} is below minimum $${shopMinimumOrderValue.toFixed(2)}`;
       finalReason = reason ? `${reason} (${minOrderMsg})` : minOrderMsg;
     }
@@ -943,8 +1023,8 @@ export class DeliveryService {
     // Check minimum order value - but still calculate delivery fee
     const meetsMinimumOrder = orderTotal >= constraints.minimumOrderValue;
 
-    // Check if order qualifies for free delivery
-    const isFreeDelivery = orderTotal >= constraints.freeDeliveryThreshold;
+    // Check if order qualifies for free delivery (only for individual orders)
+    const isFreeDelivery = constraints.freeDeliveryThreshold !== null && orderTotal >= constraints.freeDeliveryThreshold;
     
     let deliveryCharge = 0;
     let reason = '';
@@ -953,7 +1033,11 @@ export class DeliveryService {
       reason = `Free delivery: Order total $${orderTotal.toFixed(2)} ≥ $${constraints.freeDeliveryThreshold.toFixed(2)} threshold for ${orderType} orders`;
     } else {
       deliveryCharge = constraints.deliveryFee;
-      reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders under $${constraints.freeDeliveryThreshold.toFixed(2)}`;
+      if (constraints.freeDeliveryThreshold !== null) {
+        reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders under $${constraints.freeDeliveryThreshold.toFixed(2)}`;
+      } else {
+        reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders (no free delivery threshold)`;
+      }
     }
 
     // Add minimum order information to reason if not met

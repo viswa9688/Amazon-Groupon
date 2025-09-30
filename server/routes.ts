@@ -4862,7 +4862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delivery fee calculation endpoint
   app.post("/api/delivery-fee", isAuthenticated, async (req: any, res) => {
     try {
-      const { addressId, orderTotal = 0, orderType = 'individual' } = req.body;
+      const { addressId, orderTotal = 0, orderType = 'individual', productId } = req.body;
       const userId = req.user.claims.sub;
 
       console.log("Delivery fee calculation request:", { addressId, userId, orderTotal, orderType });
@@ -4894,9 +4894,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      // Calculate delivery charges with actual order total
-      console.log("Calculating delivery charges for address:", buyerAddress, "with order total:", orderTotal);
-      const deliverySummary = await deliveryService.getDeliverySummary(buyerAddress, orderTotal, orderType);
+      // Get the seller to use for delivery settings
+      let sellerId: string | undefined;
+      let selectedSeller: any = null;
+      
+      if (productId) {
+        // If productId is provided, get the seller from the product
+        try {
+          const product = await storage.getProduct(productId);
+          if (product && product.sellerId) {
+            sellerId = product.sellerId;
+            selectedSeller = await storage.getUser(sellerId);
+            console.log('🎯 Using seller from product:', {
+              productId,
+              sellerId,
+              sellerName: selectedSeller?.displayName || selectedSeller?.legalName,
+              deliveryFeePerKm: selectedSeller?.deliveryFeePerKm,
+              deliveryRadiusKm: selectedSeller?.deliveryRadiusKm
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to get product for seller ID:', error);
+        }
+      }
+      
+      if (!sellerId) {
+        // Fallback to first seller if no productId or product not found
+        const sellers = await storage.getSellerShops();
+        console.log('🔍 All sellers found:', sellers.map(s => ({
+          id: s.id,
+          displayName: s.displayName,
+          legalName: s.legalName,
+          deliveryFeePerKm: s.deliveryFeePerKm,
+          deliveryRadiusKm: s.deliveryRadiusKm
+        })));
+        
+        selectedSeller = sellers.length > 0 ? sellers[0] : null;
+        sellerId = selectedSeller?.id;
+        
+        console.log('🎯 Using fallback seller (first seller):', {
+          id: selectedSeller?.id,
+          displayName: selectedSeller?.displayName,
+          legalName: selectedSeller?.legalName,
+          deliveryFeePerKm: selectedSeller?.deliveryFeePerKm,
+          deliveryRadiusKm: selectedSeller?.deliveryRadiusKm
+        });
+      }
+
+      // Calculate delivery charges with actual order total and seller-specific settings
+      console.log("Calculating delivery charges for address:", buyerAddress, "with order total:", orderTotal, "sellerId:", sellerId);
+      const deliverySummary = await deliveryService.getDeliverySummary(buyerAddress, orderTotal, orderType, sellerId);
       console.log("Delivery calculation result:", deliverySummary);
 
       // Extract delivery info from the first seller
@@ -4907,16 +4954,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Use shop settings from delivery summary (already fetched)
+      const shopSettings = deliverySummary.shopSettings;
+      
+      if (!shopSettings) {
+        return res.status(500).json({ 
+          message: "Shop delivery settings not found. Please ensure the seller has configured their delivery settings." 
+        });
+      }
+      
+      if (shopSettings.deliveryFeePerKm === null || shopSettings.deliveryRadiusKm === null) {
+        return res.status(400).json({ 
+          message: "Seller delivery settings incomplete. Please configure deliveryFeePerKm and deliveryRadiusKm in seller settings.",
+          missingSettings: {
+            deliveryFeePerKm: shopSettings.deliveryFeePerKm === null,
+            deliveryRadiusKm: shopSettings.deliveryRadiusKm === null
+          }
+        });
+      }
+
+      console.log('📤 API Response shopSettings:', shopSettings);
+
       res.json({
         distance: firstDelivery.distance,
         duration: 0, // Duration not available in summary
         deliveryCharge: firstDelivery.deliveryCharge,
         isFreeDelivery: firstDelivery.isFreeDelivery,
         reason: firstDelivery.reason,
-        minimumOrderValue: 50.00,
+        minimumOrderValue: shopSettings.minimumOrderValue,
         orderTotal: orderTotal,
-        meetsMinimumOrder: firstDelivery.meetsMinimumOrder ?? (orderTotal >= 50.00),
-        canDeliver: deliverySummary.isBCAddress
+        meetsMinimumOrder: firstDelivery.meetsMinimumOrder ?? (shopSettings.minimumOrderValue !== null && orderTotal >= shopSettings.minimumOrderValue),
+        canDeliver: deliverySummary.isBCAddress,
+        deliveryFeePerKm: shopSettings.deliveryFeePerKm,
+        deliveryRadiusKm: shopSettings.deliveryRadiusKm
       });
     } catch (error: any) {
       console.error("Error calculating delivery fee:", error);
