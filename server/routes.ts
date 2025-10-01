@@ -123,47 +123,16 @@ const isAdminAuthenticated = async (req: any, res: any, next: any) => {
   return res.status(403).json({ message: "Admin access denied" });
 };
 
-// Session-based admin authentication middleware
+// Session-based admin authentication middleware - SECURE: Only checks session flag
 const isAdminAuthenticatedSession = async (req: any, res: any, next: any) => {
   try {
-    console.log("=== ADMIN AUTH SESSION CHECK ===");
-    console.log("Session adminLogin:", (req.session as any).adminLogin);
-    console.log("Request body:", req.body);
-    
-    // Check if admin is logged in via session
-    if ((req.session as any).adminLogin && (req.session as any).adminLogin.userId) {
-      console.log("Checking session credentials for:", (req.session as any).adminLogin.userId);
-      const isValid = await storage.validateAdminCredentials(
-        (req.session as any).adminLogin.userId, 
-        (req.session as any).adminLogin.password
-      );
-      if (isValid) {
-        console.log("Session credentials valid");
-        req.admin = { userId: (req.session as any).adminLogin.userId };
-        return next();
-      } else {
-        console.log("Session credentials invalid");
-      }
+    // Check if admin is logged in via session - NO password verification needed
+    if ((req.session as any).adminLogin && (req.session as any).adminLogin.isAdmin === true) {
+      req.admin = { userId: (req.session as any).adminLogin.userId };
+      return next();
     }
-    
-    // Fallback: check request body for credentials
-    const { userId, password } = req.body;
-    if (userId && password) {
-      console.log("Checking body credentials for:", userId);
-      const isValid = await storage.validateAdminCredentials(userId, password);
-      if (isValid) {
-        console.log("Body credentials valid");
-        req.admin = { userId };
-        return next();
-      } else {
-        console.log("Body credentials invalid");
-      }
-    }
-    
-    console.log("No valid admin credentials found");
   } catch (error: any) {
     console.error("Admin authentication error:", error);
-    console.error("Error stack:", error.stack);
   }
   
   return res.status(403).json({ message: "Admin access denied" });
@@ -263,8 +232,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const isValid = await storage.validateAdminCredentials(userId, password);
       if (isValid) {
-        // Store admin login in session
-        (req.session as any).adminLogin = { userId, password };
+        // Store admin login in session - SECURE: Only store userId and admin flag, NO PASSWORD
+        (req.session as any).adminLogin = { userId, isAdmin: true };
         res.json({ success: true, message: "Admin logged in" });
       } else {
         res.status(403).json({ message: "Admin access denied" });
@@ -276,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin routes
-  app.post('/api/admin/users', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/users', isAdminAuthenticatedSession, async (req, res) => {
     const startTime = performance.now();
     
     try {
@@ -474,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put('/api/admin/users/:id', isAdminAuthenticated, async (req, res) => {
+  app.put('/api/admin/users/:id', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const userId = req.params.id;
       const userData = req.body;
@@ -554,7 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin route to update user credentials and force session invalidation
-  app.put('/api/admin/users/:id/credentials', isAdminAuthenticated, async (req, res) => {
+  app.put('/api/admin/users/:id/credentials', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const userId = req.params.id;
       const credentialData = req.body;
@@ -602,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update existing orders where payer_id is null (one-time migration)
-  app.post('/api/admin/update-existing-orders', async (req: any, res) => {
+  app.post('/api/admin/update-existing-orders', isAdminAuthenticatedSession, async (req: any, res) => {
     try {
       // One-time migration to update existing orders
       console.log(`Running one-time migration to update existing orders`);
@@ -648,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete('/api/admin/users/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/users/:id', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const userId = req.params.id;
       await storage.deleteUser(userId);
@@ -660,7 +629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new shop
-  app.post('/api/admin/create-shop', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/create-shop', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const shopData = req.body;
       const { assignmentType, selectedUserId } = shopData;
