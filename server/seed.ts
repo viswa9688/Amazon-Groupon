@@ -16,13 +16,8 @@ export async function seedDatabase() {
     // Check if data already exists
     const existingCategories = await db.select().from(categories).limit(1);
     const existingProducts = await db.select().from(products).limit(1);
-    
-    if (existingCategories.length > 0 && existingProducts.length > 0) {
-      console.log("Database already seeded, skipping...");
-      return;
-    }
 
-    // Seed categories (handle duplicates)
+    // ALWAYS seed categories (required for Excel import to work)
     const categoryData = [
       { name: "Groceries", slug: "groceries", icon: "ShoppingCart" },
       { name: "Services", slug: "services", icon: "Briefcase" },
@@ -32,12 +27,26 @@ export async function seedDatabase() {
     let insertedCategories;
     if (existingCategories.length === 0) {
       insertedCategories = await db.insert(categories).values(categoryData).returning();
-      console.log("Seeded categories:", insertedCategories.length);
+      console.log("✅ Seeded categories:", insertedCategories.length);
     } else {
       insertedCategories = await db.select().from(categories);
-      console.log("Using existing categories:", insertedCategories.length);
+      console.log("✅ Using existing categories:", insertedCategories.length);
     }
-    console.log("Seeded categories:", insertedCategories.length);
+
+    // Skip sample data in production
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      console.log("✅ Production mode: Categories initialized, skipping sample data");
+      return;
+    }
+    
+    // Development only: Check if sample data exists
+    if (existingProducts.length > 0) {
+      console.log("Database already seeded with sample data, skipping...");
+      return;
+    }
+    
+    console.log("Development mode: Seeding sample data...");
 
     // Create sample seller users (handle duplicates)
     let sampleSeller, johnSeller;
