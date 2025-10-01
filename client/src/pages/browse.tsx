@@ -192,7 +192,7 @@ export default function Browse() {
 
                   {/* Coming Soon Badge */}
                   <div className="absolute top-4 right-4">
-                    <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-sm font-semibold px-3 py-1" data-testid="badge-coming-soon-services">
+                    <Badge className="bg-red-600 text-white hover:bg-red-700 text-sm font-semibold px-3 py-1" data-testid="badge-coming-soon-services">
                       Coming Soon
                     </Badge>
                   </div>
@@ -227,7 +227,7 @@ export default function Browse() {
 
                   {/* Coming Soon Badge */}
                   <div className="absolute top-4 right-4">
-                    <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-sm font-semibold px-3 py-1" data-testid="badge-coming-soon-pet-essentials">
+                    <Badge className="bg-red-600 text-white hover:bg-red-700 text-sm font-semibold px-3 py-1" data-testid="badge-coming-soon-pet-essentials">
                       Coming Soon
                     </Badge>
                   </div>

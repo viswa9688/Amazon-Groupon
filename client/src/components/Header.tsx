@@ -489,7 +489,7 @@ export default function Header() {
             >
               <Briefcase className="w-4 h-4" />
               <span>Services</span>
-              <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-xs px-2 py-0" data-testid="badge-tab-coming-soon-services">
+              <Badge className="bg-red-600 text-white hover:bg-red-700 text-xs px-2 py-0" data-testid="badge-tab-coming-soon-services">
                 Coming Soon
               </Badge>
             </button>
@@ -504,7 +504,7 @@ export default function Header() {
               <Heart className="w-4 h-4" />
               <span className="hidden sm:inline">Pet Essentials</span>
               <span className="sm:hidden">Pets</span>
-              <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-xs px-2 py-0" data-testid="badge-tab-coming-soon-pet-essentials">
+              <Badge className="bg-red-600 text-white hover:bg-red-700 text-xs px-2 py-0" data-testid="badge-tab-coming-soon-pet-essentials">
                 Coming Soon
               </Badge>
             </button>
