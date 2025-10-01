@@ -612,16 +612,25 @@ export class ExcelService {
       }
       
       // Check if this is a grocery inventory format (CSV or Excel)
-      const isGroceryInventoryFormat = headers.some(h => 
-        h && (h.toLowerCase().includes('item name') || 
-              h.toLowerCase().includes('retail price') ||
-              h.toLowerCase().includes('primary image'))
-      );
+      console.log('🔍 Checking headers for grocery format:', headers.slice(0, 10));
+      const isGroceryInventoryFormat = headers.some(h => {
+        if (!h) return false;
+        const lower = String(h).toLowerCase();
+        const matches = lower.includes('item name') || 
+                       lower.includes('retail price') ||
+                       lower.includes('primary image');
+        if (matches) console.log(`✅ Found grocery header: "${h}"`);
+        return matches;
+      });
+      
+      console.log('🔍 Is grocery format?', isGroceryInventoryFormat);
       
       if (isGroceryInventoryFormat) {
         console.log('🛒 Detected grocery inventory format, converting...');
         // Convert grocery inventory format to expected format
         const convertedData = this.convertGroceryCSVToExpectedFormat(headers, rows);
+        console.log('📋 Converted headers:', convertedData.headers);
+        console.log('📋 Converted rows sample:', convertedData.rows.slice(0, 2));
         headers = convertedData.headers;
         rows = convertedData.rows;
       }
