@@ -431,13 +431,15 @@ export class ExcelService {
       }
     });
 
-    // Convert rows to expected format, filtering for grocery items only
+    // Convert rows to expected format, filtering for valid items only
     const convertedRows = rows
       .filter(row => {
-        // Only process grocery items
-        const categoryIndex = headers.findIndex(h => h && h.toLowerCase().includes('category'));
-        const category = categoryIndex >= 0 ? row[categoryIndex] : '';
-        return category && category.toLowerCase().includes('grocery');
+        // Only process rows with valid item name and price
+        const itemNameIndex = headers.findIndex(h => h && h.toLowerCase().includes('item name'));
+        const priceIndex = headers.findIndex(h => h && h.toLowerCase().includes('retail price'));
+        const itemName = itemNameIndex >= 0 ? row[itemNameIndex] : '';
+        const price = priceIndex >= 0 ? row[priceIndex] : '';
+        return itemName && price && price !== '' && price !== 0;
       })
       .map(row => {
         const convertedRow: any[] = [];
@@ -467,8 +469,12 @@ export class ExcelService {
             futureDate.setDate(futureDate.getDate() + 30);
             convertedRow.push(futureDate.toISOString().split('T')[0]);
           } else if (expectedHeader === 'imageUrl') {
-            // Empty image URL
-            convertedRow.push('');
+            // Use Primary Image URL or Backup Image URL
+            const primaryImageIndex = headers.findIndex(h => h && h.toLowerCase().includes('primary image'));
+            const backupImageIndex = headers.findIndex(h => h && h.toLowerCase().includes('backup image'));
+            const imageUrl = (primaryImageIndex >= 0 && row[primaryImageIndex]) ? row[primaryImageIndex] : 
+                           (backupImageIndex >= 0 && row[backupImageIndex]) ? row[backupImageIndex] : '';
+            convertedRow.push(imageUrl);
           } else if (expectedHeader === 'brand') {
             // Use Category as brand
             const categoryIndex = headers.findIndex(h => h && h.toLowerCase().includes('category'));
@@ -605,17 +611,16 @@ export class ExcelService {
         throw new Error('File has no headers.');
       }
       
-      // Check if this is a CSV with grocery inventory format
-      const isGroceryCSV = (file.originalname.toLowerCase().endsWith('.csv') || 
-                           file.mimetype === 'text/csv' || 
-                           file.mimetype === 'application/csv') && 
-                          headers.some(h => 
-                            h && (h.toLowerCase().includes('item name') || h.toLowerCase().includes('retail price'))
-                          );
+      // Check if this is a grocery inventory format (CSV or Excel)
+      const isGroceryInventoryFormat = headers.some(h => 
+        h && (h.toLowerCase().includes('item name') || 
+              h.toLowerCase().includes('retail price') ||
+              h.toLowerCase().includes('primary image'))
+      );
       
-      if (isGroceryCSV) {
-        console.log('🛒 Detected grocery inventory CSV format, converting...');
-        // Convert grocery CSV format to expected format
+      if (isGroceryInventoryFormat) {
+        console.log('🛒 Detected grocery inventory format, converting...');
+        // Convert grocery inventory format to expected format
         const convertedData = this.convertGroceryCSVToExpectedFormat(headers, rows);
         headers = convertedData.headers;
         rows = convertedData.rows;
