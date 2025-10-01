@@ -90,8 +90,13 @@ export async function setupPhoneAuth(app: Express) {
         return res.status(400).json({ message: "OTP has expired. Please request a new one." });
       }
 
+      // Test users bypass: Allow specific test phone numbers with hardcoded OTP when enabled
+      const isTestUser = process.env.ENABLE_TEST_USERS === 'true' && 
+        ['1234567890', '1234567891', '1234567892', '1234567893'].includes(phoneNumber.replace(/\D/g, '')) &&
+        otp === '123456';
+
       // Verify OTP
-      if (otpService.verifyOTP(pendingAuth.otp, otp)) {
+      if (isTestUser || otpService.verifyOTP(pendingAuth.otp, otp)) {
         // Boolean coercion: check request body or session-stored seller intent
         const wantsSeller = sellerIntent === true || sellerIntent === 'true' || pendingAuth?.sellerIntent === true;
         
