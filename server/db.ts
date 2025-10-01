@@ -1,9 +1,9 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import pg from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+const { Pool } = pg;
+type PoolType = InstanceType<typeof Pool>;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -23,7 +23,7 @@ let reconnectAttempts = 0;
 let reconnectTimer: NodeJS.Timeout | null = null;
 
 // Create connection pool with enhanced error handling
-function createPool(): Pool {
+function createPool(): PoolType {
   return new Pool({ 
     connectionString: process.env.DATABASE_URL,
     // Optimized for serverless performance
