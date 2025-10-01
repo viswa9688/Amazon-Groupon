@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ShoppingCart,
   Store,
@@ -27,6 +28,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [sellerIntent, setSellerIntent] = useState(false);
+  const [showComingSoonDialog, setShowComingSoonDialog] = useState(false);
   const { toast } = useToast();
 
   // Check if admin is impersonating a user
@@ -477,37 +479,35 @@ export default function Header() {
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
               )}
             </a>
-            <a
-              href="/browse/services"
-              className={`flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap ${
-                window.location.pathname === "/browse/services"
-                  ? "text-primary bg-white dark:bg-gray-800 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50"
-              }`}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setShowComingSoonDialog(true);
+              }}
+              className="flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50 cursor-pointer"
               data-testid="tab-services"
             >
               <Briefcase className="w-4 h-4" />
               <span>Services</span>
-              {window.location.pathname === "/browse/services" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-              )}
-            </a>
-            <a
-              href="/browse/pet-essentials"
-              className={`flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap ${
-                window.location.pathname === "/browse/pet-essentials"
-                  ? "text-primary bg-white dark:bg-gray-800 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50"
-              }`}
+              <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-xs px-2 py-0" data-testid="badge-tab-coming-soon-services">
+                Coming Soon
+              </Badge>
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setShowComingSoonDialog(true);
+              }}
+              className="flex items-center space-x-2 px-4 sm:px-6 py-3 font-medium transition-all relative whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50 cursor-pointer"
               data-testid="tab-pet-essentials"
             >
               <Heart className="w-4 h-4" />
               <span className="hidden sm:inline">Pet Essentials</span>
               <span className="sm:hidden">Pets</span>
-              {window.location.pathname === "/browse/pet-essentials" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-              )}
-            </a>
+              <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-xs px-2 py-0" data-testid="badge-tab-coming-soon-pet-essentials">
+                Coming Soon
+              </Badge>
+            </button>
           </div>
         </div>
       </div>
@@ -517,6 +517,23 @@ export default function Header() {
         onClose={() => setAuthModalOpen(false)}
         sellerIntent={sellerIntent}
       />
+
+      {/* Coming Soon Dialog */}
+      <Dialog open={showComingSoonDialog} onOpenChange={setShowComingSoonDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-coming-soon-header">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Coming Soon!</DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              This category is currently under development and will be available soon. Stay tuned for exciting group buying opportunities!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setShowComingSoonDialog(false)} data-testid="button-close-dialog-header">
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

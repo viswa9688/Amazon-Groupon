@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, Filter, Users, ShoppingCart, Zap, Apple, Briefcase, TrendingUp, ArrowRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +44,7 @@ export default function Browse() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [showCategories, setShowCategories] = useState(true);
+  const [showComingSoonDialog, setShowComingSoonDialog] = useState(false);
 
   // Handle redirect after login
   useEffect(() => {
@@ -176,7 +178,7 @@ export default function Browse() {
               {/* Services Category */}
               <div
                 className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
-                onClick={() => window.location.href = '/browse/services'}
+                onClick={() => setShowComingSoonDialog(true)}
                 data-testid="card-category-services"
               >
                 <div className="relative aspect-[4/3]">
@@ -187,6 +189,13 @@ export default function Browse() {
                   />
                   {/* Gradient overlay for text readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                  {/* Coming Soon Badge */}
+                  <div className="absolute top-4 right-4">
+                    <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-sm font-semibold px-3 py-1" data-testid="badge-coming-soon-services">
+                      Coming Soon
+                    </Badge>
+                  </div>
 
                   {/* Category Title */}
                   <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -204,7 +213,7 @@ export default function Browse() {
               {/* Pet Essentials Category */}
               <div
                 className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
-                onClick={() => window.location.href = '/browse/pet-essentials'}
+                onClick={() => setShowComingSoonDialog(true)}
                 data-testid="card-category-pet-essentials"
               >
                 <div className="relative aspect-[4/3]">
@@ -215,6 +224,13 @@ export default function Browse() {
                   />
                   {/* Gradient overlay for text readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                  {/* Coming Soon Badge */}
+                  <div className="absolute top-4 right-4">
+                    <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-sm font-semibold px-3 py-1" data-testid="badge-coming-soon-pet-essentials">
+                      Coming Soon
+                    </Badge>
+                  </div>
 
                   {/* Category Title */}
                   <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -513,6 +529,23 @@ export default function Browse() {
           </div>
         )}
       </div>
+
+      {/* Coming Soon Dialog */}
+      <Dialog open={showComingSoonDialog} onOpenChange={setShowComingSoonDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-coming-soon">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Coming Soon!</DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              This category is currently under development and will be available soon. Stay tuned for exciting group buying opportunities!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setShowComingSoonDialog(false)} data-testid="button-close-dialog">
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
