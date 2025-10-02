@@ -528,10 +528,10 @@ export default function Browse() {
             </Button>
           </div>
         )}
-
-        {/* Scrolling Cart Button */}
-        <ScrollingCartButton />
       </div>
+      
+      {/* Floating Cart Button */}
+      <ScrollingCartButton />
 
       {/* Coming Soon Dialog */}
       <Dialog open={showComingSoonDialog} onOpenChange={setShowComingSoonDialog}>
