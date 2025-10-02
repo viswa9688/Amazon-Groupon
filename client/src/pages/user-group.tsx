@@ -899,7 +899,10 @@ export default function UserGroupPage() {
                     className="bg-purple-600 hover:bg-purple-700"
                     disabled={!selectedPickupAddressId || deliveryMethodMutation.isPending}
                     onClick={() => {
-                      deliveryMethodMutation.mutate({ deliveryMethod: "pickup" });
+                      deliveryMethodMutation.mutate({ 
+                        deliveryMethod: "pickup",
+                        pickupAddressId: selectedPickupAddressId 
+                      });
                       setIsPickupAddressDialogOpen(false);
                     }}
                   >

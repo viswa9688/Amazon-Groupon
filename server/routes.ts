@@ -2092,15 +2092,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse the updates to check what fields are being updated
       const updates = insertUserGroupSchema.partial().parse(req.body);
       
-      // If group is locked, only allow delivery method updates
+      // If group is locked, only allow delivery method and pickup address updates
       if (isLocked) {
-        const allowedFields = ['deliveryMethod'];
+        const allowedFields = ['deliveryMethod', 'pickupAddressId'];
         const updateFields = Object.keys(updates);
         const hasDisallowedFields = updateFields.some(field => !allowedFields.includes(field));
         
         if (hasDisallowedFields) {
           return res.status(400).json({ 
-            message: "Cannot edit group - group is locked because it has reached maximum member capacity. Only delivery method can be changed.",
+            message: "Cannot edit group - group is locked because it has reached maximum member capacity. Only delivery method and pickup address can be changed.",
             locked: true
           });
         }
