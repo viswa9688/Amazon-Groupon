@@ -334,6 +334,7 @@ export const userGroups = pgTable("user_groups", {
   maxMembers: integer("max_members").notNull().default(5),
   isPublic: boolean("is_public").default(true),
   deliveryMethod: varchar("delivery_method", { length: 20 }).default("delivery"), // delivery, pickup
+  pickupAddressId: integer("pickup_address_id").references(() => userAddresses.id), // Address for pickup location
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
