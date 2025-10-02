@@ -83,7 +83,7 @@ export default function SharedGroupPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
         <Header />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Skeleton className="h-8 w-64 mb-8" />
@@ -104,7 +104,7 @@ export default function SharedGroupPage() {
 
   if (error || !sharedGroup) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
         <Header />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-20">
@@ -133,13 +133,8 @@ export default function SharedGroupPage() {
   const MINIMUM_ORDER_VALUE = 50.00;
   const orderValueExcludingDelivery = totalValue;
   
-  const potentialSavings = (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) 
-    ? sharedGroup.items?.reduce((sum, item) => {
-        const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-        const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
-        return sum + savings;
-      }, 0) || 0
-    : 0;
+  // Calculate per-person savings: Total Cart × 8%
+  const potentialSavings = totalValue * 0.08;
 
   // Use popular group-level participant count
   const collectionParticipants = sharedGroup.participantCount || 0;
@@ -157,18 +152,18 @@ export default function SharedGroupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
       <Header />
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
         <div className="relative mb-8">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl opacity-5"></div>
-          <div className="relative p-8 rounded-3xl border border-blue-200/50 dark:border-blue-800/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-3xl opacity-5"></div>
+          <div className="relative p-8 rounded-3xl border border-purple-200/50 dark:border-purple-800/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+                  <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
                     <Share2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -176,7 +171,7 @@ export default function SharedGroupPage() {
                       {sharedGroup.name}
                     </h1>
                     <div className="flex items-center space-x-3 mt-1">
-                      <Badge variant="default" className="flex items-center space-x-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                      <Badge variant="default" className="flex items-center space-x-1 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
                         <Users className="w-3 h-3" />
                         <span>Shared Popular Group</span>
                       </Badge>
@@ -204,7 +199,7 @@ export default function SharedGroupPage() {
                 {!isAuthenticated ? (
                   <Button 
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
                     data-testid="button-login-to-join"
                   >
                     <LogIn className="w-4 h-4 mr-2" />
@@ -243,7 +238,7 @@ export default function SharedGroupPage() {
                   <Button 
                     onClick={() => joinMutation.mutate()}
                     disabled={joinMutation.isPending}
-                    className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
                     data-testid="button-join-collection"
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
@@ -254,7 +249,7 @@ export default function SharedGroupPage() {
                 <Button 
                   variant="outline" 
                   onClick={handleShare}
-                  className="border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20"
+                  className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20"
                   data-testid="button-share-collection"
                 >
                   <Share2 className="w-4 h-4 mr-2" />
@@ -272,7 +267,7 @@ export default function SharedGroupPage() {
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <ShoppingCart className="w-5 h-5 text-blue-600" />
+                  <ShoppingCart className="w-5 h-5 text-purple-600" />
                   <span>Popular Group Items ({totalItems})</span>
                 </CardTitle>
               </CardHeader>
@@ -356,79 +351,33 @@ export default function SharedGroupPage() {
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <span>Popular Group Overview</span>
+                  <TrendingUp className="w-5 h-5 text-purple-600" />
+                  <span>Popular Group Stats</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-shared-total-items">
-                      {totalItems}
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-foreground">
+                      {collectionParticipants} / 5 members
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Items</p>
-                  </div>
-                  <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="text-shared-collection-participants">
-                      {collectionParticipants}
+                    <p className="text-sm text-muted-foreground">
+                      {collectionParticipants >= 5 
+                        ? "Discounts active! 🎉" 
+                        : `${5 - collectionParticipants} more needed for discounts`}
                     </p>
-                    <p className="text-sm text-muted-foreground">Popular Group Members</p>
                   </div>
-                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-shared-total-value">
-                      ${totalValue.toFixed(2)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Popular Group Value</p>
+                  
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${collectionProgress}%` }}
+                    />
                   </div>
-                  <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-shared-potential-savings">
-                      ${potentialSavings.toFixed(2)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Potential Savings</p>
-                  </div>
-                  <div className="text-center p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400" data-testid="text-shared-collection-progress">
-                      {collectionProgress.toFixed(0)}%
-                    </p>
-                    <p className="text-sm text-muted-foreground">Discount Progress</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Popular Group Progress */}
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  <span>Popular Group Status</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <p className="text-lg font-semibold text-foreground">
-                    {collectionParticipants} / 5 members
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {collectionParticipants >= 5 
-                      ? "Discounts active! 🎉" 
-                      : `${5 - collectionParticipants} more needed for discounts`}
-                  </p>
-                </div>
-                
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                  <div 
-                    className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${collectionProgress}%` }}
-                  />
-                </div>
-                
-                <div className="text-center text-xs text-muted-foreground">
-                  {collectionProgress.toFixed(0)}% complete
                 </div>
                 
                 {/* Minimum Order Value Requirement */}
-                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="space-y-2">
                   <div className="text-center">
                     <p className="text-sm font-medium text-foreground">
                       ${orderValueExcludingDelivery.toFixed(2)} / $50.00
@@ -437,6 +386,9 @@ export default function SharedGroupPage() {
                       {orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE 
                         ? "✅ Minimum order value met" 
                         : `$${(MINIMUM_ORDER_VALUE - orderValueExcludingDelivery).toFixed(2)} more needed for discounts`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      (Minimum cart value must be $50 to get discount)
                     </p>
                   </div>
                   
@@ -449,6 +401,30 @@ export default function SharedGroupPage() {
                       }`}
                       style={{ width: `${Math.min((orderValueExcludingDelivery / MINIMUM_ORDER_VALUE) * 100, 100)}%` }}
                     />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-shared-total-items">
+                      {totalItems}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Items</p>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-shared-total-value">
+                      ${totalValue.toFixed(2)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Popular Group Value</p>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-shared-potential-savings">
+                      ${potentialSavings.toFixed(2)} per person
+                    </p>
+                    <p className="text-sm text-muted-foreground">Potential Savings</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      (8% discount if 5 people join this group)
+                    </p>
                   </div>
                 </div>
               </CardContent>
