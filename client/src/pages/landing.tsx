@@ -17,6 +17,7 @@ import {
   Instagram,
   Linkedin
 } from "lucide-react";
+import heroBackground from "@assets/image_1759436962201.png";
 
 export default function Landing() {
   const categories = [
@@ -56,15 +57,20 @@ export default function Landing() {
       <Header />
       
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground py-20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative py-20 overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroBackground})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
-              <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
+              <h1 className="text-4xl lg:text-6xl font-bold leading-tight text-white">
                 Shop Together,<br />
                 <span className="text-secondary">Save Together</span>
               </h1>
-              <p className="text-xl text-primary-foreground/90 max-w-lg">
+              <p className="text-xl text-white/90 max-w-lg">
                 Join group purchases and unlock amazing discounts. The more people buy, the more everyone saves.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -79,22 +85,16 @@ export default function Landing() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary text-lg px-8 py-4"
+                  className="border-2 border-white text-white hover:bg-white hover:text-black text-lg px-8 py-4"
                   data-testid="button-learn-more"
                 >
                   Learn More
                 </Button>
               </div>
             </div>
-            <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
-                alt="Group of diverse Americans shopping together with mobile devices" 
-                className="rounded-2xl shadow-2xl w-full h-auto"
-                data-testid="img-hero-group-shopping"
-              />
-              <div className="absolute -top-4 -right-4 bg-accent text-accent-foreground px-6 py-3 rounded-full font-bold text-xl shadow-lg animate-pulse-ring">
-                Save up to 70%
+            <div className="relative lg:block hidden">
+              <div className="absolute -top-4 -right-4 bg-accent text-accent-foreground px-6 py-3 rounded-full font-bold text-xl shadow-lg animate-pulse-ring z-10">
+                Save up to 8%
               </div>
             </div>
           </div>
