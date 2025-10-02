@@ -699,6 +699,7 @@ export type ProductWithDetails = Product & {
 // User group with details
 export type UserGroupWithDetails = UserGroup & {
   user: User;
+  pickupAddress?: UserAddress | null;
   items: (UserGroupItem & { product: ProductWithDetails })[];
   participants?: (UserGroupParticipant & { user: User })[];
   participantCount?: number;
