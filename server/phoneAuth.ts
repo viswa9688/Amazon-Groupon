@@ -92,7 +92,7 @@ export async function setupPhoneAuth(app: Express) {
 
       // Test users bypass: Allow specific test phone numbers with hardcoded OTP when enabled
       const isTestUser = process.env.ENABLE_TEST_USERS === 'true' && 
-        ['1234567890', '1234567891', '1234567892', '1234567893'].includes(phoneNumber.replace(/\D/g, '')) &&
+        ['1234567890', '1234567891', '1234567892', '1234567893', '5551234567', '5552345678', '5553456789', '5554567890'].includes(phoneNumber.replace(/\D/g, '')) &&
         otp === '123456';
 
       // Verify OTP
