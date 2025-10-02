@@ -233,7 +233,7 @@ export default function MyGroups() {
               </TabsTrigger>
               <TabsTrigger value="created" className="flex items-center space-x-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
                 <Package className="w-4 h-4" />
-                <span>My Popular Groups</span>
+                <span>My Groups</span>
               </TabsTrigger>
             </TabsList>
 
