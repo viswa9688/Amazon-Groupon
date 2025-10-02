@@ -530,6 +530,28 @@ export default function Header() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Cart Button - Mobile Only */}
+      {isAuthenticated && cartItemCount > 0 && (
+        <a
+          href="/cart"
+          className="fixed bottom-6 right-6 z-50 lg:hidden"
+          data-testid="button-floating-cart"
+        >
+          <div className="relative">
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
+              <ShoppingCart className="h-6 w-6" />
+            </div>
+            <Badge
+              variant="destructive"
+              className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs font-bold bg-red-600 text-white border-2 border-white"
+              data-testid="floating-cart-count-badge"
+            >
+              {cartItemCount}
+            </Badge>
+          </div>
+        </a>
+      )}
     </header>
   );
 }
