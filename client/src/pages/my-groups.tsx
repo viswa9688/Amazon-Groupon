@@ -241,17 +241,17 @@ export default function MyGroups() {
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg" data-testid="button-create-group">
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Popular Group
+                  Create Group
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center space-x-2">
                     <Package className="w-5 h-5 text-purple-600" />
-                    <span>Create New Popular Group</span>
+                    <span>Create New Group</span>
                   </DialogTitle>
                   <DialogDescription>
-                    Create a custom popular group of products to share with others and track potential savings.
+                    Create a custom group of products to share with others and track potential savings.
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -261,7 +261,7 @@ export default function MyGroups() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Popular Group Name</FormLabel>
+                          <FormLabel>Group Name</FormLabel>
                           <FormControl>
                             <Input placeholder="e.g. Tech Essentials, Home Setup..." {...field} data-testid="input-group-name" />
                           </FormControl>
@@ -276,7 +276,7 @@ export default function MyGroups() {
                         <FormItem>
                           <FormLabel>Description (Optional)</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Describe your popular group..." {...field} data-testid="input-group-description" />
+                            <Textarea placeholder="Describe your group..." {...field} data-testid="input-group-description" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -284,7 +284,7 @@ export default function MyGroups() {
                     />
                     <DialogFooter>
                       <Button type="submit" disabled={createGroupMutation.isPending} data-testid="button-submit-create-group">
-                        {createGroupMutation.isPending ? "Creating..." : "Create Popular Group"}
+                        {createGroupMutation.isPending ? "Creating..." : "Create Group"}
                       </Button>
                     </DialogFooter>
                   </form>
