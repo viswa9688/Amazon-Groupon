@@ -413,15 +413,6 @@ export default function Cart() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
-              onClick={() => setShowCreateCollection(true)}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              disabled={createCollectionFromCart.isPending}
-              data-testid="button-create-own-collection"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Make This Your Own Group
-            </Button>
-            <Button
               variant="outline"
               onClick={handleClearCart}
               disabled={clearCartMutation.isPending}
@@ -867,6 +858,15 @@ export default function Cart() {
                   Continue Shopping
                 </Button>
               </Link>
+              <Button
+                onClick={() => setShowCreateCollection(true)}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                disabled={createCollectionFromCart.isPending}
+                data-testid="button-create-own-collection"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Make This Your Own Group
+              </Button>
               <Button 
                 className="w-full" 
                 size="lg" 
