@@ -139,6 +139,7 @@ export interface IStorage {
   updateUserAddress(addressId: number, address: Partial<InsertUserAddress>): Promise<UserAddress>;
   deleteUserAddress(addressId: number): Promise<boolean>;
   setDefaultAddress(userId: string, addressId: number): Promise<boolean>;
+  countGroupsUsingAddress(addressId: number): Promise<number>;
 
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
@@ -1006,6 +1007,15 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return result.length > 0;
+  }
+
+  async countGroupsUsingAddress(addressId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(userGroups)
+      .where(eq(userGroups.pickupAddressId, addressId));
+    
+    return result[0]?.count || 0;
   }
 
   // Order operations

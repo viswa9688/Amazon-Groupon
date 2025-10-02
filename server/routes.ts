@@ -1653,6 +1653,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/addresses/:id/usage', isAuthenticated, async (req: any, res) => {
+    try {
+      const addressId = parseInt(req.params.id);
+      
+      if (isNaN(addressId)) {
+        return res.status(400).json({ message: "Invalid address ID" });
+      }
+
+      const count = await storage.countGroupsUsingAddress(addressId);
+      res.json({ groupCount: count });
+    } catch (error) {
+      console.error("Error checking address usage:", error);
+      res.status(500).json({ message: "Failed to check address usage" });
+    }
+  });
+
   app.delete('/api/addresses/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
