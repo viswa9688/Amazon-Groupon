@@ -3950,12 +3950,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pincode: address.pincode
       };
 
-      // Check BC minimum order value for group orders
-      const bcValidation = await deliveryService.checkBCMinimumOrderValue(amount, 'group');
-      if (!bcValidation.isValid) {
+      // Check minimum order value for discount eligibility
+      const minOrderValidation = await deliveryService.checkMinimumOrderValue(amount);
+      if (!minOrderValidation.isValid) {
         return res.status(400).json({ 
-          message: bcValidation.message,
-          minimumRequired: bcValidation.minimumRequired,
+          message: minOrderValidation.message,
+          minimumRequired: minOrderValidation.minimumRequired,
           currentTotal: amount,
           type: 'minimum_order_value'
         });

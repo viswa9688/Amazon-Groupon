@@ -65,21 +65,8 @@ export class DeliveryService {
     pincode: "V8W 2B7"
   };
 
-  // BC-specific delivery constraints
-  private readonly BC_DELIVERY_CONSTRAINTS = {
-    // Group order constraints
-    group: {
-      minimumOrderValue: 50.00, // $50 minimum for group orders
-      deliveryFee: 5.99, // $5.99 delivery fee for group orders
-      freeDeliveryThreshold: null // No free delivery threshold for group orders
-    },
-    // Individual order constraints
-    individual: {
-      minimumOrderValue: 50.00, // $50 minimum for individual orders
-      deliveryFee: 3.99, // $3.99 delivery fee for individual orders
-      freeDeliveryThreshold: 75.00 // Free delivery for individual orders over $75
-    }
-  };
+  // Minimum order value for discount eligibility (applied at cart level, not delivery calculation)
+  private readonly MINIMUM_ORDER_VALUE = 50.00; // $50 minimum for discount eligibility
 
   constructor() {
     // Log configuration status on startup
@@ -1006,48 +993,6 @@ export class DeliveryService {
     };
   }
 
-  /**
-   * Calculate BC-specific delivery fee based on order type and constraints
-   */
-  private calculateBCDeliveryFee(distance: number, duration: number, orderTotal: number, orderType: 'group' | 'individual'): DeliveryCalculation {
-    const constraints = this.BC_DELIVERY_CONSTRAINTS[orderType];
-    
-    // Check minimum order value - but still calculate delivery fee
-    const meetsMinimumOrder = orderTotal >= constraints.minimumOrderValue;
-
-    // Check if order qualifies for free delivery (only for individual orders)
-    const isFreeDelivery = constraints.freeDeliveryThreshold !== null && orderTotal >= constraints.freeDeliveryThreshold;
-    
-    let deliveryCharge = 0;
-    let reason = '';
-
-    if (isFreeDelivery) {
-      reason = `Free delivery: Order total $${orderTotal.toFixed(2)} ≥ $${constraints.freeDeliveryThreshold.toFixed(2)} threshold for ${orderType} orders`;
-    } else {
-      deliveryCharge = constraints.deliveryFee;
-      if (constraints.freeDeliveryThreshold !== null) {
-        reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders under $${constraints.freeDeliveryThreshold.toFixed(2)}`;
-      } else {
-        reason = `Delivery fee: $${constraints.deliveryFee.toFixed(2)} for ${orderType} orders (no free delivery threshold)`;
-      }
-    }
-
-    // Add minimum order information to reason if not met
-    let finalReason = reason;
-    if (!meetsMinimumOrder) {
-      const minOrderMsg = `Order total $${orderTotal.toFixed(2)} is below minimum $${constraints.minimumOrderValue.toFixed(2)} for ${orderType} orders`;
-      finalReason = reason ? `${reason} (${minOrderMsg})` : minOrderMsg;
-    }
-
-    return {
-      distance,
-      duration,
-      deliveryCharge: Math.round(deliveryCharge * 100) / 100, // Round to 2 decimal places
-      isFreeDelivery,
-      reason: finalReason,
-      meetsMinimumOrder
-    };
-  }
 
   /**
    * Check if an order meets the minimum value for shop delivery
@@ -1085,23 +1030,22 @@ export class DeliveryService {
   }
 
   /**
-   * Check if order meets minimum value requirements for BC delivery
+   * Check if order meets minimum value requirements (for discount eligibility)
    */
-  async checkBCMinimumOrderValue(orderTotal: number, orderType: 'group' | 'individual'): Promise<{ isValid: boolean; message: string; minimumRequired: number }> {
-    const constraints = this.BC_DELIVERY_CONSTRAINTS[orderType];
-    const minimumRequired = constraints.minimumOrderValue;
+  async checkMinimumOrderValue(orderTotal: number): Promise<{ isValid: boolean; message: string; minimumRequired: number }> {
+    const minimumRequired = this.MINIMUM_ORDER_VALUE;
     
     if (orderTotal < minimumRequired) {
       return {
         isValid: false,
-        message: `Minimum order value for ${orderType} orders in BC is $${minimumRequired.toFixed(2)}. Current total: $${orderTotal.toFixed(2)}`,
+        message: `Minimum order value is $${minimumRequired.toFixed(2)}. Current total: $${orderTotal.toFixed(2)}`,
         minimumRequired
       };
     }
     
     return {
       isValid: true,
-      message: `Order meets minimum value requirement for ${orderType} orders in BC`,
+      message: `Order meets minimum value requirement of $${minimumRequired.toFixed(2)}`,
       minimumRequired
     };
   }
