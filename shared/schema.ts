@@ -500,6 +500,7 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
 
 export const userGroupsRelations = relations(userGroups, ({ one, many }) => ({
   user: one(users, { fields: [userGroups.userId], references: [users.id] }),
+  pickupAddress: one(userAddresses, { fields: [userGroups.pickupAddressId], references: [userAddresses.id] }),
   items: many(userGroupItems),
   participants: many(userGroupParticipants),
   groupPayments: many(groupPayments),

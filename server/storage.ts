@@ -1873,6 +1873,7 @@ export class DatabaseStorage implements IStorage {
         where: eq(userGroups.id, groupId),
         with: {
           user: true,
+          pickupAddress: true,
           items: {
             with: {
               product: {
@@ -1917,6 +1918,7 @@ export class DatabaseStorage implements IStorage {
       where: eq(userGroups.shareToken, shareToken),
       with: {
         user: true,
+        pickupAddress: true,
         items: {
           with: {
             product: {
