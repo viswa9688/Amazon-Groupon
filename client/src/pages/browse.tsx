@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Header from "@/components/Header";
+import Header, { ScrollingCartButton } from "@/components/Header";
 import ServiceProductCard from "@/components/ServiceProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -528,6 +528,9 @@ export default function Browse() {
             </Button>
           </div>
         )}
+
+        {/* Scrolling Cart Button */}
+        <ScrollingCartButton />
       </div>
 
       {/* Coming Soon Dialog */}
