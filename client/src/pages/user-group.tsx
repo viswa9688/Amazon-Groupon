@@ -1629,6 +1629,9 @@ export default function UserGroupPage() {
                         ? "✅ Minimum order value met" 
                         : `$${(MINIMUM_ORDER_VALUE - orderValueExcludingDelivery).toFixed(2)} more needed for discounts`}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      (Minimum cart value must be $50 to get discount)
+                    </p>
                   </div>
                   
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
