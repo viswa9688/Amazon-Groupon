@@ -470,8 +470,7 @@ export default function Header() {
               data-testid="tab-groceries"
             >
               <Apple className="w-4 h-4" />
-              <span className="hidden sm:inline">Groceries</span>
-              <span className="sm:hidden">Food</span>
+              <span>Groceries</span>
               {window.location.pathname === "/browse/groceries" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
               )}
