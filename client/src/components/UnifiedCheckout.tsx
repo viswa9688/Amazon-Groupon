@@ -813,7 +813,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                           </div>
                           <div>
                             <h3 className="font-semibold text-gray-900 dark:text-white">
-                              {deliveryMethod === "delivery" ? "Home Delivery" : "Group Pickup"}
+                              {deliveryMethod === "delivery" ? "Deliver to Each Home" : "Single Location Drop"}
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               {deliveryMethod === "delivery" 
@@ -846,7 +846,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                               )}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-900 dark:text-white">Home Delivery</h3>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">Deliver to Each Home</h3>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Delivered directly to your selected address
                               </p>
@@ -873,7 +873,7 @@ export default function UnifiedCheckout({ checkoutData }: UnifiedCheckoutProps) 
                               )}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-900 dark:text-white">Group Pickup</h3>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">Single Location Drop</h3>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Pick up from group owner's location
                               </p>

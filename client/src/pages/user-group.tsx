@@ -719,12 +719,12 @@ export default function UserGroupPage() {
                         {userGroup.deliveryMethod === "pickup" ? (
                           <>
                             <Users className="w-3 h-3" />
-                            <span>Group Pickup</span>
+                            <span>Single Location Drop</span>
                           </>
                         ) : (
                           <>
                             <Truck className="w-3 h-3" />
-                            <span>Home Delivery</span>
+                            <span>Deliver to Each Home</span>
                           </>
                         )}
                       </Badge>
@@ -856,8 +856,8 @@ export default function UserGroupPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="delivery">Home Delivery</SelectItem>
-                              <SelectItem value="pickup">Group Pickup</SelectItem>
+                              <SelectItem value="delivery">Deliver to Each Home</SelectItem>
+                              <SelectItem value="pickup">Single Location Drop</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormItem>
