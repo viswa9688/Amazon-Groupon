@@ -651,13 +651,8 @@ export default function UserGroupPage() {
   const MINIMUM_ORDER_VALUE = 50.00;
   const orderValueExcludingDelivery = totalValue;
   
-  const potentialSavings = (orderValueExcludingDelivery >= MINIMUM_ORDER_VALUE) 
-    ? userGroup.items?.reduce((sum, item) => {
-        const discountPrice = item.product.discountTiers?.[0]?.finalPrice || item.product.originalPrice;
-        const savings = (parseFloat(item.product.originalPrice.toString()) - parseFloat(discountPrice.toString())) * item.quantity;
-        return sum + savings;
-      }, 0) || 0
-    : 0;
+  // Calculate per-person savings: (Total Cart × 8%) ÷ 5 members
+  const potentialSavings = (totalValue * 0.08) / 5;
 
   // Use collection-level participant count
   const collectionParticipants = userGroup.participantCount || 0;
@@ -1666,6 +1661,9 @@ export default function UserGroupPage() {
                       ${potentialSavings.toFixed(2)}
                     </p>
                     <p className="text-sm text-muted-foreground">Potential Savings</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                      8% discount if 5 people join this group
+                    </p>
                   </div>
                 </div>
               </CardContent>
