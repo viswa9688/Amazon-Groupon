@@ -556,10 +556,10 @@ export default function Cart() {
                     <span data-testid="text-cart-total">${calculateCartTotal().toFixed(2)}</span>
                   </div>
                   {calculateCartTotal() < 50 && (
-                    <div className="text-sm text-orange-600 dark:text-orange-400 text-center bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg border border-orange-200 dark:border-orange-800">
-                      <div className="flex items-center justify-center space-x-1">
-                        <span>⚠️</span>
-                        <span>Minimum order: $50.00 (${(50 - calculateCartTotal()).toFixed(2)} more needed)</span>
+                    <div className="text-xs sm:text-sm text-orange-600 dark:text-orange-400 text-center bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <div className="flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-1">
+                        <span>⚠️ Minimum: $50.00</span>
+                        <span className="text-xs">(${(50 - calculateCartTotal()).toFixed(2)} more needed)</span>
                       </div>
                     </div>
                   )}
@@ -616,10 +616,10 @@ export default function Cart() {
                               </p>
                             </div>
                           )}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <h4 className="font-semibold text-base" data-testid={`text-collection-name-${group.userGroup.id}`}>
+                          <div className="flex items-start sm:items-center justify-between gap-2 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-semibold text-sm sm:text-base break-words" data-testid={`text-collection-name-${group.userGroup.id}`}>
                                   {group.userGroup.name}
                                 </h4>
                                 {group.isAlreadyMember && (
@@ -671,13 +671,13 @@ export default function Cart() {
                               </p>
                               <div className="space-y-1">
                                 {group.matchingItems.slice(0, 3).map((item) => (
-                                  <div key={item.productId} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded">
-                                    <span className="font-medium">{item.productName}</span>
-                                    <div className="flex items-center space-x-2">
+                                  <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded gap-1 sm:gap-2">
+                                    <span className="font-medium truncate flex-1">{item.productName}</span>
+                                    <div className="flex items-center justify-between sm:justify-end space-x-2 sm:flex-shrink-0">
                                       <span className="text-gray-600 dark:text-gray-400">
                                         Qty: {item.cartQuantity}
                                       </span>
-                                      <span className="font-bold text-green-600">
+                                      <span className="font-bold text-green-600 whitespace-nowrap">
                                         Save ${item.individualSavings.toFixed(2)}
                                       </span>
                                     </div>
@@ -691,8 +691,8 @@ export default function Cart() {
                               </div>
                             </div>
                             
-                            <div className="flex items-center justify-between pt-2">
-                              <div>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                              <div className="min-w-0">
                                 <p className="text-sm font-bold text-green-600">
                                   Total Savings: ${group.potentialSavings.toFixed(2)}
                                 </p>
@@ -700,14 +700,14 @@ export default function Cart() {
                                   {group.userGroup.items.length} items in popular group
                                 </p>
                               </div>
-                              <Link href={`/user-group/${group.userGroup.id}`}>
+                              <Link href={`/user-group/${group.userGroup.id}`} className="w-full sm:w-auto">
                                 <Button 
                                   size="sm" 
                                   variant={group.isAlreadyMember ? "default" : "outline"} 
-                                  className={group.isAlreadyMember ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                                  className={`w-full sm:w-auto text-xs sm:text-sm ${group.isAlreadyMember ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
                                   data-testid={`button-view-collection-${group.userGroup.id}`}
                                 >
-                                  {group.isAlreadyMember ? "View Your Popular Group" : "View Popular Group"}
+                                  {group.isAlreadyMember ? "View Your Group" : "View Group"}
                                 </Button>
                               </Link>
                             </div>
@@ -733,19 +733,19 @@ export default function Cart() {
                   <div className="space-y-4">
                     {optimizationSuggestions.map((suggestion, index) => (
                       <div key={index} className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20" data-testid={`card-optimization-${index}`}>
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                           <div className="flex items-center space-x-2">
-                            <BarChart3 className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium text-sm">
+                            <BarChart3 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span className="font-medium text-xs sm:text-sm">
                               {suggestion.description}
                             </span>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2 flex-shrink-0">
                             <Badge variant="outline" className="text-xs">
-                              {suggestion.coverage.toFixed(0)}% coverage
+                              {suggestion.coverage.toFixed(0)}%
                             </Badge>
-                            <Badge variant="secondary" className="text-xs font-bold text-green-700">
-                              ${suggestion.totalSavings.toFixed(2)} savings
+                            <Badge variant="secondary" className="text-xs font-bold text-green-700 whitespace-nowrap">
+                              ${suggestion.totalSavings.toFixed(2)}
                             </Badge>
                           </div>
                         </div>
