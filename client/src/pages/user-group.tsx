@@ -1136,6 +1136,55 @@ export default function UserGroupPage() {
                   </div>
                 )}
               </CardContent>
+              
+              {/* Pickup Location Display - Show when delivery method is pickup and address is set */}
+              {userGroup.deliveryMethod === "pickup" && userGroup.pickupAddress && (
+                <div className="px-6 pb-6">
+                  <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-800">
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2 text-purple-700 dark:text-purple-300">
+                        <MapPin className="w-5 h-5" />
+                        <span>Pickup Location</span>
+                      </CardTitle>
+                      <CardDescription className="text-purple-600 dark:text-purple-400 font-medium">
+                        This is a Single Location Drop - All members pick up their orders from this address
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-purple-200 dark:border-purple-700 space-y-3">
+                        <div className="flex items-start space-x-3">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-lg">
+                            <MapPin className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900 dark:text-white text-lg">
+                              {userGroup.pickupAddress.nickname}
+                            </p>
+                            <p className="text-gray-700 dark:text-gray-300 mt-1">
+                              {userGroup.pickupAddress.fullName}
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 mt-2">
+                              {userGroup.pickupAddress.addressLine}
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400">
+                              {userGroup.pickupAddress.city}, {userGroup.pickupAddress.state} {userGroup.pickupAddress.pincode}
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400">
+                              {userGroup.pickupAddress.country}
+                            </p>
+                            {userGroup.pickupAddress.phoneNumber && (
+                              <p className="text-purple-600 dark:text-purple-400 mt-2 flex items-center space-x-2">
+                                <span>📞</span>
+                                <span>{userGroup.pickupAddress.phoneNumber}</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </Card>
               </TabsContent>
 
