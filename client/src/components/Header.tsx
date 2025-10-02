@@ -127,7 +127,7 @@ export default function Header() {
                   href="/my-groups"
                   className="text-foreground hover:text-primary font-medium transition-colors"
                 >
-                  My Popular Groups
+                  My Groups
                 </a>
               </>
             )}
@@ -380,7 +380,7 @@ export default function Header() {
                   href="/my-groups"
                   className="block py-2 text-foreground hover:text-primary font-medium"
                 >
-                  My Popular Groups
+                  My Groups
                 </a>
               </>
             )}
