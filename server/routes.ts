@@ -1684,9 +1684,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ message: "Failed to delete address" });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting address:", error);
-      res.status(500).json({ message: "Failed to delete address" });
+      
+      // Check if it's a foreign key constraint error
+      if (error.code === '23503' && error.constraint === 'user_groups_pickup_address_id_user_addresses_id_fk') {
+        return res.status(400).json({ 
+          message: "Cannot delete this address because it's being used as a pickup location in one or more groups. Please update those groups first or check the warning before deleting.",
+          code: 'ADDRESS_IN_USE'
+        });
+      }
+      
+      res.status(500).json({ message: "Failed to delete address. Please try again." });
     }
   });
 

@@ -127,10 +127,11 @@ export default function AddressManager({
         description: "Address deleted successfully",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to delete address";
       toast({
         title: "Error",
-        description: "Failed to delete address",
+        description: errorMessage,
         variant: "destructive",
       });
     },
