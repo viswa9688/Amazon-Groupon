@@ -535,7 +535,7 @@ export default function Header() {
       {isAuthenticated && cartItemCount > 0 && (
         <a
           href="/cart"
-          className="fixed bottom-6 right-6 z-50 lg:hidden"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 lg:hidden"
           data-testid="button-floating-cart"
         >
           <div className="relative">
