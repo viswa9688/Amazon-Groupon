@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
-import { Plus, MapPin, Edit, Trash2, Check } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, MapPin, Edit, Trash2, Check, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -40,6 +41,9 @@ export default function AddressManager({
 }: AddressManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [addressToDelete, setAddressToDelete] = useState<number | null>(null);
+  const [groupsUsingAddress, setGroupsUsingAddress] = useState<number>(0);
   const { toast } = useToast();
 
   const form = useForm<AddressFormData>({
@@ -217,9 +221,32 @@ export default function AddressManager({
     setShowForm(true);
   };
 
-  const handleDelete = (addressId: number) => {
-    if (confirm("Are you sure you want to delete this address?")) {
-      deleteAddressMutation.mutate(addressId);
+  const handleDelete = async (addressId: number) => {
+    try {
+      // Check how many groups are using this address
+      const response = await fetch(`/api/addresses/${addressId}/usage`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      
+      setAddressToDelete(addressId);
+      setGroupsUsingAddress(data.groupCount || 0);
+      setDeleteConfirmOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to check address usage",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmDelete = () => {
+    if (addressToDelete) {
+      deleteAddressMutation.mutate(addressToDelete);
+      setDeleteConfirmOpen(false);
+      setAddressToDelete(null);
+      setGroupsUsingAddress(0);
     }
   };
 
@@ -555,6 +582,50 @@ export default function AddressManager({
           </form>
         )}
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center space-x-2">
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
+              <span>Delete Address</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {groupsUsingAddress > 0 ? (
+                <div className="space-y-2">
+                  <p className="font-semibold text-orange-600">
+                    Warning: This address is being used as a pickup location in {groupsUsingAddress} {groupsUsingAddress === 1 ? 'group' : 'groups'}.
+                  </p>
+                  <p>
+                    If you delete this address, those groups will lose their pickup location information. Members won't be able to see where to pick up their orders.
+                  </p>
+                  <p className="font-medium">
+                    Are you sure you want to continue?
+                  </p>
+                </div>
+              ) : (
+                <p>Are you sure you want to delete this address? This action cannot be undone.</p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteConfirmOpen(false);
+              setAddressToDelete(null);
+              setGroupsUsingAddress(0);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {groupsUsingAddress > 0 ? 'Delete Anyway' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
