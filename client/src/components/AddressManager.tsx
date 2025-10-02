@@ -224,16 +224,19 @@ export default function AddressManager({
 
   const handleDelete = async (addressId: number) => {
     try {
-      // Check how many groups are using this address
+      // First check how many groups are using this address as pickup location
+      console.log("Checking address usage for ID:", addressId);
       const response = await fetch(`/api/addresses/${addressId}/usage`, {
         credentials: 'include',
       });
       const data = await response.json();
+      console.log("Address usage response:", data);
       
       setAddressToDelete(addressId);
       setGroupsUsingAddress(data.groupCount || 0);
       setDeleteConfirmOpen(true);
     } catch (error) {
+      console.error("Error checking address usage:", error);
       toast({
         title: "Error",
         description: "Failed to check address usage",
