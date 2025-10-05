@@ -20,6 +20,7 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
+  const [firstName, setFirstName] = useState("");
   const { toast } = useToast();
 
   const sendOtpMutation = useMutation({
@@ -46,7 +47,7 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
   });
 
   const verifyOtpMutation = useMutation({
-    mutationFn: async (data: { phoneNumber: string; otp: string }) => {
+    mutationFn: async (data: { phoneNumber: string; otp: string; firstName: string }) => {
       return apiRequest("POST", "/api/auth/verify-otp", { 
         ...data, 
         sellerIntent: sellerIntent || false 
@@ -106,13 +107,22 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
       });
       return;
     }
-    verifyOtpMutation.mutate({ phoneNumber, otp });
+    if (!firstName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter your name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    verifyOtpMutation.mutate({ phoneNumber, otp, firstName: firstName.trim() });
   };
 
   const handleClose = () => {
     setStep("phone");
     setPhoneNumber("");
     setOtp("");
+    setFirstName("");
     onClose();
   };
 
@@ -177,7 +187,24 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
         ) : (
           <form onSubmit={handleOtpSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="otp">Verification Code</Label>
+              <Label htmlFor="firstName">Your Name *</Label>
+              <Input
+                id="firstName"
+                type="text"
+                placeholder="Enter your name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                maxLength={50}
+                data-testid="input-first-name"
+                required
+              />
+              <p className="text-sm text-muted-foreground">
+                Please enter your name to complete registration
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="otp">Verification Code *</Label>
               <Input
                 id="otp"
                 type="text"
@@ -200,6 +227,7 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
                 onClick={() => {
                   setStep("phone");
                   setOtp("");
+                  setFirstName("");
                 }}
                 className="flex-1"
                 data-testid="button-back"
@@ -210,7 +238,7 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
               <Button
                 type="submit"
                 className="flex-1"
-                disabled={verifyOtpMutation.isPending || otp.length < 4}
+                disabled={verifyOtpMutation.isPending || otp.length < 4 || !firstName.trim()}
                 data-testid="button-verify-otp"
               >
                 {verifyOtpMutation.isPending ? "Verifying..." : "Verify & Login"}
