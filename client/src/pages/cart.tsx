@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
 import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles, Zap, BarChart3, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -272,11 +272,17 @@ export default function Cart() {
     const cartTotal = calculateCartTotal();
     if (cartTotal < MINIMUM_ORDER_VALUE) {
       setShowMinimumOrderError(true);
-      setTimeout(() => setShowMinimumOrderError(false), 5000);
     } else {
       setShowCreateCollection(true);
     }
   };
+
+  // Auto-hide error when cart total reaches minimum
+  useEffect(() => {
+    if (showMinimumOrderError && calculateCartTotal() >= MINIMUM_ORDER_VALUE) {
+      setShowMinimumOrderError(false);
+    }
+  }, [cartItems, showMinimumOrderError]);
 
   const handleShowSuggestions = () => {
     if (cartItems.length === 0) {

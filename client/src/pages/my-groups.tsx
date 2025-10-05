@@ -184,11 +184,17 @@ export default function MyGroups() {
   const handleCreateGroupClick = () => {
     if (cartTotal < MINIMUM_ORDER_VALUE) {
       setShowMinimumOrderError(true);
-      setTimeout(() => setShowMinimumOrderError(false), 5000);
     } else {
       setIsCreateDialogOpen(true);
     }
   };
+
+  // Auto-hide error when cart total reaches minimum
+  useEffect(() => {
+    if (showMinimumOrderError && cartTotal >= MINIMUM_ORDER_VALUE) {
+      setShowMinimumOrderError(false);
+    }
+  }, [cartTotal, showMinimumOrderError]);
 
   if (authLoading) {
     return (
