@@ -685,34 +685,34 @@ export default function UserGroupPage() {
         {/* Header Section */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-3xl opacity-5"></div>
-          <div className="relative p-8 rounded-3xl border border-purple-200/50 dark:border-purple-800/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
-                    <Package className="w-6 h-6 text-white" />
+          <div className="relative p-4 sm:p-6 lg:p-8 rounded-3xl border border-purple-200/50 dark:border-purple-800/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 sm:gap-6">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex items-start space-x-2 sm:space-x-3">
+                  <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex-shrink-0">
+                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-foreground" data-testid="text-group-name">
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground break-words" data-testid="text-group-name">
                       {userGroup.name}
                     </h1>
-                    <div className="flex items-center space-x-3 mt-1">
-                      <Badge variant={userGroup.isPublic ? "default" : "secondary"} className="flex items-center space-x-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <Badge variant={userGroup.isPublic ? "default" : "secondary"} className="flex items-center space-x-1 text-xs">
                         {userGroup.isPublic ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                         <span>{userGroup.isPublic ? "Public" : "Private"}</span>
                       </Badge>
                       {isOwner && (
-                        <Badge variant="outline" className="text-purple-600 border-purple-300">
+                        <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs">
                           <Crown className="w-3 h-3 mr-1" />
                           Owner
                         </Badge>
                       )}
                       {isLocked && (
-                        <Badge variant="destructive" className="bg-orange-600 text-white border-orange-600">
-                          🔒 Locked (Max Capacity)
+                        <Badge variant="destructive" className="bg-orange-600 text-white border-orange-600 text-xs">
+                          🔒 Locked
                         </Badge>
                       )}
-                      <Badge variant="outline" className={`flex items-center space-x-1 ${
+                      <Badge variant="outline" className={`flex items-center space-x-1 text-xs ${
                         userGroup.deliveryMethod === "pickup" 
                           ? "text-purple-600 border-purple-300 bg-purple-50" 
                           : "text-blue-600 border-blue-300 bg-blue-50"
@@ -720,12 +720,14 @@ export default function UserGroupPage() {
                         {userGroup.deliveryMethod === "pickup" ? (
                           <>
                             <Users className="w-3 h-3" />
-                            <span>Single Location Drop</span>
+                            <span className="hidden sm:inline">Single Location Drop</span>
+                            <span className="sm:hidden">Pickup</span>
                           </>
                         ) : (
                           <>
                             <Truck className="w-3 h-3" />
-                            <span>Deliver to Each Home</span>
+                            <span className="hidden sm:inline">Deliver to Each Home</span>
+                            <span className="sm:hidden">Delivery</span>
                           </>
                         )}
                       </Badge>
@@ -733,21 +735,23 @@ export default function UserGroupPage() {
                   </div>
                 </div>
                 {userGroup.description && (
-                  <p className="text-muted-foreground max-w-2xl" data-testid="text-group-description">
+                  <p className="text-sm sm:text-base text-muted-foreground max-w-2xl" data-testid="text-group-description">
                     {userGroup.description}
                   </p>
                 )}
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-2 sm:gap-3">
                 <Button 
                   variant="outline" 
                   onClick={handleShare}
-                  className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20"
+                  size="sm"
+                  className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20 text-xs sm:text-sm w-full sm:w-auto"
                   data-testid="button-share-group"
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share Popular Group
+                  <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                  <span className="hidden sm:inline">Share Popular Group</span>
+                  <span className="sm:hidden">Share</span>
                 </Button>
                 {isOwner && (
                   <>
@@ -755,12 +759,13 @@ export default function UserGroupPage() {
                       <DialogTrigger asChild>
                         <Button 
                           variant="outline"
-                          className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20"
+                          size="sm"
+                          className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20 text-xs sm:text-sm w-full sm:w-auto"
                           disabled={isLocked}
                           data-testid="button-edit-group"
                         >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit Details
+                          <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          Edit
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-md">
@@ -810,13 +815,14 @@ export default function UserGroupPage() {
                     
                     <Button 
                       variant="outline"
+                      size="sm"
                       onClick={() => setIsDeleteDialogOpen(true)}
                       disabled={isLocked}
-                      className="border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+                      className="border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-xs sm:text-sm w-full sm:w-auto"
                       data-testid="button-delete-group"
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Group
+                      <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                      Delete
                     </Button>
                   </>
                 )}
@@ -920,29 +926,29 @@ export default function UserGroupPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Tabs for Products and Participants */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : (participationStatus?.isApproved ? 'grid-cols-3' : 'grid-cols-2')} bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm mb-6`}>
-                <TabsTrigger value="products" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Items ({totalItems})
+              <TabsList className={`grid w-full ${isOwner ? 'grid-cols-2 sm:grid-cols-4' : (participationStatus?.isApproved ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')} bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm mb-6`}>
+                <TabsTrigger value="products" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 text-xs sm:text-sm">
+                  <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden xs:inline">Items</span> ({totalItems})
                 </TabsTrigger>
                 {(isOwner || participationStatus?.isApproved) && (
-                  <TabsTrigger value="members" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50" data-testid="tab-members">
-                    <Users className="w-4 h-4 mr-2" />
-                    Members ({allMembers.length})
+                  <TabsTrigger value="members" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 text-xs sm:text-sm" data-testid="tab-members">
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="hidden xs:inline">Members</span> ({allMembers.length})
                   </TabsTrigger>
                 )}
                 {(isOwner || participationStatus?.isApproved) && (
-                  <TabsTrigger value="approved" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50" data-testid="tab-approved">
-                    <UserCheck className="w-4 h-4 mr-2" />
-                    Approved ({approvedParticipants.length})
+                  <TabsTrigger value="approved" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 text-xs sm:text-sm" data-testid="tab-approved">
+                    <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="hidden xs:inline">Approved</span> ({approvedParticipants.length})
                   </TabsTrigger>
                 )}
                 {isOwner && (
-                  <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 relative">
-                    <Clock className="w-4 h-4 mr-2" />
-                    Pending ({pendingParticipants.length})
+                  <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 relative text-xs sm:text-sm">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="hidden xs:inline">Pending</span> ({pendingParticipants.length})
                     {pendingParticipants.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white dark:border-gray-800">
+                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center border-2 border-white dark:border-gray-800 text-[10px]">
                         {pendingParticipants.length}
                       </span>
                     )}
@@ -1066,33 +1072,35 @@ export default function UserGroupPage() {
                       return (
                         <div 
                           key={item.id} 
-                          className="flex items-center space-x-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-md transition-shadow"
+                          className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-md transition-shadow"
                           data-testid={`item-${item.id}`}
                         >
-                          <img 
-                            src={item.product.imageUrl || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"} 
-                            alt={item.product.name}
-                            className="w-16 h-16 object-cover rounded-lg"
-                            data-testid={`img-product-${item.product.id}`}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-foreground truncate" data-testid={`text-product-name-${item.product.id}`}>
-                              {item.product.name}
-                            </h4>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                                ${discountPrice.toFixed(2)}
-                              </span>
-                              {savings > 0 && (
-                                <>
-                                  <span className="text-sm text-muted-foreground line-through">
-                                    ${originalPrice.toFixed(2)}
-                                  </span>
-                                  <Badge variant="outline" className="text-green-600 border-green-300">
-                                    Save ${savings.toFixed(2)}
-                                  </Badge>
-                                </>
-                              )}
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <img 
+                              src={item.product.imageUrl || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"} 
+                              alt={item.product.name}
+                              className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg flex-shrink-0"
+                              data-testid={`img-product-${item.product.id}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm sm:text-base text-foreground truncate" data-testid={`text-product-name-${item.product.id}`}>
+                                {item.product.name}
+                              </h4>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                                <span className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400">
+                                  ${discountPrice.toFixed(2)}
+                                </span>
+                                {savings > 0 && (
+                                  <>
+                                    <span className="text-xs sm:text-sm text-muted-foreground line-through">
+                                      ${originalPrice.toFixed(2)}
+                                    </span>
+                                    <Badge variant="outline" className="text-green-600 border-green-300 text-[10px] sm:text-xs">
+                                      Save ${savings.toFixed(2)}
+                                    </Badge>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
@@ -1704,25 +1712,25 @@ export default function UserGroupPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-total-items">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                    <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-total-items">
                       {totalItems}
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Items</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Total Items</p>
                   </div>
-                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-value">
+                  <div className="text-center p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                    <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-value">
                       ${totalValue.toFixed(2)}
                     </p>
-                    <p className="text-sm text-muted-foreground">Popular Group Value</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Popular Group Value</p>
                   </div>
-                  <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-potential-savings">
+                  <div className="text-center p-3 sm:p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                    <p className="text-base sm:text-lg lg:text-xl font-bold text-green-600 dark:text-green-400" data-testid="text-potential-savings">
                       ${potentialSavings.toFixed(2)} per person
                     </p>
-                    <p className="text-sm text-muted-foreground">Potential Savings</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground">Potential Savings</p>
+                    <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 mt-1">
                       (8% discount if 5 people join this group)
                     </p>
                   </div>
