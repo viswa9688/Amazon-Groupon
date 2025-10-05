@@ -846,7 +846,7 @@ export default function UserGroupPage() {
           {/* Delivery Method Control - Always available for owners */}
           {isOwner && (
             <div className="mt-6 p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-purple-200/50 dark:border-purple-800/50">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center space-x-3">
                   <Truck className="w-5 h-5 text-purple-600" />
                   <div>
@@ -863,15 +863,15 @@ export default function UserGroupPage() {
                       return;
                     }
                     deliveryMethodMutation.mutate(data);
-                  })} className="flex items-center space-x-3">
+                  })} className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                     <FormField
                       control={deliveryMethodForm.control}
                       name="deliveryMethod"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex-1 sm:flex-none">
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="w-48">
+                              <SelectTrigger className="w-full sm:w-48">
                                 <SelectValue placeholder="Select delivery method" />
                               </SelectTrigger>
                             </FormControl>
@@ -887,7 +887,7 @@ export default function UserGroupPage() {
                       type="submit" 
                       size="sm"
                       disabled={deliveryMethodMutation.isPending}
-                      className="bg-purple-600 hover:bg-purple-700"
+                      className="bg-purple-600 hover:bg-purple-700 shrink-0"
                     >
                       {deliveryMethodMutation.isPending ? "Updating..." : "Update"}
                     </Button>
