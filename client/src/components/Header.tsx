@@ -23,6 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import PhoneAuthModal from "./PhoneAuthModal";
 import SellerNotifications from "./SellerNotifications";
+import howItWorksImage from "@assets/Info_1759688857805.png";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
@@ -30,6 +31,7 @@ export default function Header() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [sellerIntent, setSellerIntent] = useState(false);
   const [showComingSoonDialog, setShowComingSoonDialog] = useState(false);
+  const [showHowItWorksDialog, setShowHowItWorksDialog] = useState(false);
   const { toast } = useToast();
 
   // Check if admin is impersonating a user
@@ -99,12 +101,16 @@ export default function Header() {
               <HelpCircle className="w-4 h-4" />
               FAQ
             </a>
-            <a
-              href="#"
-              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setShowHowItWorksDialog(true);
+              }}
+              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+              data-testid="link-how-it-works"
             >
               How it Works
-            </a>
+            </button>
             {isAuthenticated && (
               <>
                 <a
@@ -361,12 +367,16 @@ export default function Header() {
               <HelpCircle className="w-4 h-4" />
               FAQ
             </a>
-            <a
-              href="#"
-              className="block py-2 text-foreground hover:text-primary font-medium"
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setShowHowItWorksDialog(true);
+              }}
+              className="block py-2 text-foreground hover:text-primary font-medium text-left w-full"
+              data-testid="mobile-link-how-it-works"
             >
               How it Works
-            </a>
+            </button>
             {isAuthenticated && (
               <>
                 <a
@@ -544,6 +554,37 @@ export default function Header() {
           </DialogHeader>
           <div className="flex justify-end mt-4">
             <Button onClick={() => setShowComingSoonDialog(false)} data-testid="button-close-dialog-header">
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* How it Works Dialog */}
+      <Dialog open={showHowItWorksDialog} onOpenChange={setShowHowItWorksDialog}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-how-it-works">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              How it Works
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Start your group buying journey in 3 simple steps
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <img 
+              src={howItWorksImage} 
+              alt="How OneAnt Works - Group Buying Setup" 
+              className="w-full h-auto rounded-lg shadow-md"
+              data-testid="image-how-it-works"
+            />
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button 
+              onClick={() => setShowHowItWorksDialog(false)} 
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              data-testid="button-close-dialog-how-it-works"
+            >
               Got it
             </Button>
           </div>
