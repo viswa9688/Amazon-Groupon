@@ -28,6 +28,7 @@ import CartCheckout from "@/pages/cart-checkout";
 import ImpersonationLogin from "@/pages/impersonation-login";
 import FAQ from "@/pages/faq";
 import About from "@/pages/about";
+import Unauthorized from "@/pages/unauthorized";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/browse/:category" component={BrowseCategory} />
       <Route path="/faq" component={FAQ} />
       <Route path="/about" component={About} />
+      <Route path="/unauthorized" component={Unauthorized} />
       <Route path="/shared/:shareToken" component={SharedGroup} />
       <Route path="/seller">
         {() => <SellerGuard><SellerDashboard /></SellerGuard>}

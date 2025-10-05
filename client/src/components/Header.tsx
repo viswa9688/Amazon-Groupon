@@ -184,17 +184,6 @@ export default function Header() {
                     <User className="w-4 h-4 mr-2" />
                     Login
                   </Button>
-                  <Button
-                    className="bg-primary hover:bg-primary/90"
-                    onClick={() => {
-                      setSellerIntent(true);
-                      setAuthModalOpen(true);
-                    }}
-                    data-testid="button-sell-on-oneant"
-                  >
-                    <Store className="w-4 h-4 mr-2" />
-                    Sell on OneAnt
-                  </Button>
                 </>
               ) : (
                 <>
@@ -440,16 +429,6 @@ export default function Header() {
                   >
                     <User className="w-4 h-4 mr-2" />
                     Login
-                  </Button>
-                  <Button
-                    className="w-full justify-start bg-primary hover:bg-primary/90"
-                    onClick={() => {
-                      setSellerIntent(true);
-                      setAuthModalOpen(true);
-                    }}
-                  >
-                    <Store className="w-4 h-4 mr-2" />
-                    Sell on OneAnt
                   </Button>
                 </div>
               ) : (

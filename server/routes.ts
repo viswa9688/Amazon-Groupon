@@ -3183,8 +3183,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Seller notification routes (accessible to all authenticated users)
-  app.get('/api/seller/notifications', isAuthenticated, async (req: any, res) => {
+  // Seller notification routes (only accessible to sellers)
+  app.get('/api/seller/notifications', isSellerAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { limit } = req.query;
@@ -3197,7 +3197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/seller/notifications/unread-count', isAuthenticated, async (req: any, res) => {
+  app.get('/api/seller/notifications/unread-count', isSellerAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const count = await storage.getUnreadSellerNotificationCount(userId);
@@ -3208,7 +3208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/seller/notifications/:notificationId/read', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/seller/notifications/:notificationId/read', isSellerAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const notificationId = parseInt(req.params.notificationId);
@@ -3233,7 +3233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/seller/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/seller/notifications/mark-all-read', isSellerAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       await storage.markAllNotificationsAsRead(userId);
@@ -3244,7 +3244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/seller/notifications/:notificationId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/seller/notifications/:notificationId', isSellerAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const notificationId = parseInt(req.params.notificationId);
