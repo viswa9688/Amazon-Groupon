@@ -533,8 +533,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(products)
       .where(eq(products.isActive, true))
-      .orderBy(desc(products.createdAt))
-      .limit(100); // Limit to 100 products for better performance
+      .orderBy(desc(products.createdAt));
     
     if (productList.length === 0) return [];
     
