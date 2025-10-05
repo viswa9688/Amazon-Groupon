@@ -17,10 +17,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Users, Clock, CheckCircle, Package, Plus, Share2, Edit, Trash2, ShoppingCart, Crown, Zap, Eye } from "lucide-react";
+import { Users, Clock, CheckCircle, Package, Plus, Share2, Edit, Trash2, ShoppingCart, Crown, Zap, Eye, AlertCircle } from "lucide-react";
 import GroupProgress from "@/components/GroupProgress";
 import CountdownTimer from "@/components/CountdownTimer";
 import type { GroupPurchaseWithDetails, UserGroupWithDetails, InsertUserGroup } from "@shared/schema";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Form schema for creating user groups
 const createGroupSchema = z.object({
@@ -34,6 +35,9 @@ export default function MyGroups() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [showMinimumOrderError, setShowMinimumOrderError] = useState(false);
+
+  const MINIMUM_ORDER_VALUE = 50;
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -67,6 +71,18 @@ export default function MyGroups() {
     queryKey: ["/api/user-groups/joined"],
     enabled: isAuthenticated,
   });
+
+  // Get cart items to check minimum order value
+  const { data: cartItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/cart"],
+    enabled: isAuthenticated,
+  });
+
+  // Calculate cart total
+  const cartTotal = cartItems.reduce((sum, item) => {
+    const price = parseFloat(item.product?.originalPrice || 0);
+    return sum + (price * item.quantity);
+  }, 0);
 
   // Filter group purchases where user is participating
   const myGroupPurchases = allGroupPurchases?.filter(gp => {
@@ -165,6 +181,15 @@ export default function MyGroups() {
     }
   };
 
+  const handleCreateGroupClick = () => {
+    if (cartTotal < MINIMUM_ORDER_VALUE) {
+      setShowMinimumOrderError(true);
+      setTimeout(() => setShowMinimumOrderError(false), 5000);
+    } else {
+      setIsCreateDialogOpen(true);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -223,6 +248,34 @@ export default function MyGroups() {
           </div>
         </div>
 
+        {/* Minimum Order Error Alert */}
+        {showMinimumOrderError && (
+          <Alert variant="destructive" className="mb-6 border-red-500 bg-red-50 dark:bg-red-950/50" data-testid="alert-minimum-order-error">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle className="text-lg font-semibold">Minimum Order Value Required</AlertTitle>
+            <AlertDescription className="mt-2 space-y-2">
+              <p className="text-base">
+                To create a group, your cart must have a minimum value of <span className="font-bold">${MINIMUM_ORDER_VALUE.toFixed(2)}</span>.
+              </p>
+              <p className="text-sm">
+                Current cart total: <span className="font-semibold">${cartTotal.toFixed(2)}</span>
+              </p>
+              <p className="text-sm">
+                Please add <span className="font-bold text-red-700 dark:text-red-400">${(MINIMUM_ORDER_VALUE - cartTotal).toFixed(2)}</span> more to your cart to create a group.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 border-red-500 text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
+                onClick={() => window.location.href = '/browse'}
+                data-testid="button-browse-products"
+              >
+                Browse Products
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Premium Tabs */}
         <Tabs defaultValue="joined" className="space-y-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -237,13 +290,16 @@ export default function MyGroups() {
               </TabsTrigger>
             </TabsList>
 
+            <Button 
+              onClick={handleCreateGroupClick}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg" 
+              data-testid="button-create-group"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Group
+            </Button>
+
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg" data-testid="button-create-group">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Group
-                </Button>
-              </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center space-x-2">
