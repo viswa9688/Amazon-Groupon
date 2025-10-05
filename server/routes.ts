@@ -2247,6 +2247,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Cannot modify items after payment has been made" });
       }
 
+      // Check minimum cart value before deletion
+      const MINIMUM_ORDER_VALUE = 50;
+      if (existingGroup.items && existingGroup.items.length > 0) {
+        // Calculate cart total after removing this item
+        const cartTotalAfterDeletion = existingGroup.items.reduce((sum, item) => {
+          // Skip the item being deleted
+          if (item.product.id === productId) {
+            return sum;
+          }
+          
+          // Use discountTiers[0].finalPrice if available, otherwise originalPrice
+          const price = item.product.discountTiers && item.product.discountTiers.length > 0
+            ? parseFloat(item.product.discountTiers[0].finalPrice)
+            : parseFloat(item.product.originalPrice);
+          
+          return sum + (price * item.quantity);
+        }, 0);
+
+        // Only enforce minimum if there will be items remaining
+        const remainingItemsCount = existingGroup.items.filter(item => item.product.id !== productId).length;
+        if (remainingItemsCount > 0 && cartTotalAfterDeletion < MINIMUM_ORDER_VALUE) {
+          return res.status(400).json({ 
+            message: `Cannot reduce cart below $${MINIMUM_ORDER_VALUE} minimum. Cart value would be $${cartTotalAfterDeletion.toFixed(2)} after removal. Please add more items first.`
+          });
+        }
+      }
+
       const success = await storage.removeItemFromUserGroup(groupId, productId);
       if (success) {
         res.json({ message: "Item removed from user group" });
@@ -2284,6 +2311,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { quantity } = req.body;
       if (!quantity || quantity < 1) {
         return res.status(400).json({ message: "Valid quantity is required" });
+      }
+
+      // Check minimum cart value with new quantity
+      const MINIMUM_ORDER_VALUE = 50;
+      if (existingGroup.items && existingGroup.items.length > 0) {
+        // Calculate cart total with new quantity
+        const cartTotalWithNewQuantity = existingGroup.items.reduce((sum, item) => {
+          // Use discountTiers[0].finalPrice if available, otherwise originalPrice
+          const price = item.product.discountTiers && item.product.discountTiers.length > 0
+            ? parseFloat(item.product.discountTiers[0].finalPrice)
+            : parseFloat(item.product.originalPrice);
+          
+          // Use new quantity for the item being updated, otherwise use existing quantity
+          const itemQuantity = item.product.id === productId ? quantity : item.quantity;
+          
+          return sum + (price * itemQuantity);
+        }, 0);
+
+        if (cartTotalWithNewQuantity < MINIMUM_ORDER_VALUE) {
+          return res.status(400).json({ 
+            message: `Cannot reduce cart below $${MINIMUM_ORDER_VALUE} minimum. Cart value would be $${cartTotalWithNewQuantity.toFixed(2)} with this change. Please add more items first.`
+          });
+        }
       }
 
       const updatedItem = await storage.updateUserGroupItemQuantity(groupId, productId, quantity);
