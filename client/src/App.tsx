@@ -26,6 +26,7 @@ import SellerAnalytics from "@/pages/seller-analytics";
 import Cart from "@/pages/cart.tsx";
 import CartCheckout from "@/pages/cart-checkout";
 import ImpersonationLogin from "@/pages/impersonation-login";
+import FAQ from "@/pages/faq";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/" component={Browse} />
       <Route path="/browse" component={Browse} />
       <Route path="/browse/:category" component={BrowseCategory} />
+      <Route path="/faq" component={FAQ} />
       <Route path="/shared/:shareToken" component={SharedGroup} />
       <Route path="/seller">
         {() => <SellerGuard><SellerDashboard /></SellerGuard>}
