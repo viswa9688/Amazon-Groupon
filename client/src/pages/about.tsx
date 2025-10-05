@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Target, Eye, Heart, TrendingUp, Home } from "lucide-react";
 import { useEffect, useState } from "react";
+import AntNetwork from "@/components/AntNetwork";
 
 export default function About() {
   const [scrollY, setScrollY] = useState(0);
@@ -35,6 +36,15 @@ export default function About() {
           <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             Building a colony where everyone thrives
           </p>
+        </div>
+
+        {/* Ant Network Animation */}
+        <div 
+          className={`mb-12 sm:mb-16 transition-all duration-1000 delay-150 ${
+            isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+          }`}
+        >
+          <AntNetwork />
         </div>
 
         {/* Our Tale Section */}
