@@ -938,9 +938,14 @@ export default function UserGroupPage() {
                   </TabsTrigger>
                 )}
                 {isOwner && (
-                  <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50">
+                  <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 relative">
                     <Clock className="w-4 h-4 mr-2" />
                     Pending ({pendingParticipants.length})
+                    {pendingParticipants.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white dark:border-gray-800">
+                        {pendingParticipants.length}
+                      </span>
+                    )}
                   </TabsTrigger>
                 )}
               </TabsList>
