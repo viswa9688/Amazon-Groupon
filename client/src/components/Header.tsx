@@ -94,6 +94,13 @@ export default function Header() {
               Browse
             </a>
             <a
+              href="/about"
+              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+              data-testid="link-about"
+            >
+              About Us
+            </a>
+            <a
               href="/faq"
               className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50 flex items-center gap-1"
               data-testid="link-faq"
@@ -358,6 +365,13 @@ export default function Header() {
               data-testid="mobile-link-browse"
             >
               Browse
+            </a>
+            <a
+              href="/about"
+              className="block py-2 text-foreground hover:text-primary font-medium"
+              data-testid="mobile-link-about"
+            >
+              About Us
             </a>
             <a
               href="/faq"
