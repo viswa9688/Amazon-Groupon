@@ -193,7 +193,7 @@ const PaymentForm = ({
           await apiRequest("POST", "/api/orders/group", {
             totalPrice: totalOrderPrice.toFixed(2),
             finalPrice: totalOrderPrice.toFixed(2),
-            status: "completed",
+            status: "pending",
             type: "group",
             addressId: selectedAddressId,
             payerId: payerId,
