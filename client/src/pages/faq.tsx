@@ -117,16 +117,16 @@ export default function FAQ() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 via-pink-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-b from-red-50 via-orange-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Header />
       
       <div className="container mx-auto px-4 py-8 sm:py-12 max-w-4xl">
         {/* Hero Section */}
         <div className="text-center mb-8 sm:mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 mb-4 sm:mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-red-500 to-red-600 mb-4 sm:mb-6">
             <HelpCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-3 sm:mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent mb-3 sm:mb-4">
             Frequently Asked Questions
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
@@ -138,8 +138,8 @@ export default function FAQ() {
         <div className="space-y-6 sm:space-y-8 mb-8 sm:mb-12">
           {faqSections.map((section, sectionIndex) => (
             <Card key={sectionIndex} className="border-2 shadow-lg overflow-hidden" data-testid={`card-faq-section-${sectionIndex}`}>
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-700 border-b">
-                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 text-purple-700 dark:text-purple-300">
+              <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-gray-800 dark:to-gray-700 border-b">
+                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 text-red-700 dark:text-red-300">
                   {section.title}
                 </CardTitle>
               </CardHeader>
@@ -147,7 +147,7 @@ export default function FAQ() {
                 <Accordion type="single" collapsible className="w-full">
                   {section.questions.map((item, qIndex) => (
                     <AccordionItem key={qIndex} value={`item-${sectionIndex}-${qIndex}`} data-testid={`accordion-item-${sectionIndex}-${qIndex}`}>
-                      <AccordionTrigger className="text-left text-sm sm:text-base font-medium hover:text-purple-600 dark:hover:text-purple-400" data-testid={`accordion-trigger-${sectionIndex}-${qIndex}`}>
+                      <AccordionTrigger className="text-left text-sm sm:text-base font-medium hover:text-red-600 dark:hover:text-red-400" data-testid={`accordion-trigger-${sectionIndex}-${qIndex}`}>
                         {item.q}
                       </AccordionTrigger>
                       <AccordionContent className="text-sm sm:text-base text-muted-foreground whitespace-pre-line leading-relaxed" data-testid={`accordion-content-${sectionIndex}-${qIndex}`}>
@@ -162,9 +162,9 @@ export default function FAQ() {
         </div>
 
         {/* Contact Section */}
-        <Card className="border-2 border-purple-200 dark:border-purple-800 shadow-xl bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-700">
+        <Card className="border-2 border-red-200 dark:border-red-800 shadow-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-800 dark:to-gray-700">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
               Still Have Questions?
             </CardTitle>
             <CardDescription className="text-base sm:text-lg mt-2">
@@ -175,20 +175,20 @@ export default function FAQ() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
               <a 
                 href="mailto:support@oneant.ca"
-                className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors group"
+                className="flex items-center gap-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors group"
                 data-testid="link-email-support"
               >
-                <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900 group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
+                <div className="p-2 rounded-full bg-red-100 dark:bg-red-900 group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors">
                   <Mail className="w-5 h-5" />
                 </div>
                 <span className="text-sm sm:text-base font-medium">support@oneant.ca</span>
               </a>
               <a 
                 href="tel:+16042138455"
-                className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors group"
+                className="flex items-center gap-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors group"
                 data-testid="link-phone-support"
               >
-                <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900 group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
+                <div className="p-2 rounded-full bg-red-100 dark:bg-red-900 group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors">
                   <Phone className="w-5 h-5" />
                 </div>
                 <span className="text-sm sm:text-base font-medium">604-213-8455</span>
