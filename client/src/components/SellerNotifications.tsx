@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import type { SellerNotification } from "@shared/schema";
 
 interface SellerNotificationsProps {
@@ -39,6 +40,7 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const [, setLocation] = useLocation();
   
   // Initialize real-time notifications
   const { isConnected, connectionError, reconnect, ping } = useWebSocketNotifications();
@@ -169,6 +171,21 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
     deleteNotificationMutation.mutate(notificationId);
   };
 
+  const handleNotificationClick = (notification: SellerNotification) => {
+    // For join request notifications, redirect to the group page
+    if (notification.type === "group_join_request" && notification.data) {
+      const data = notification.data as { groupId?: number };
+      if (data.groupId) {
+        setIsOpen(false);
+        setLocation(`/my-groups`);
+        // Mark as read when clicked
+        if (!notification.isRead) {
+          markAsReadMutation.mutate(notification.id);
+        }
+      }
+    }
+  };
+
 
   // Debug: Show component for all authenticated users for testing
   if (!isAuthenticated) {
@@ -263,59 +280,73 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
             </div>
           ) : (
             <div className="space-y-2">
-              {notifications.map((notification, index) => (
-                <div key={notification.id}>
-                  <Card className={`${!notification.isRead ? 'border-l-4 border-l-primary' : ''}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3 flex-1">
-                          {getNotificationIcon(notification.type, notification.priority)}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h4 className="text-sm font-medium truncate">
-                                {notification.title}
-                              </h4>
-                              <Badge variant={getPriorityColor(notification.priority)} className="text-xs">
-                                {notification.priority}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {notification.message}
-                            </p>
-                            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                              <Clock className="w-3 h-3" />
-                              <span>
-                                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                              </span>
+              {notifications.map((notification, index) => {
+                const isClickable = notification.type === "group_join_request" && notification.data && (notification.data as any).groupId;
+                return (
+                  <div key={notification.id}>
+                    <Card 
+                      className={`${!notification.isRead ? 'border-l-4 border-l-primary' : ''} ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+                      onClick={() => isClickable && handleNotificationClick(notification)}
+                      data-testid={`notification-${notification.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            {getNotificationIcon(notification.type, notification.priority)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h4 className="text-sm font-medium truncate">
+                                  {notification.title}
+                                </h4>
+                                <Badge variant={getPriorityColor(notification.priority)} className="text-xs">
+                                  {notification.priority}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {notification.message}
+                              </p>
+                              {isClickable && (
+                                <p className="text-xs text-primary font-medium mb-2">
+                                  Click to view group and approve
+                                </p>
+                              )}
+                              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-1 ml-2">
-                          {!notification.isRead && (
+                          <div className="flex items-center space-x-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                            {!notification.isRead && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleMarkAsRead(notification.id)}
+                                disabled={markAsReadMutation.isPending}
+                                data-testid={`button-mark-read-${notification.id}`}
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleMarkAsRead(notification.id)}
-                              disabled={markAsReadMutation.isPending}
+                              onClick={() => handleDelete(notification.id)}
+                              disabled={deleteNotificationMutation.isPending}
+                              data-testid={`button-delete-${notification.id}`}
                             >
-                              <Check className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(notification.id)}
-                            disabled={deleteNotificationMutation.isPending}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  {index < notifications.length - 1 && <Separator />}
-                </div>
-              ))}
+                      </CardContent>
+                    </Card>
+                    {index < notifications.length - 1 && <Separator />}
+                  </div>
+                );
+              })}
             </div>
           )}
         </ScrollArea>
