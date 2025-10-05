@@ -177,7 +177,7 @@ export default function SellerNotifications({ className }: SellerNotificationsPr
       const data = notification.data as { groupId?: number };
       if (data.groupId) {
         setIsOpen(false);
-        setLocation(`/my-groups`);
+        setLocation(`/user-group/${data.groupId}`);
         // Mark as read when clicked
         if (!notification.isRead) {
           markAsReadMutation.mutate(notification.id);
