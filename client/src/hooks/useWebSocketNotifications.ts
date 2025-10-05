@@ -45,15 +45,11 @@ export function useWebSocketNotifications() {
       // Use explicit WebSocket URL from environment variable
       wsUrl = `${import.meta.env.VITE_WEBSOCKET_URL}/ws/notifications?userId=${user.id}`;
     } else {
-      // Fallback to constructing from current location
-      let host = window.location.host;
+      // Construct WebSocket URL from current location
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
       
-      // If host is undefined or doesn't contain a port, use localhost:5000 as fallback
-      if (!host || host === 'localhost' || !host.includes(':')) {
-        host = 'localhost:5000';
-      }
-      
-      wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}/ws/notifications?userId=${user.id}`;
+      wsUrl = `${protocol}//${host}/ws/notifications?userId=${user.id}`;
     }
     console.log('🔌 WebSocket: Connecting to:', wsUrl);
     
