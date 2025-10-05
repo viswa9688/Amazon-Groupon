@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles, Zap, BarChart3 } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Users, Target, TrendingDown, Sparkles, Zap, BarChart3, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/Header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface CartItem {
   id: number;
@@ -135,6 +136,9 @@ export default function Cart() {
   const [expandedStrategies, setExpandedStrategies] = useState<Set<number>>(new Set());
   const [showCreateCollection, setShowCreateCollection] = useState(false);
   const [collectionName, setCollectionName] = useState("");
+  const [showMinimumOrderError, setShowMinimumOrderError] = useState(false);
+
+  const MINIMUM_ORDER_VALUE = 50;
 
   // Fetch cart items
   const { data: cartItems = [], isLoading: cartLoading } = useQuery<CartItem[]>({
@@ -262,6 +266,16 @@ export default function Cart() {
 
     // Redirect to multi-item cart checkout page
     setLocation("/cart-checkout");
+  };
+
+  const handleCreateGroupClick = () => {
+    const cartTotal = calculateCartTotal();
+    if (cartTotal < MINIMUM_ORDER_VALUE) {
+      setShowMinimumOrderError(true);
+      setTimeout(() => setShowMinimumOrderError(false), 5000);
+    } else {
+      setShowCreateCollection(true);
+    }
   };
 
   const handleShowSuggestions = () => {
@@ -851,6 +865,25 @@ export default function Cart() {
               </Card>
             )}
 
+            {/* Minimum Order Error Alert */}
+            {showMinimumOrderError && (
+              <Alert variant="destructive" className="mb-4 border-red-500 bg-red-50 dark:bg-red-950/50" data-testid="alert-minimum-order-error-cart">
+                <AlertCircle className="h-5 w-5" />
+                <AlertTitle className="text-lg font-semibold">Minimum Order Value Required</AlertTitle>
+                <AlertDescription className="mt-2 space-y-2">
+                  <p className="text-base">
+                    To create a group, your cart must have a minimum value of <span className="font-bold">${MINIMUM_ORDER_VALUE.toFixed(2)}</span>.
+                  </p>
+                  <p className="text-sm">
+                    Current cart total: <span className="font-semibold">${calculateCartTotal().toFixed(2)}</span>
+                  </p>
+                  <p className="text-sm">
+                    Please add <span className="font-bold text-red-700 dark:text-red-400">${(MINIMUM_ORDER_VALUE - calculateCartTotal()).toFixed(2)}</span> more to your cart to create a group.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-3">
               <Link href="/browse">
@@ -859,7 +892,7 @@ export default function Cart() {
                 </Button>
               </Link>
               <Button
-                onClick={() => setShowCreateCollection(true)}
+                onClick={handleCreateGroupClick}
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
                 disabled={createCollectionFromCart.isPending}
                 data-testid="button-create-own-collection"
