@@ -2175,6 +2175,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/user-groups/:id/payment-locked', isAuthenticated, async (req: any, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+
+      const isPaymentLocked = await storage.hasGroupPayments(groupId);
+      res.json({ isPaymentLocked });
+    } catch (error) {
+      console.error("Error checking payment lock status:", error);
+      res.status(500).json({ message: "Failed to check payment lock status" });
+    }
+  });
+
   app.post('/api/user-groups/:id/items', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -2188,6 +2204,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingGroup = await storage.getUserGroup(groupId);
       if (!existingGroup || existingGroup.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Check if payments exist for this group
+      const hasPayments = await storage.hasGroupPayments(groupId);
+      if (hasPayments) {
+        return res.status(403).json({ message: "Cannot modify items after payment has been made" });
       }
 
       const { productId, quantity = 1 } = req.body;
@@ -2219,6 +2241,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      // Check if payments exist for this group
+      const hasPayments = await storage.hasGroupPayments(groupId);
+      if (hasPayments) {
+        return res.status(403).json({ message: "Cannot modify items after payment has been made" });
+      }
+
       const success = await storage.removeItemFromUserGroup(groupId, productId);
       if (success) {
         res.json({ message: "Item removed from user group" });
@@ -2245,6 +2273,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingGroup = await storage.getUserGroup(groupId);
       if (!existingGroup || existingGroup.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Check if payments exist for this group
+      const hasPayments = await storage.hasGroupPayments(groupId);
+      if (hasPayments) {
+        return res.status(403).json({ message: "Cannot modify items after payment has been made" });
       }
 
       const { quantity } = req.body;

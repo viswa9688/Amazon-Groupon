@@ -188,6 +188,7 @@ export interface IStorage {
   updateGroupPaymentStatus(paymentId: number, status: string): Promise<GroupPayment>;
   updateGroupPaymentStripeIntent(paymentId: number, stripePaymentIntentId: string): Promise<GroupPayment>;
   hasUserPaidForProduct(userId: string, userGroupId: number, productId: number): Promise<boolean>;
+  hasGroupPayments(userGroupId: number): Promise<boolean>;
   
   // Group matching and optimization operations
   findSimilarGroups(userId: string): Promise<Array<{
@@ -2329,6 +2330,15 @@ export class DatabaseStorage implements IStorage {
         eq(groupPayments.productId, productId),
         eq(groupPayments.status, "succeeded")
       ))
+      .limit(1);
+    return !!payment;
+  }
+
+  async hasGroupPayments(userGroupId: number): Promise<boolean> {
+    const [payment] = await db
+      .select({ id: groupPayments.id })
+      .from(groupPayments)
+      .where(eq(groupPayments.userGroupId, userGroupId))
       .limit(1);
     return !!payment;
   }

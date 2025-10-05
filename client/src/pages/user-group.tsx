@@ -159,6 +159,14 @@ export default function UserGroupPage() {
 
   const isLocked = lockedStatus?.isLocked || false;
 
+  // Check if group is payment-locked (has any payments)
+  const { data: paymentLockedStatus, isLoading: paymentLockedLoading } = useQuery<{ isPaymentLocked: boolean }>({
+    queryKey: [`/api/user-groups/${groupId}/payment-locked`],
+    enabled: isAuthenticated && !!groupId,
+  });
+
+  const isPaymentLocked = paymentLockedStatus?.isPaymentLocked || false;
+
   const isApprovedParticipant = participationStatus?.isApproved || false;
 
   // Force refetch payment status when component mounts or groupId changes
@@ -712,6 +720,11 @@ export default function UserGroupPage() {
                           🔒 Locked
                         </Badge>
                       )}
+                      {isPaymentLocked && (
+                        <Badge variant="destructive" className="bg-red-600 text-white border-red-600 text-xs">
+                          🔒 Cart Frozen - Payment Made
+                        </Badge>
+                      )}
                       <Badge variant="outline" className={`flex items-center space-x-1 text-xs ${
                         userGroup.deliveryMethod === "pickup" 
                           ? "text-purple-600 border-purple-300 bg-purple-50" 
@@ -761,7 +774,7 @@ export default function UserGroupPage() {
                           variant="outline"
                           size="sm"
                           className="border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/20 text-xs sm:text-sm w-full sm:w-auto"
-                          disabled={isLocked}
+                          disabled={isLocked || isPaymentLocked}
                           data-testid="button-edit-group"
                         >
                           <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
@@ -1111,7 +1124,7 @@ export default function UserGroupPage() {
                                 size="sm" 
                                 variant="outline"
                                 onClick={() => item.quantity > 1 && updateQuantityMutation.mutate({ productId: item.productId, quantity: item.quantity - 1 })}
-                                disabled={item.quantity <= 1 || updateQuantityMutation.isPending}
+                                disabled={item.quantity <= 1 || updateQuantityMutation.isPending || isPaymentLocked}
                                 data-testid={`button-decrease-quantity-${item.product.id}`}
                               >
                                 <Minus className="w-3 h-3" />
@@ -1126,7 +1139,7 @@ export default function UserGroupPage() {
                                   size="sm" 
                                   variant="outline"
                                   onClick={() => updateQuantityMutation.mutate({ productId: item.productId, quantity: item.quantity + 1 })}
-                                  disabled={updateQuantityMutation.isPending}
+                                  disabled={updateQuantityMutation.isPending || isPaymentLocked}
                                   data-testid={`button-increase-quantity-${item.product.id}`}
                                 >
                                   <Plus className="w-3 h-3" />
