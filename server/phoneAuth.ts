@@ -38,6 +38,10 @@ export async function setupPhoneAuth(app: Express) {
         return res.status(400).json({ message: "Phone number is required" });
       }
 
+      // Check if user already exists
+      const existingUser = await storage.getUserByPhone(phoneNumber);
+      const isNewUser = !existingUser;
+
       // Send OTP via Twilio
       const result = await otpService.sendOTP(phoneNumber);
       
@@ -54,12 +58,14 @@ export async function setupPhoneAuth(app: Express) {
         otp: result.otp,
         createdAt: new Date().toISOString(), // Store as ISO string to avoid serialization issues
         sellerIntent: sellerIntent || false, // Persist seller intent in session
+        isNewUser, // Store whether this is a new user
       };
 
       console.log(`OTP sent to ${phoneNumber}: ${result.otp}`);
       
       res.json({ 
         message: result.message,
+        isNewUser, // Return isNewUser flag to frontend
         // In development, return the OTP for testing
         ...(process.env.NODE_ENV === 'development' && { otp: result.otp })
       });
@@ -77,15 +83,16 @@ export async function setupPhoneAuth(app: Express) {
       if (!phoneNumber || !otp) {
         return res.status(400).json({ message: "Phone number and OTP are required" });
       }
-      
-      if (!firstName || !firstName.trim()) {
-        return res.status(400).json({ message: "Name is required" });
-      }
 
       const pendingAuth = (req.session as any).pendingAuth;
       
       if (!pendingAuth || pendingAuth.phoneNumber !== phoneNumber) {
         return res.status(400).json({ message: "Invalid verification session" });
+      }
+      
+      // Only require firstName for new users
+      if (pendingAuth.isNewUser && (!firstName || !firstName.trim())) {
+        return res.status(400).json({ message: "Name is required for new users" });
       }
 
       // Check if OTP is expired
@@ -108,6 +115,7 @@ export async function setupPhoneAuth(app: Express) {
         let user = await storage.getUserByPhone(phoneNumber);
         
         if (!user) {
+          // New user - create with provided firstName
           user = await storage.createUserWithPhone({
             phoneNumber,
             firstName: firstName.trim(),
@@ -115,11 +123,10 @@ export async function setupPhoneAuth(app: Express) {
             isSeller: wantsSeller,
           });
         } else {
-          // Update existing user with new firstName if provided
-          user = await storage.updateUserProfile(user.id, { 
-            firstName: firstName.trim(),
-            ...(wantsSeller && !user.isSeller ? { isSeller: true } : {})
-          });
+          // Existing user - only update seller status if needed, don't update firstName
+          if (wantsSeller && !user.isSeller) {
+            user = await storage.updateUserProfile(user.id, { isSeller: true });
+          }
         }
 
         // Set user session
