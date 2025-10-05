@@ -941,25 +941,25 @@ export default function UserGroupPage() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className={`grid w-full ${isOwner ? 'grid-cols-2 sm:grid-cols-4' : (participationStatus?.isApproved ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')} bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm mb-6`}>
                 <TabsTrigger value="products" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 text-xs sm:text-sm">
-                  <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  <span className="hidden xs:inline">Items</span> ({totalItems})
+                  <ShoppingCart className="hidden sm:inline-flex w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="inline">Items</span> ({totalItems})
                 </TabsTrigger>
                 {(isOwner || participationStatus?.isApproved) && (
                   <TabsTrigger value="members" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 text-xs sm:text-sm" data-testid="tab-members">
-                    <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="hidden xs:inline">Members</span> ({allMembers.length})
+                    <Users className="hidden sm:inline-flex w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="inline">Members</span> ({allMembers.length})
                   </TabsTrigger>
                 )}
                 {(isOwner || participationStatus?.isApproved) && (
                   <TabsTrigger value="approved" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 text-xs sm:text-sm" data-testid="tab-approved">
-                    <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="hidden xs:inline">Approved</span> ({approvedParticipants.length})
+                    <UserCheck className="hidden sm:inline-flex w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="inline">Approved</span> ({approvedParticipants.length})
                   </TabsTrigger>
                 )}
                 {isOwner && (
                   <TabsTrigger value="pending" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/50 relative text-xs sm:text-sm">
-                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="hidden xs:inline">Pending</span> ({pendingParticipants.length})
+                    <Clock className="hidden sm:inline-flex w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="inline">Pending</span> ({pendingParticipants.length})
                     {pendingParticipants.length > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center border-2 border-white dark:border-gray-800 text-[10px]">
                         {pendingParticipants.length}
