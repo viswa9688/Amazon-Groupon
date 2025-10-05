@@ -296,15 +296,6 @@ export default function MyGroups() {
               </TabsTrigger>
             </TabsList>
 
-            <Button 
-              onClick={handleCreateGroupClick}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg" 
-              data-testid="button-create-group"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Group
-            </Button>
-
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
