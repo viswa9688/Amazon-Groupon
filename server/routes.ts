@@ -3145,6 +3145,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/seller/orders/:orderId/group-details', isSellerAuthenticated, async (req: any, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+      const sellerId = req.user.claims.sub;
+      
+      // Get the order first to check if it belongs to seller's products
+      const order = await storage.getOrder(orderId);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Check if order has a userGroupId
+      if (!order.userGroupId) {
+        return res.status(400).json({ message: "This is not a group order" });
+      }
+
+      // Verify order belongs to seller by checking order items
+      const orderWithItems = await storage.getOrderWithItems(orderId);
+      if (!orderWithItems) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Check if any product in the order belongs to the seller
+      const sellerOwnsOrder = orderWithItems.items.some(
+        item => item.product.sellerId === sellerId
+      );
+
+      if (!sellerOwnsOrder) {
+        return res.status(403).json({ message: "Unauthorized to view this order" });
+      }
+
+      // Fetch group order details
+      const groupDetails = await storage.getGroupOrderDetails(order.userGroupId);
+      
+      if (!groupDetails) {
+        return res.status(404).json({ message: "Group details not found" });
+      }
+
+      res.json(groupDetails);
+    } catch (error) {
+      console.error("Error fetching group order details:", error);
+      res.status(500).json({ message: "Failed to fetch group order details" });
+    }
+  });
+
   app.get('/api/seller/metrics', isSellerAuthenticated, async (req: any, res) => {
     const startTime = performance.now();
     try {

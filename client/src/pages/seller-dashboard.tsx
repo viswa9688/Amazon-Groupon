@@ -69,6 +69,9 @@ import {
   Globe,
   RefreshCw,
   FileSpreadsheet,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -262,6 +265,8 @@ export default function SellerDashboard() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] =
     useState<ProductWithDetails | null>(null);
+  const [expandedGroupOrders, setExpandedGroupOrders] = useState<Set<number>>(new Set());
+  const [groupDetailsCache, setGroupDetailsCache] = useState<Map<number, any>>(new Map());
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -895,6 +900,36 @@ export default function SellerDashboard() {
 
   const handleStatusUpdate = (orderId: number, status: string) => {
     updateOrderStatusMutation.mutate({ orderId, status });
+  };
+
+  const toggleGroupDetails = async (orderId: number) => {
+    const newExpanded = new Set(expandedGroupOrders);
+    
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+      
+      // Fetch group details if not cached
+      if (!groupDetailsCache.has(orderId)) {
+        try {
+          const response = await fetch(`/api/seller/orders/${orderId}/group-details`);
+          if (response.ok) {
+            const groupDetails = await response.json();
+            setGroupDetailsCache(prev => new Map(prev).set(orderId, groupDetails));
+          }
+        } catch (error) {
+          console.error("Error fetching group details:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load group details",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+    
+    setExpandedGroupOrders(newExpanded);
   };
 
   // Show loading only for authentication, not for individual data loading
@@ -2781,17 +2816,162 @@ export default function SellerDashboard() {
                 </div>
               ) : orders && orders.length > 0 ? (
                 <div className="space-y-4">
-                  {orders.map((order: Order) => (
+                  {orders.map((order: any) => {
+                    const isGroupOrder = order.userGroupId && order.userGroup;
+                    const isExpanded = expandedGroupOrders.has(order.id);
+                    const groupDetails = groupDetailsCache.get(order.id);
+                    
+                    return (
                     <Card key={order.id} className="p-4">
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-semibold">Order #{order.id}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Status: {order.status}
-                            </p>
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <h4 className="font-semibold">Order #{order.id}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Status: {order.status}
+                              </p>
+                            </div>
+                            {isGroupOrder && (
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                                data-testid={`badge-group-order-${order.id}`}
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                Group Order
+                              </Badge>
+                            )}
                           </div>
                         </div>
+                        
+                        {isGroupOrder && (
+                          <div className="border-t pt-3">
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between hover:bg-purple-50 dark:hover:bg-purple-950"
+                              onClick={() => toggleGroupDetails(order.id)}
+                              data-testid={`button-toggle-group-${order.id}`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                View Group Details: {order.userGroup.name}
+                              </span>
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            
+                            {isExpanded && groupDetails && (
+                              <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-950 rounded-lg border border-purple-200 dark:border-purple-800 space-y-4">
+                                {/* Delivery Method */}
+                                <div className="flex items-center gap-2 pb-2 border-b border-purple-200 dark:border-purple-800">
+                                  {groupDetails.deliveryMethod === 'pickup' ? (
+                                    <Badge variant="outline" className="border-blue-500 text-blue-700 dark:text-blue-300">
+                                      <Truck className="w-3 h-3 mr-1" />
+                                      Pickup
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-300">
+                                      <Home className="w-3 h-3 mr-1" />
+                                      Home Delivery
+                                    </Badge>
+                                  )}
+                                  <span className="text-sm text-muted-foreground ml-2">
+                                    Created: {new Date(groupDetails.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+
+                                {/* Group Info */}
+                                <div>
+                                  <p className="text-sm text-muted-foreground mb-1">Group Owner</p>
+                                  <p className="font-medium">
+                                    {groupDetails.owner.firstName} {groupDetails.owner.lastName} - {groupDetails.owner.phoneNumber}
+                                  </p>
+                                </div>
+
+                                {/* Payment Status */}
+                                <div>
+                                  <p className="text-sm font-medium mb-2">Payment Status ({groupDetails.participants.length} members)</p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {groupDetails.participants.map((participant: any) => (
+                                      <div 
+                                        key={participant.id}
+                                        className={`p-2 rounded-md border ${
+                                          participant.paymentStatus === 'succeeded' 
+                                            ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' 
+                                            : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800'
+                                        }`}
+                                        data-testid={`payment-status-${participant.userId}`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            {participant.paymentStatus === 'succeeded' ? (
+                                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                            ) : (
+                                              <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                            )}
+                                            <span className="text-sm font-medium">
+                                              {participant.firstName} {participant.lastName}
+                                            </span>
+                                          </div>
+                                          <span className="text-xs text-muted-foreground">
+                                            ${participant.paymentAmount}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Addresses */}
+                                <div>
+                                  {groupDetails.deliveryMethod === 'pickup' && groupDetails.pickupAddress ? (
+                                    <div>
+                                      <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                                        <MapPin className="w-4 h-4" />
+                                        Pickup Location
+                                      </p>
+                                      <div className="p-3 bg-white dark:bg-gray-900 rounded-md border">
+                                        <p className="font-medium">{groupDetails.pickupAddress.fullName}</p>
+                                        <p className="text-sm text-muted-foreground">{groupDetails.pickupAddress.phoneNumber}</p>
+                                        <p className="text-sm mt-1">{groupDetails.pickupAddress.addressLine}</p>
+                                        <p className="text-sm">
+                                          {groupDetails.pickupAddress.city}, {groupDetails.pickupAddress.state} {groupDetails.pickupAddress.pincode}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                                        <MapPin className="w-4 h-4" />
+                                        Delivery Addresses ({groupDetails.participants.filter((p: any) => p.deliveryAddress).length})
+                                      </p>
+                                      <div className="space-y-2">
+                                        {groupDetails.participants.map((participant: any) => 
+                                          participant.deliveryAddress && (
+                                            <div 
+                                              key={participant.id}
+                                              className="p-3 bg-white dark:bg-gray-900 rounded-md border"
+                                              data-testid={`address-${participant.userId}`}
+                                            >
+                                              <p className="font-medium">
+                                                {participant.firstName} {participant.lastName}
+                                              </p>
+                                              <p className="text-sm text-muted-foreground">{participant.deliveryAddress.phoneNumber}</p>
+                                              <p className="text-sm mt-1">{participant.deliveryAddress.addressLine}</p>
+                                              <p className="text-sm">
+                                                {participant.deliveryAddress.city}, {participant.deliveryAddress.state} {participant.deliveryAddress.pincode}
+                                              </p>
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         
                         {/* Delivery Information */}
                         <DeliveryInfo
@@ -2980,7 +3160,8 @@ export default function SellerDashboard() {
                         </div>
                       </div>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12">

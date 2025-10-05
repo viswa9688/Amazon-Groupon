@@ -363,6 +363,7 @@ export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id), // Beneficiary (who receives the order)
   payerId: varchar("payer_id").references(() => users.id), // Payer (who made the payment)
+  userGroupId: integer("user_group_id").references(() => userGroups.id), // Link to user group for group orders
   productId: integer("product_id").references(() => products.id), // For backward compatibility
   addressId: integer("address_id").references(() => userAddresses.id), // Reference to user address
   quantity: integer("quantity").default(1), // For backward compatibility
@@ -474,6 +475,7 @@ export const groceryProductsRelations = relations(groceryProducts, ({ one }) => 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }), // Beneficiary
   payer: one(users, { fields: [orders.payerId], references: [users.id] }), // Payer
+  userGroup: one(userGroups, { fields: [orders.userGroupId], references: [userGroups.id] }),
   product: one(products, { fields: [orders.productId], references: [products.id] }),
   address: one(userAddresses, { fields: [orders.addressId], references: [userAddresses.id] }),
   items: many(orderItems),

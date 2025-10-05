@@ -148,7 +148,8 @@ export interface IStorage {
   getOrderWithItems(orderId: number): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] }) | undefined>;
   getUserOrders(userId: string): Promise<Order[]>;
   getUserOrdersWithItems(userId: string): Promise<(Order & { items: (OrderItem & { product: ProductWithDetails })[] })[]>;
-  getSellerOrders(sellerId: string): Promise<Order[]>;
+  getSellerOrders(sellerId: string): Promise<any[]>;
+  getGroupOrderDetails(userGroupId: number): Promise<any>;
   updateOrderStatus(orderId: number, status: string): Promise<Order>;
   
   // Cart operations
@@ -1100,15 +1101,31 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getSellerOrders(sellerId: string): Promise<Order[]> {
-    return await db
-      .select()
+  async getSellerOrders(sellerId: string): Promise<any[]> {
+    const results = await db
+      .select({
+        order: orders,
+        userGroup: userGroups,
+      })
       .from(orders)
       .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
       .innerJoin(products, eq(orderItems.productId, products.id))
+      .leftJoin(userGroups, eq(orders.userGroupId, userGroups.id))
       .where(eq(products.sellerId, sellerId))
-      .orderBy(desc(orders.createdAt))
-      .then(results => results.map(result => result.orders));
+      .orderBy(desc(orders.createdAt));
+
+    // Deduplicate orders (same order can appear multiple times due to multiple items)
+    const uniqueOrders = new Map();
+    for (const result of results) {
+      if (!uniqueOrders.has(result.order.id)) {
+        uniqueOrders.set(result.order.id, {
+          ...result.order,
+          userGroup: result.userGroup,
+        });
+      }
+    }
+
+    return Array.from(uniqueOrders.values());
   }
 
   async updateOrderStatus(orderId: number, status: string): Promise<Order> {
@@ -1121,6 +1138,116 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
     return updatedOrder;
+  }
+
+  async getGroupOrderDetails(userGroupId: number): Promise<any> {
+    // Fetch user group with participants and pickup address
+    const userGroup = await db.query.userGroups.findFirst({
+      where: eq(userGroups.id, userGroupId),
+      with: {
+        user: true, // Group owner
+        pickupAddress: true, // Pickup location if delivery method is pickup
+        participants: {
+          with: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    if (!userGroup) {
+      return null;
+    }
+
+    // Fetch payment status for all participants
+    const payments = await db
+      .select()
+      .from(groupPayments)
+      .where(eq(groupPayments.userGroupId, userGroupId));
+
+    // Create a map of userId -> payment status
+    const paymentStatusMap = new Map();
+    for (const payment of payments) {
+      if (!paymentStatusMap.has(payment.userId)) {
+        paymentStatusMap.set(payment.userId, {
+          status: payment.status,
+          amount: payment.amount,
+          productId: payment.productId,
+        });
+      }
+    }
+
+    // Fetch delivery addresses for all participants
+    const participantUserIds = userGroup.participants.map(p => p.user.id);
+    const deliveryAddresses = await db
+      .select()
+      .from(userAddresses)
+      .where(
+        and(
+          inArray(userAddresses.userId, participantUserIds),
+          eq(userAddresses.isDefault, true)
+        )
+      );
+
+    // Create a map of userId -> delivery address
+    const addressMap = new Map();
+    for (const address of deliveryAddresses) {
+      addressMap.set(address.userId, address);
+    }
+
+    // Build participant details with payment status and addresses
+    const participantDetails = userGroup.participants.map(p => {
+      const paymentInfo = paymentStatusMap.get(p.user.id);
+      const address = addressMap.get(p.user.id);
+      
+      return {
+        id: p.id,
+        userId: p.user.id,
+        firstName: p.user.firstName,
+        lastName: p.user.lastName,
+        phoneNumber: p.user.phoneNumber,
+        status: p.status,
+        joinedAt: p.joinedAt,
+        paymentStatus: paymentInfo?.status || 'pending',
+        paymentAmount: paymentInfo?.amount || '0',
+        deliveryAddress: address ? {
+          nickname: address.nickname,
+          fullName: address.fullName,
+          phoneNumber: address.phoneNumber,
+          addressLine: address.addressLine,
+          city: address.city,
+          pincode: address.pincode,
+          state: address.state,
+          country: address.country,
+        } : null,
+      };
+    });
+
+    return {
+      id: userGroup.id,
+      name: userGroup.name,
+      description: userGroup.description,
+      deliveryMethod: userGroup.deliveryMethod,
+      maxMembers: userGroup.maxMembers,
+      createdAt: userGroup.createdAt,
+      owner: {
+        id: userGroup.user.id,
+        firstName: userGroup.user.firstName,
+        lastName: userGroup.user.lastName,
+        phoneNumber: userGroup.user.phoneNumber,
+      },
+      pickupAddress: userGroup.pickupAddress ? {
+        nickname: userGroup.pickupAddress.nickname,
+        fullName: userGroup.pickupAddress.fullName,
+        phoneNumber: userGroup.pickupAddress.phoneNumber,
+        addressLine: userGroup.pickupAddress.addressLine,
+        city: userGroup.pickupAddress.city,
+        pincode: userGroup.pickupAddress.pincode,
+        state: userGroup.pickupAddress.state,
+        country: userGroup.pickupAddress.country,
+      } : null,
+      participants: participantDetails,
+    };
   }
 
   // Cart operations
