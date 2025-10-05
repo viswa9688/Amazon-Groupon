@@ -761,6 +761,8 @@ export class DatabaseStorage implements IStorage {
     await this.deleteServiceProviderByProductId(productId);
     // Delete pet provider first if exists
     await this.deletePetProviderByProductId(productId);
+    // Delete grocery product details if exists
+    await db.delete(groceryProducts).where(eq(groceryProducts.productId, productId));
     // Delete related records
     await db.delete(discountTiers).where(eq(discountTiers.productId, productId));
     // Delete the product
