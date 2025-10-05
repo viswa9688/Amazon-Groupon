@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import Header from "@/components/Header";
+import Header, { ScrollingCartButton } from "@/components/Header";
 import ServiceProductCard from "@/components/ServiceProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -395,6 +395,9 @@ export default function BrowseCategory() {
           </div>
         )}
       </div>
+      
+      {/* Floating Cart Button */}
+      <ScrollingCartButton />
     </div>
   );
 }
