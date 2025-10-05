@@ -120,7 +120,7 @@ const PaymentForm = ({
             unitPrice: originalAmount.toString(),
             totalPrice: amount.toString(),
             finalPrice: amount.toString(),
-            status: "completed",
+            status: "pending",
             type,
             addressId: selectedAddressId,
           });
