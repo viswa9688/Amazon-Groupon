@@ -15,6 +15,7 @@ import {
   Apple,
   Briefcase,
   Heart,
+  HelpCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -86,8 +87,17 @@ export default function Header() {
             <a
               href="/browse"
               className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+              data-testid="link-browse"
             >
               Browse
+            </a>
+            <a
+              href="/faq"
+              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50 flex items-center gap-1"
+              data-testid="link-faq"
+            >
+              <HelpCircle className="w-4 h-4" />
+              FAQ
             </a>
             <a
               href="#"
@@ -339,8 +349,17 @@ export default function Header() {
             <a
               href="/browse"
               className="block py-2 text-foreground hover:text-primary font-medium"
+              data-testid="mobile-link-browse"
             >
               Browse
+            </a>
+            <a
+              href="/faq"
+              className="block py-2 text-foreground hover:text-primary font-medium flex items-center gap-2"
+              data-testid="mobile-link-faq"
+            >
+              <HelpCircle className="w-4 h-4" />
+              FAQ
             </a>
             <a
               href="#"
