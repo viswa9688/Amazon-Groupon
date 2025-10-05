@@ -286,7 +286,7 @@ export default function BrowseCategory() {
               <Users className={`h-6 w-6 ${
                 categoryColor === "green" ? "text-green-600" : categoryColor === "blue" ? "text-blue-600" : "text-pink-600"
               }`} />
-              <h2 className="text-2xl font-bold text-foreground">Popular Groups with {categoryName}</h2>
+              <h2 className="text-2xl font-bold text-foreground">Other Groups with {categoryName}</h2>
               <Badge variant="secondary">{filteredAndSortedCollections.length} groups</Badge>
             </div>
             
