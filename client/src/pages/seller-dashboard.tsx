@@ -62,6 +62,7 @@ import {
   MapPin,
   Clock,
   Users,
+  User,
   Star,
   Briefcase,
   Shield,
@@ -2832,7 +2833,7 @@ export default function SellerDashboard() {
                                 Status: {order.status}
                               </p>
                             </div>
-                            {isGroupOrder && (
+                            {isGroupOrder ? (
                               <Badge 
                                 variant="secondary" 
                                 className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
@@ -2840,6 +2841,15 @@ export default function SellerDashboard() {
                               >
                                 <Users className="w-3 h-3 mr-1" />
                                 Group Order
+                              </Badge>
+                            ) : (
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                                data-testid={`badge-individual-order-${order.id}`}
+                              >
+                                <User className="w-3 h-3 mr-1" />
+                                Individual Order
                               </Badge>
                             )}
                           </div>
