@@ -73,6 +73,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
+  Eye,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -2853,6 +2854,18 @@ export default function SellerDashboard() {
                               </Badge>
                             )}
                           </div>
+                          
+                          <Link href={`/order/${order.id}`}>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="gap-2"
+                              data-testid={`button-view-order-${order.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Order
+                            </Button>
+                          </Link>
                         </div>
                         
                         {isGroupOrder && (
