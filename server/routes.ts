@@ -1442,7 +1442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userGroupId: userGroupId,
             productId: item.productId,
             amount: item.totalPrice,
-            currency: "usd",
+            currency: "cad",
             status: "succeeded",
             quantity: item.quantity,
             unitPrice: item.unitPrice
@@ -1638,7 +1638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userGroupId: groupId,
         productId,
         amount,
-        currency: currency || "usd",
+        currency: currency || "cad",
         status: status || "succeeded",
         quantity: quantity || 1,
         unitPrice: unitPrice || amount
@@ -3939,7 +3939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(totalAmount * 100), // Convert to cents
-        currency: "usd",
+        currency: "cad",
         customer: customer.id,
         description: `Multi-item purchase (${cartItems.length} items)${deliveryFee > 0 ? ` (includes $${deliveryFee.toFixed(2)} delivery fee)` : ''}`,
         shipping: {
@@ -4057,7 +4057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(totalAmount * 100), // Convert to cents
-        currency: "usd",
+        currency: "cad",
         customer: customer.id,
         description: `${product.name}${deliveryFee > 0 ? ` (includes $${deliveryFee.toFixed(2)} delivery fee)` : ''}`,
         shipping: {
@@ -4104,7 +4104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Group payment intent request body:", req.body);
       
-      const { userGroupId, productId, amount, currency = "usd", addressId, memberId, payerId, beneficiaryId } = req.body;
+      const { userGroupId, productId, amount, currency = "cad", addressId, memberId, payerId, beneficiaryId } = req.body;
       
       // Validate required parameters
       if (!userGroupId) {
@@ -4248,7 +4248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
-      const { amount, currency = "usd", productId, type = "individual", addressId, deliveryFee = 0 } = req.body;
+      const { amount, currency = "cad", productId, type = "individual", addressId, deliveryFee = 0 } = req.body;
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Valid amount is required" });
@@ -5385,7 +5385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment intent for member-specific amount
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(memberAmount * 100), // Convert to cents - ONLY the member's portion
-        currency: "usd",
+        currency: "cad",
         customer: customer.id,
         description,
         shipping: {

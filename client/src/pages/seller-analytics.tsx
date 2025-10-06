@@ -185,7 +185,7 @@ export default function SellerAnalytics() {
   }
 
   const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amount);
 
   const formatPercentage = (value: number) => 
     `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;

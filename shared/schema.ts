@@ -400,7 +400,7 @@ export const groupPayments = pgTable("group_payments", {
   productId: integer("product_id").notNull().references(() => products.id),
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }).unique(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  currency: varchar("currency", { length: 10 }).default("usd"),
+  currency: varchar("currency", { length: 10 }).default("cad"),
   status: varchar("status", { length: 20 }).notNull(), // pending, succeeded, failed, canceled
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
