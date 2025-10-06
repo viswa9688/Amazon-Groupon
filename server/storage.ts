@@ -1106,11 +1106,15 @@ export class DatabaseStorage implements IStorage {
       .select({
         order: orders,
         userGroup: userGroups,
+        customer: users,
+        deliveryAddress: userAddresses,
       })
       .from(orders)
       .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
       .innerJoin(products, eq(orderItems.productId, products.id))
       .leftJoin(userGroups, eq(orders.userGroupId, userGroups.id))
+      .leftJoin(users, eq(orders.userId, users.id))
+      .leftJoin(userAddresses, eq(orders.addressId, userAddresses.id))
       .where(eq(products.sellerId, sellerId))
       .orderBy(desc(orders.createdAt));
 
@@ -1121,6 +1125,8 @@ export class DatabaseStorage implements IStorage {
         uniqueOrders.set(result.order.id, {
           ...result.order,
           userGroup: result.userGroup,
+          customer: result.customer,
+          deliveryAddress: result.deliveryAddress,
         });
       }
     }

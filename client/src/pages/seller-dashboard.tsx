@@ -2983,6 +2983,46 @@ export default function SellerDashboard() {
                           </div>
                         )}
                         
+                        {/* Individual Order Customer & Delivery Details */}
+                        {!isGroupOrder && order.customer && (
+                          <div className="border-t pt-3">
+                            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
+                              {/* Customer Information */}
+                              <div>
+                                <p className="text-sm font-medium mb-2 text-blue-700 dark:text-blue-300">Customer</p>
+                                <div className="p-3 bg-white dark:bg-gray-900 rounded-md border">
+                                  <p className="font-medium">
+                                    {order.customer.firstName} {order.customer.lastName}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">{order.customer.phoneNumber}</p>
+                                  {order.customer.email && (
+                                    <p className="text-sm text-muted-foreground">{order.customer.email}</p>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Delivery Address */}
+                              {order.deliveryAddress && (
+                                <div>
+                                  <p className="text-sm font-medium mb-2 flex items-center gap-1 text-blue-700 dark:text-blue-300">
+                                    <MapPin className="w-4 h-4" />
+                                    Delivery Address
+                                  </p>
+                                  <div className="p-3 bg-white dark:bg-gray-900 rounded-md border">
+                                    <p className="font-medium">{order.deliveryAddress.fullName}</p>
+                                    <p className="text-sm text-muted-foreground">{order.deliveryAddress.phoneNumber}</p>
+                                    <p className="text-sm mt-1">{order.deliveryAddress.addressLine}</p>
+                                    <p className="text-sm">
+                                      {order.deliveryAddress.city}, {order.deliveryAddress.state} {order.deliveryAddress.pincode}
+                                    </p>
+                                    <p className="text-sm">{order.deliveryAddress.country}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Delivery Information */}
                         <DeliveryInfo
                           expectedDeliveryDate={order.expectedDeliveryDate}
