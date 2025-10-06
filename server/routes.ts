@@ -223,6 +223,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Version endpoint to check deployed code
+  app.get('/api/version', async (req, res) => {
+    try {
+      const { execSync } = await import('child_process');
+      
+      let gitCommit = 'unknown';
+      let gitMessage = 'unknown';
+      let gitAuthor = 'unknown';
+      let gitDate = 'unknown';
+      
+      try {
+        // Get git commit hash
+        gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+        // Get commit message
+        gitMessage = execSync('git log -1 --format="%s"', { encoding: 'utf-8' }).trim();
+        // Get commit author
+        gitAuthor = execSync('git log -1 --format="%an"', { encoding: 'utf-8' }).trim();
+        // Get commit date
+        gitDate = execSync('git log -1 --format="%ai"', { encoding: 'utf-8' }).trim();
+      } catch (gitError) {
+        console.log('Git info not available:', gitError);
+      }
+      
+      res.json({
+        commit: gitCommit,
+        commitShort: gitCommit.substring(0, 8),
+        message: gitMessage,
+        author: gitAuthor,
+        date: gitDate,
+        environment: process.env.NODE_ENV || 'development',
+        nodeVersion: process.version,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
+    } catch (error) {
+      console.error("Error fetching version info:", error);
+      res.status(500).json({ message: "Failed to fetch version info" });
+    }
+  });
+
   // Auth routes are now handled in phoneAuth.ts
   
   // Admin authentication route
