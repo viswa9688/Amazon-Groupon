@@ -1839,7 +1839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!isOrderOwner) {
         // Check if user is a seller and owns any products in this order
-        const user = await storage.getUserById(userId);
+        const user = await storage.getUser(userId);
         const isSeller = user?.isSeller === true;
         
         if (isSeller && order.items && order.items.length > 0) {
