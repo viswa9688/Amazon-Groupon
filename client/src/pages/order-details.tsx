@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Package, CreditCard, Truck, MapPin, Calendar, CheckCircle } from "lucide-react";
+import { ArrowLeft, Package, CreditCard, Truck, MapPin, Calendar, CheckCircle, Users, Clock, Home } from "lucide-react";
 import Header from "@/components/Header";
 import CustomerDeliveryTracker from "@/components/CustomerDeliveryTracker";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError, redirectToLogin } from "@/lib/authUtils";
 import type { Order, Product } from "@shared/schema";
@@ -16,8 +16,10 @@ import type { Order, Product } from "@shared/schema";
 export default function OrderDetails() {
   const { orderId } = useParams();
   const [, navigate] = useLocation();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const { toast } = useToast();
+  const [groupDetails, setGroupDetails] = useState<any>(null);
+  const [loadingGroupDetails, setLoadingGroupDetails] = useState(false);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -56,6 +58,32 @@ export default function OrderDetails() {
         }, 500);
     }
   }, [error, toast]);
+
+  // Fetch group details if user is a seller and order is a group order
+  useEffect(() => {
+    const fetchGroupDetails = async () => {
+      if (!order || !user || !(user as any)?.isSeller || !order.userGroupId) {
+        return;
+      }
+
+      setLoadingGroupDetails(true);
+      try {
+        const response = await fetch(`/api/seller/orders/${orderId}/group-details`);
+        if (response.ok) {
+          const details = await response.json();
+          setGroupDetails(details);
+        } else {
+          console.error("Failed to fetch group details:", response.statusText);
+        }
+      } catch (err) {
+        console.error("Error fetching group details:", err);
+      } finally {
+        setLoadingGroupDetails(false);
+      }
+    };
+
+    fetchGroupDetails();
+  }, [order, user, orderId]);
 
   if (isLoading || orderLoading) {
     return (
@@ -216,6 +244,136 @@ export default function OrderDetails() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Group Order Details (Seller View Only) */}
+            {(user as any)?.isSeller && order.userGroupId && groupDetails && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Users className="w-5 h-5 mr-2" />
+                    Group Order Details
+                    <Badge 
+                      variant="secondary" 
+                      className="ml-2 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                      data-testid="badge-group-order"
+                    >
+                      Group Purchase
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Delivery Method */}
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      {groupDetails.deliveryMethod === 'pickup' ? (
+                        <Badge variant="outline" className="border-blue-500 text-blue-700 dark:text-blue-300" data-testid="badge-delivery-method">
+                          <Truck className="w-3 h-3 mr-1" />
+                          🚚 Single Location Drop
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-300" data-testid="badge-delivery-method">
+                          <Home className="w-3 h-3 mr-1" />
+                          🏠 Deliver to Each Home
+                        </Badge>
+                      )}
+                      <span className="text-sm text-muted-foreground ml-2">
+                        Created: {new Date(groupDetails.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {/* Group Info */}
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Group Name & Owner</p>
+                      <p className="font-medium">
+                        {groupDetails.name} - Owner: {groupDetails.owner.firstName} {groupDetails.owner.lastName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{groupDetails.owner.phoneNumber}</p>
+                    </div>
+
+                    {/* Payment Status */}
+                    <div>
+                      <p className="text-sm font-medium mb-2">Payment Status ({groupDetails.participants.length} members)</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {groupDetails.participants.map((participant: any) => (
+                          <div 
+                            key={participant.id}
+                            className={`p-2 rounded-md border ${
+                              participant.paymentStatus === 'succeeded' 
+                                ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' 
+                                : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800'
+                            }`}
+                            data-testid={`payment-status-${participant.userId}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {participant.paymentStatus === 'succeeded' ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                ) : (
+                                  <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                )}
+                                <span className="text-sm font-medium">
+                                  {participant.firstName} {participant.lastName}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                ${participant.paymentAmount}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Addresses */}
+                    <div>
+                      {groupDetails.deliveryMethod === 'pickup' && groupDetails.pickupAddress ? (
+                        <div>
+                          <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            Pickup Location
+                          </p>
+                          <div className="p-3 bg-muted rounded-md border" data-testid="pickup-address">
+                            <p className="font-medium">{groupDetails.pickupAddress.fullName}</p>
+                            <p className="text-sm text-muted-foreground">{groupDetails.pickupAddress.phoneNumber}</p>
+                            <p className="text-sm mt-1">{groupDetails.pickupAddress.addressLine}</p>
+                            <p className="text-sm">
+                              {groupDetails.pickupAddress.city}, {groupDetails.pickupAddress.state} {groupDetails.pickupAddress.pincode}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            Delivery Addresses ({groupDetails.participants.filter((p: any) => p.deliveryAddress).length})
+                          </p>
+                          <div className="space-y-2">
+                            {groupDetails.participants.map((participant: any) => 
+                              participant.deliveryAddress && (
+                                <div 
+                                  key={participant.id}
+                                  className="p-3 bg-muted rounded-md border"
+                                  data-testid={`delivery-address-${participant.userId}`}
+                                >
+                                  <p className="font-medium">
+                                    {participant.firstName} {participant.lastName}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">{participant.deliveryAddress.phoneNumber}</p>
+                                  <p className="text-sm mt-1">{participant.deliveryAddress.addressLine}</p>
+                                  <p className="text-sm">
+                                    {participant.deliveryAddress.city}, {participant.deliveryAddress.state} {participant.deliveryAddress.pincode}
+                                  </p>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Payment Information */}
             <Card>
