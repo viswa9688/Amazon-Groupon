@@ -201,8 +201,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Performance monitoring endpoint
-  app.get('/api/performance', async (req, res) => {
+  // Performance monitoring endpoint - Admin only
+  app.get('/api/performance', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const cacheStats = ultraFastStorage.getCacheStats();
       const dbStats = {
@@ -223,8 +223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Version endpoint to check deployed code
-  app.get('/api/version', async (req, res) => {
+  // Version endpoint to check deployed code - Admin only
+  app.get('/api/version', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const { execSync } = await import('child_process');
       
