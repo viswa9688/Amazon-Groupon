@@ -1390,13 +1390,18 @@ export default function UserGroupPage() {
                             </div>
                             
                             {/* Payment status - only shown when conditions are met */}
-                            {totalItems > 0 && allMembers.length >= 5 && (
+                            {totalItems > 0 && (
                               <div className="flex flex-col items-end space-y-1">
                                 {(() => {
                                   // Check if this member has paid
                                   const memberPaymentStatus = paymentStatus?.find(p => p.userId === member.userId);
                                   const hasPaid = memberPaymentStatus?.hasPaid || false;
                                   
+                                  // Determine if current user can pay for this member
+                                  const canPayForThisMember = isOwner || member.userId === user?.id;
+                                  
+                                  // Group is locked when 5 members have joined
+                                  const isGroupLocked = allMembers.length >= 5;
                                   
                                   if (hasPaid) {
                                     return (
@@ -1415,7 +1420,10 @@ export default function UserGroupPage() {
                                         </p>
                                       </>
                                     );
-                                  } else {
+                                  } else if (canPayForThisMember) {
+                                    // Show pay button only if:
+                                    // 1. User is owner (can pay for anyone), OR
+                                    // 2. This is the current user's own row
                                     return (
                                       <>
                                         <Button
@@ -1424,16 +1432,24 @@ export default function UserGroupPage() {
                                             const shareUrl = `${window.location.origin}/checkout?group=${userGroup?.shareToken}&member=${member.userId}`;
                                             window.location.href = shareUrl;
                                           }}
-                                          className="bg-green-600 hover:bg-green-700 text-white"
+                                          disabled={!isGroupLocked}
+                                          className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
                                           data-testid={`button-pay-now-${member.userId}`}
                                         >
                                           <CreditCard className="w-4 h-4 mr-1" />
                                           Pay Now
                                         </Button>
-                                        <p className="text-xs text-green-600 dark:text-green-400">
-                                          Ready for payment
+                                        <p className="text-xs text-muted-foreground">
+                                          {isGroupLocked ? "Ready for payment" : "Waiting for 5 members"}
                                         </p>
                                       </>
+                                    );
+                                  } else {
+                                    // Non-owner viewing someone else's payment status
+                                    return (
+                                      <p className="text-xs text-muted-foreground">
+                                        {isGroupLocked ? "Pending payment" : "Waiting for 5 members"}
+                                      </p>
                                     );
                                   }
                                 })()}
@@ -1441,6 +1457,30 @@ export default function UserGroupPage() {
                             )}
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Payment Locked Message when group is not full */}
+                    {totalItems > 0 && allMembers.length < 5 && (
+                      <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-8 h-8 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center">
+                              <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                              ⏳ Waiting for Members
+                            </h4>
+                            <p className="text-sm text-orange-700 dark:text-orange-300 mb-2">
+                              Payment is currently locked. You need exactly <strong>5 members</strong> to unlock payment and activate group discounts.
+                            </p>
+                            <p className="text-sm text-orange-700 dark:text-orange-300">
+                              Current members: <strong>{allMembers.length}/5</strong> ({5 - allMembers.length} more needed)
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1459,7 +1499,9 @@ export default function UserGroupPage() {
                             </h4>
                             <p className="text-sm text-green-700 dark:text-green-300 mb-3">
                               Your group is now full with {allMembers.length} members and has {totalItems} item{totalItems !== 1 ? 's' : ''}. 
-                              You can now complete your individual payment.
+                              {isOwner 
+                                ? " As the owner, you can complete payment for any member."
+                                : " You can now complete your individual payment."}
                             </p>
                             
                             {(() => {
@@ -1471,14 +1513,21 @@ export default function UserGroupPage() {
                                 return sum + (discountPrice * item.quantity);
                               }, 0) || 0;
 
+                              const paidCount = paymentStatus?.filter(p => p.hasPaid).length || 0;
+
                               return (
                                 <div className="text-center">
-                                  <p className="text-sm text-green-600 dark:text-green-400">Your total amount:</p>
-                                  <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                                  <p className="text-sm text-green-600 dark:text-green-400">Payment Status: {paidCount}/{allMembers.length} paid</p>
+                                  <p className="text-2xl font-bold text-green-800 dark:text-green-200 mt-2">
                                     ${totalAmount.toFixed(2)}
                                   </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Amount per member
+                                  </p>
                                   <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                                    Click "Pay Now" next to your name above to complete payment
+                                    {isOwner 
+                                      ? "Click 'Pay Now' next to any unpaid member to complete their payment"
+                                      : "Click 'Pay Now' next to your name above to complete payment"}
                                   </p>
                                 </div>
                               );
