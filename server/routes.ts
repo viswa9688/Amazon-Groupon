@@ -1834,9 +1834,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if order belongs to user or if user is the payer
       // For group payments, both the beneficiary (order.userId) and payer (order.payerId) should have access
-      if (order.userId !== userId && order.payerId !== userId) {
-        console.log("Access denied for user:", userId, "order belongs to:", order.userId, "payer:", order.payerId);
-        return res.status(403).json({ message: "Access denied" });
+      // Also allow sellers to view orders for their products
+      const isOrderOwner = order.userId === userId || order.payerId === userId;
+      
+      if (!isOrderOwner) {
+        // Check if user is a seller and owns any products in this order
+        const user = await storage.getUserById(userId);
+        const isSeller = user?.isSeller === true;
+        
+        if (isSeller && order.items && order.items.length > 0) {
+          // Check if seller owns any product in this order
+          const sellerOwnsProduct = order.items.some((item: any) => 
+            item.product?.seller?.id === userId || item.product?.sellerId === userId
+          );
+          
+          if (!sellerOwnsProduct) {
+            console.log("Access denied for seller:", userId, "order does not contain their products");
+            return res.status(403).json({ message: "Access denied" });
+          }
+          console.log("Seller access granted for order:", orderId);
+        } else {
+          console.log("Access denied for user:", userId, "order belongs to:", order.userId, "payer:", order.payerId);
+          return res.status(403).json({ message: "Access denied" });
+        }
       }
 
       console.log("Order found with items:", order.items?.length || 0);
