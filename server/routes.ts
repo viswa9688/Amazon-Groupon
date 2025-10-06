@@ -1415,6 +1415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderData = {
         userId: finalUserId,
         payerId: finalPayerId,
+        userGroupId: userGroupId || null, // Link order to user group
         addressId: addressId || null,
         totalPrice,
         finalPrice: finalPriceWithDelivery,
