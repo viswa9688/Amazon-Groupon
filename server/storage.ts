@@ -407,7 +407,41 @@ export class DatabaseStorage implements IStorage {
           await tx.delete(products).where(eq(products.id, product.id));
         }
         
-        // Delete admin credentials if they exist (handles adminCredentials → users FK)
+        // Delete user-related data in correct order to handle foreign key constraints
+        
+        // 1. Delete cart items (cartItems → users FK)
+        await tx.delete(cartItems).where(eq(cartItems.userId, id));
+        
+        // 2. Delete user group participants (userGroupParticipants → users FK)
+        await tx.delete(userGroupParticipants).where(eq(userGroupParticipants.userId, id));
+        
+        // 3. Delete group payments where user is beneficiary or payer (groupPayments → users FK)
+        await tx.delete(groupPayments).where(eq(groupPayments.userId, id));
+        await tx.delete(groupPayments).where(eq(groupPayments.payerId, id));
+        
+        // 4. Delete orders where user is beneficiary or payer (orders → users FK)
+        await tx.delete(orders).where(eq(orders.userId, id));
+        await tx.delete(orders).where(eq(orders.payerId, id));
+        
+        // 5. Delete seller notifications (sellerNotifications → users FK)
+        await tx.delete(sellerNotifications).where(eq(sellerNotifications.sellerId, id));
+        
+        // 6. Delete user groups created by this user (userGroups → users FK)
+        // First get user groups to handle their related data
+        const userGroupsToDelete = await tx.select().from(userGroups).where(eq(userGroups.userId, id));
+        for (const group of userGroupsToDelete) {
+          // Delete user group items (userGroupItems → userGroups FK)
+          await tx.delete(userGroupItems).where(eq(userGroupItems.userGroupId, group.id));
+          // Delete user group participants (userGroupParticipants → userGroups FK)
+          await tx.delete(userGroupParticipants).where(eq(userGroupParticipants.userGroupId, group.id));
+          // Delete the user group itself
+          await tx.delete(userGroups).where(eq(userGroups.id, group.id));
+        }
+        
+        // 7. Delete user addresses (userAddresses → users FK)
+        await tx.delete(userAddresses).where(eq(userAddresses.userId, id));
+        
+        // 8. Delete admin credentials if they exist (adminCredentials → users FK)
         await tx.delete(adminCredentials).where(eq(adminCredentials.userId, id));
         
         // Finally delete the user

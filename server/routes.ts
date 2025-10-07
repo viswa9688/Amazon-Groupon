@@ -660,11 +660,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/admin/users/:id', isAdminAuthenticatedSession, async (req, res) => {
     try {
       const userId = req.params.id;
+      console.log(`Attempting to delete user: ${userId}`);
+      
+      // Validate user ID format
+      if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+        return res.status(400).json({ 
+          message: "Invalid user ID provided",
+          error: 'INVALID_USER_ID'
+        });
+      }
+      
       await storage.deleteUser(userId);
+      console.log(`Successfully deleted user: ${userId}`);
       res.json({ message: "User deleted successfully" });
     } catch (error) {
       console.error("Error deleting user:", error);
-      res.status(500).json({ message: "Failed to delete user" });
+      
+      // Provide more specific error messages based on error type
+      if (error.code === '23503') { // Foreign key constraint violation
+        res.status(409).json({ 
+          message: "Cannot delete user due to existing references. Please remove all related data first.",
+          error: 'FOREIGN_KEY_CONSTRAINT'
+        });
+      } else if (error.code === '23505') { // Unique constraint violation
+        res.status(409).json({ 
+          message: "User deletion failed due to constraint violation",
+          error: 'UNIQUE_CONSTRAINT'
+        });
+      } else if (error.message && error.message.includes('not found')) {
+        res.status(404).json({ 
+          message: "User not found",
+          error: 'USER_NOT_FOUND'
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Failed to delete user",
+          error: 'INTERNAL_ERROR',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
     }
   });
 
