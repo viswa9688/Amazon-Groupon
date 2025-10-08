@@ -413,6 +413,9 @@ export class DatabaseStorage implements IStorage {
           // Delete ALL order_items that reference this product (from ANY order)
           await tx.delete(orderItems).where(eq(orderItems.productId, product.id));
           
+          // Delete ALL orders that reference this product
+          await tx.delete(orders).where(eq(orders.productId, product.id));
+          
           // Delete ALL group_payments that reference this product
           await tx.delete(groupPayments).where(eq(groupPayments.productId, product.id));
           
