@@ -3414,6 +3414,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seller inquiry routes (lead capture for "Sell on OneAnt")
+  app.post('/api/seller-inquiry', async (req, res) => {
+    try {
+      const { name, phoneNumber } = req.body;
+      
+      if (!name || !phoneNumber) {
+        return res.status(400).json({ message: "Name and phone number are required" });
+      }
+
+      const inquiry = await storage.createSellerInquiry({ name, phoneNumber });
+      res.json({ message: "Thank you for your interest! We'll get back to you soon.", inquiry });
+    } catch (error) {
+      console.error("Error creating seller inquiry:", error);
+      res.status(500).json({ message: "Failed to submit inquiry" });
+    }
+  });
+
+  app.get('/api/admin/seller-inquiries', isSuperAdmin, async (req: any, res) => {
+    try {
+      const inquiries = await storage.getAllSellerInquiries();
+      res.json(inquiries);
+    } catch (error) {
+      console.error("Error fetching seller inquiries:", error);
+      res.status(500).json({ message: "Failed to fetch seller inquiries" });
+    }
+  });
+
+  app.patch('/api/admin/seller-inquiries/:id/status', isSuperAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, notes } = req.body;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid inquiry ID" });
+      }
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const updated = await storage.updateSellerInquiryStatus(id, status, notes);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating seller inquiry status:", error);
+      res.status(500).json({ message: "Failed to update inquiry status" });
+    }
+  });
+
   // Excel Import/Export routes for sellers
   app.get('/api/seller/excel/template', isSellerAuthenticated, async (req: any, res) => {
     try {
