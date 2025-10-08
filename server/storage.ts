@@ -19,6 +19,7 @@ import {
   adminCredentials,
   sellerNotifications,
   sellerInquiries,
+  feedbackSubmissions,
   sessions,
   type User,
   type UpsertUser,
@@ -62,6 +63,8 @@ import {
   type InsertSellerNotification,
   type SellerInquiry,
   type InsertSellerInquiry,
+  type FeedbackSubmission,
+  type InsertFeedback,
 } from "@shared/schema";
 import { db, queryWithRetry } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
@@ -275,6 +278,11 @@ export interface IStorage {
   createSellerInquiry(inquiry: InsertSellerInquiry): Promise<SellerInquiry>;
   getAllSellerInquiries(): Promise<SellerInquiry[]>;
   updateSellerInquiryStatus(id: number, status: string, notes?: string): Promise<SellerInquiry>;
+  
+  // Feedback operations
+  createFeedback(feedback: InsertFeedback): Promise<FeedbackSubmission>;
+  getAllFeedback(): Promise<FeedbackSubmission[]>;
+  updateFeedbackStatus(id: number, status: string): Promise<FeedbackSubmission>;
   
   // Group participant operations
   hasParticipantRequest(userGroupId: number, userId: string): Promise<boolean>;
@@ -2752,6 +2760,31 @@ export class DatabaseStorage implements IStorage {
       .update(sellerInquiries)
       .set(updateData)
       .where(eq(sellerInquiries.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Feedback operations
+  async createFeedback(feedback: InsertFeedback): Promise<FeedbackSubmission> {
+    const [newFeedback] = await db
+      .insert(feedbackSubmissions)
+      .values(feedback)
+      .returning();
+    return newFeedback;
+  }
+
+  async getAllFeedback(): Promise<FeedbackSubmission[]> {
+    return await db
+      .select()
+      .from(feedbackSubmissions)
+      .orderBy(desc(feedbackSubmissions.createdAt));
+  }
+
+  async updateFeedbackStatus(id: number, status: string): Promise<FeedbackSubmission> {
+    const [updated] = await db
+      .update(feedbackSubmissions)
+      .set({ status })
+      .where(eq(feedbackSubmissions.id, id))
       .returning();
     return updated;
   }
