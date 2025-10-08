@@ -1775,6 +1775,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const addressData = insertUserAddressSchema.partial().parse(req.body);
+      
+      // Get existing address to merge with update data for validation
+      const existingAddresses = await storage.getUserAddresses(userId);
+      const existingAddress = existingAddresses.find(addr => addr.id === addressId);
+      
+      if (!existingAddress) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+      
+      // Merge existing data with update data for validation
+      const mergedAddress = {
+        addressLine: addressData.addressLine ?? existingAddress.addressLine,
+        city: addressData.city ?? existingAddress.city,
+        state: addressData.state ?? existingAddress.state,
+        pincode: addressData.pincode ?? existingAddress.pincode,
+        country: addressData.country ?? existingAddress.country
+      };
+      
+      // Validate BC address before updating
+      const bcValidation = await deliveryService.validateBCAddress(mergedAddress);
+      
+      if (!bcValidation.canDeliver) {
+        return res.status(400).json({ 
+          message: bcValidation.reason || "Address must be in British Columbia",
+          error: "BC_VALIDATION_FAILED"
+        });
+      }
+      
       const updatedAddress = await storage.updateUserAddress(addressId, addressData);
       res.json(updatedAddress);
     } catch (error) {
