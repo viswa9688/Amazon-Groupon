@@ -3462,6 +3462,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Feedback routes
+  app.post('/api/feedback', upload.single('image'), async (req: any, res) => {
+    try {
+      const { feedbackText, userId } = req.body;
+      
+      if (!feedbackText) {
+        return res.status(400).json({ message: "Feedback text is required" });
+      }
+
+      let imageUrl = null;
+      if (req.file) {
+        imageUrl = `/uploads/${req.file.filename}`;
+      }
+
+      const feedback = await storage.createFeedback({
+        feedbackText,
+        userId: userId || null,
+        imageUrl,
+      });
+      
+      res.json({ message: "Thank you for your feedback!", feedback });
+    } catch (error) {
+      console.error("Error creating feedback:", error);
+      res.status(500).json({ message: "Failed to submit feedback" });
+    }
+  });
+
+  app.get('/api/admin/feedback', isAdminAuthenticatedSession, async (req: any, res) => {
+    try {
+      const feedback = await storage.getAllFeedback();
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error fetching feedback:", error);
+      res.status(500).json({ message: "Failed to fetch feedback" });
+    }
+  });
+
+  app.patch('/api/admin/feedback/:id/status', isAdminAuthenticatedSession, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const updated = await storage.updateFeedbackStatus(id, status);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating feedback status:", error);
+      res.status(500).json({ message: "Failed to update feedback status" });
+    }
+  });
+
   // Excel Import/Export routes for sellers
   app.get('/api/seller/excel/template', isSellerAuthenticated, async (req: any, res) => {
     try {
