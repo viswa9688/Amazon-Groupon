@@ -19,18 +19,18 @@ interface UseDeliveryFeeOptions {
   orderTotal?: number;
   productId?: number;
   userGroupId?: number;
+  selectionCount?: number;
 }
 
-export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0, productId, userGroupId }: UseDeliveryFeeOptions) {
+export function useDeliveryFee({ addressId, enabled = true, orderType = 'individual', orderTotal = 0, productId, userGroupId, selectionCount }: UseDeliveryFeeOptions) {
   const [deliveryData, setDeliveryData] = useState<DeliveryFeeData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const queryEnabled = enabled && !!addressId && (orderType === 'individual' || (orderType === 'group' && userGroupId !== null));
-  console.log('🔍 useDeliveryFee query enabled:', queryEnabled, { enabled, addressId, orderType, userGroupId });
+  console.log('🔍 useDeliveryFee query enabled:', queryEnabled, { enabled, addressId, orderType, userGroupId, selectionCount });
 
   const { data, isLoading: queryLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal, productId, userGroupId],
+    queryKey: ['/api/delivery-fee', addressId, orderType, orderTotal, productId, userGroupId, selectionCount],
     queryFn: async () => {
       if (!addressId) return null;
       console.log('🚀 useDeliveryFee API request:', { addressId, orderType, orderTotal, productId, userGroupId });
@@ -44,6 +44,9 @@ export function useDeliveryFee({ addressId, enabled = true, orderType = 'individ
     staleTime: 0, // Don't cache to ensure fresh data
   });
 
+  // Derive loading state directly from queryLoading - this is synchronous
+  const isLoading = queryLoading;
+
   useEffect(() => {
     if (data) {
       setDeliveryData(data as DeliveryFeeData);
@@ -52,12 +55,10 @@ export function useDeliveryFee({ addressId, enabled = true, orderType = 'individ
       setError('Failed to calculate delivery fee');
       setDeliveryData(null);
     }
-    setIsLoading(queryLoading);
-  }, [data, queryError, queryLoading]);
+  }, [data, queryError]);
 
   const calculateDeliveryFee = async () => {
     if (addressId) {
-      setIsLoading(true);
       setError(null);
       try {
         const result = await refetch();
@@ -65,8 +66,6 @@ export function useDeliveryFee({ addressId, enabled = true, orderType = 'individ
       } catch (err) {
         setError('Failed to calculate delivery fee');
         return null;
-      } finally {
-        setIsLoading(false);
       }
     }
     return null;

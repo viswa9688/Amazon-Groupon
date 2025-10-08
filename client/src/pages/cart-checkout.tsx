@@ -168,10 +168,10 @@ export default function CartCheckout() {
   const [productPrice, setProductPrice] = useState(0);
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [selectedAddress, setSelectedAddress] = useState<any>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoadingPayment, setIsLoadingPayment] = useState(false);
   const [isDeliveryFeeLoading, setIsDeliveryFeeLoading] = useState(false);
+  const [addressSelectionCount, setAddressSelectionCount] = useState(0);
 
   // Fetch cart items
   const { data: cartItemsData = [], isLoading: cartLoading } = useQuery<CartItem[]>({
@@ -219,9 +219,13 @@ export default function CartCheckout() {
     }
   }, [selectedAddressId, clientSecret, cartItems.length]);
 
-  const handleAddressSelect = (addressId: number, address: any) => {
+  const handleAddressSelect = (addressId: number) => {
     setSelectedAddressId(addressId);
-    setSelectedAddress(address);
+    // Reset client secret to force payment intent recreation with new delivery fee
+    setClientSecret("");
+    // Increment selection count to force delivery fee recalculation (even for same address)
+    // This changes the queryKey in useDeliveryFee, triggering React Query to set loading=true immediately
+    setAddressSelectionCount(prev => prev + 1);
   };
 
   if (cartLoading) {
@@ -339,6 +343,7 @@ export default function CartCheckout() {
                 addressId={selectedAddressId}
                 onDeliveryFeeChange={setDeliveryFee}
                 onLoadingChange={setIsDeliveryFeeLoading}
+                selectionCount={addressSelectionCount}
               />
             </div>
 
