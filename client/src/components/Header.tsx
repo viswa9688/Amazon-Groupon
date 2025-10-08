@@ -16,6 +16,7 @@ import {
   Briefcase,
   Heart,
   HelpCircle,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -24,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import PhoneAuthModal from "./PhoneAuthModal";
 import SellerNotifications from "./SellerNotifications";
 import SellerInquiryModal from "./SellerInquiryModal";
+import FeedbackModal from "./FeedbackModal";
 import howItWorksImage from "@assets/Info_1759688857805.png";
 
 export default function Header() {
@@ -34,6 +36,7 @@ export default function Header() {
   const [showComingSoonDialog, setShowComingSoonDialog] = useState(false);
   const [showHowItWorksDialog, setShowHowItWorksDialog] = useState(false);
   const [showSellerInquiryModal, setShowSellerInquiryModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const { toast } = useToast();
 
   // Check if admin is impersonating a user
@@ -120,6 +123,15 @@ export default function Header() {
             >
               How it Works
             </button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFeedbackModal(true)}
+              data-testid="button-feedback"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Feedback
+            </Button>
             <Button
               variant="default"
               size="sm"
@@ -393,6 +405,16 @@ export default function Header() {
               How it Works
             </button>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFeedbackModal(true)}
+              className="w-full mt-2"
+              data-testid="mobile-button-feedback"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Feedback
+            </Button>
+            <Button
               variant="default"
               size="sm"
               onClick={() => setShowSellerInquiryModal(true)}
@@ -610,6 +632,12 @@ export default function Header() {
       <SellerInquiryModal 
         open={showSellerInquiryModal} 
         onClose={() => setShowSellerInquiryModal(false)} 
+      />
+
+      {/* Feedback Modal */}
+      <FeedbackModal 
+        open={showFeedbackModal} 
+        onClose={() => setShowFeedbackModal(false)} 
       />
     </header>
   );
