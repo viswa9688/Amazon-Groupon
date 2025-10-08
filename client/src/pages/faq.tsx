@@ -32,10 +32,6 @@ export default function FAQ() {
           a: "Browse the OneAnt app or website. You'll see fresh produce, pantry staples, and local favorites at exclusive group prices. Add what you love to your cart, then share it to start or join a group."
         },
         {
-          q: "What makes OneAnt cheaper than regular grocery shopping?",
-          a: "Our discounts come from collective buying. When enough people commit to the same deal within 24 hours, sellers can offer wholesale-like prices. Everyone saves without compromising on quality."
-        },
-        {
           q: "Are products fresh and authentic?",
           a: "Yes! We partner directly with trusted local sellers and small businesses. This means fresher goods, better traceability, and your dollars staying within the community."
         }
@@ -51,10 +47,6 @@ export default function FAQ() {
         {
           q: "What if I don't have friends to share with?",
           a: "No worries. You can join an existing open group on the platform. OneAnt connects you to other shoppers in your community so you never miss out."
-        },
-        {
-          q: "What happens if the group doesn't fill in 24 hours?",
-          a: "If the minimum number of people isn't reached, your payment is released back to you automatically. No risk, no hidden costs."
         }
       ]
     },
@@ -74,14 +66,6 @@ export default function FAQ() {
     {
       title: "Payments & Refunds",
       questions: [
-        {
-          q: "When is my card charged?",
-          a: "Your payment is captured when you confirm your order, but it only goes through if your group fills within 24 hours. If not, the amount is refunded."
-        },
-        {
-          q: "How are refunds processed?",
-          a: "Refunds are automatic and usually reflect back in your bank within 3–5 business days."
-        },
         {
           q: "Is my payment secure?",
           a: "Yes. We use trusted, PCI-compliant payment gateways to ensure your data and transactions are safe."
