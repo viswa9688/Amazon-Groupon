@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { ultraFastStorage } from "./ultraFastStorage";
 import { setupPhoneAuth, isAuthenticated, isSellerAuthenticated } from "./phoneAuth";
@@ -65,6 +67,42 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only Excel files (.xlsx, .xls) and CSV files (.csv) are allowed'));
+    }
+  }
+});
+
+// Multer configuration for image uploads (feedback, etc.)
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(import.meta.dirname, 'public', 'uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Security: Allow only image files
+    const allowedMimes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, GIF, WebP) are allowed'));
     }
   }
 });
@@ -3463,7 +3501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Feedback routes
-  app.post('/api/feedback', upload.single('image'), async (req: any, res) => {
+  app.post('/api/feedback', imageUpload.single('image'), async (req: any, res) => {
     try {
       const { feedbackText, userId } = req.body;
       
