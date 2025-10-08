@@ -432,6 +432,16 @@ export const sellerInquiries = pgTable("seller_inquiries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Feedback submissions
+export const feedbackSubmissions = pgTable("feedback_submissions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  feedbackText: text("feedback_text").notNull(),
+  imageUrl: varchar("image_url", { length: 500 }),
+  status: varchar("status", { length: 20 }).default("new"), // new, reviewed, resolved
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   products: many(products),
@@ -648,6 +658,11 @@ export const insertSellerInquirySchema = createInsertSchema(sellerInquiries).omi
   createdAt: true,
 });
 
+export const insertFeedbackSchema = createInsertSchema(feedbackSubmissions).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Admin credentials schema
 export const insertAdminCredentialsSchema = createInsertSchema(adminCredentials).omit({
   id: true,
@@ -701,6 +716,8 @@ export type SellerNotification = typeof sellerNotifications.$inferSelect;
 export type InsertSellerNotification = z.infer<typeof insertSellerNotificationSchema>;
 export type SellerInquiry = typeof sellerInquiries.$inferSelect;
 export type InsertSellerInquiry = z.infer<typeof insertSellerInquirySchema>;
+export type FeedbackSubmission = typeof feedbackSubmissions.$inferSelect;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type AdminCredentials = typeof adminCredentials.$inferSelect;
 export type InsertAdminCredentials = z.infer<typeof insertAdminCredentialsSchema>;
 
