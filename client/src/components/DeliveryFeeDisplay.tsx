@@ -8,13 +8,14 @@ interface DeliveryFeeDisplayProps {
   addressId: number | null;
   className?: string;
   onDeliveryFeeChange?: (fee: number) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
   orderType?: 'individual' | 'group';
   orderTotal?: number;
   productId?: number;
   userGroupId?: number;
 }
 
-export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFeeChange, orderType = 'individual', orderTotal = 0, productId, userGroupId }: DeliveryFeeDisplayProps) {
+export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFeeChange, onLoadingChange, orderType = 'individual', orderTotal = 0, productId, userGroupId }: DeliveryFeeDisplayProps) {
   console.log('📦 DeliveryFeeDisplay props:', { addressId, orderType, orderTotal, productId, userGroupId });
   const { deliveryData, isLoading, error } = useDeliveryFee({ addressId, orderType, orderTotal, productId, userGroupId });
 
@@ -24,6 +25,13 @@ export default function DeliveryFeeDisplay({ addressId, className, onDeliveryFee
       onDeliveryFeeChange(deliveryData.deliveryCharge);
     }
   }, [deliveryData, onDeliveryFeeChange]);
+
+  // Notify parent component when loading state changes
+  useEffect(() => {
+    if (onLoadingChange) {
+      onLoadingChange(isLoading);
+    }
+  }, [isLoading, onLoadingChange]);
 
   if (!addressId) {
     return (

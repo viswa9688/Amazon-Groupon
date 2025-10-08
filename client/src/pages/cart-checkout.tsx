@@ -48,7 +48,8 @@ const PaymentForm = ({
   selectedAddressId,
   deliveryFee,
   productPrice,
-  clientSecret
+  clientSecret,
+  isDeliveryFeeLoading
 }: { 
   amount: number; 
   cartItems: CartItem[];
@@ -56,6 +57,7 @@ const PaymentForm = ({
   deliveryFee: number;
   productPrice: number;
   clientSecret: string;
+  isDeliveryFeeLoading: boolean;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -147,11 +149,11 @@ const PaymentForm = ({
       <PaymentElement />
       <Button
         type="submit"
-        disabled={!stripe || isProcessing || !selectedAddressId}
+        disabled={!stripe || isProcessing || !selectedAddressId || isDeliveryFeeLoading}
         className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg"
         data-testid="button-checkout"
       >
-        {isProcessing ? "Processing Payment..." : "Complete Purchase"}
+        {isDeliveryFeeLoading ? "Calculating delivery fee..." : isProcessing ? "Processing Payment..." : "Complete Purchase"}
       </Button>
     </form>
   );
@@ -169,6 +171,7 @@ export default function CartCheckout() {
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+  const [isDeliveryFeeLoading, setIsDeliveryFeeLoading] = useState(false);
 
   // Fetch cart items
   const { data: cartItemsData = [], isLoading: cartLoading } = useQuery<CartItem[]>({
@@ -335,6 +338,7 @@ export default function CartCheckout() {
               <DeliveryFeeDisplay 
                 addressId={selectedAddressId}
                 onDeliveryFeeChange={setDeliveryFee}
+                onLoadingChange={setIsDeliveryFeeLoading}
               />
             </div>
 
@@ -400,6 +404,7 @@ export default function CartCheckout() {
                         deliveryFee={deliveryFee}
                         productPrice={productPrice}
                         clientSecret={clientSecret}
+                        isDeliveryFeeLoading={isDeliveryFeeLoading}
                       />
                     </Elements>
                   ) : (
