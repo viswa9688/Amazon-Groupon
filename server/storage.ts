@@ -413,6 +413,9 @@ export class DatabaseStorage implements IStorage {
           // Delete ALL order_items that reference this product (from ANY order)
           await tx.delete(orderItems).where(eq(orderItems.productId, product.id));
           
+          // Delete ALL group_payments that reference this product
+          await tx.delete(groupPayments).where(eq(groupPayments.productId, product.id));
+          
           // Then handle service provider and staff deletion (handles serviceProviderStaff → serviceProviders FK)
           const provider = await tx.select().from(serviceProviders).where(eq(serviceProviders.productId, product.id));
           if (provider.length > 0) {
@@ -421,6 +424,18 @@ export class DatabaseStorage implements IStorage {
             // Then delete the service provider
             await tx.delete(serviceProviders).where(eq(serviceProviders.productId, product.id));
           }
+          
+          // Handle pet provider and staff deletion
+          const petProvider = await tx.select().from(petProviders).where(eq(petProviders.productId, product.id));
+          if (petProvider.length > 0) {
+            // Delete pet provider staff first
+            await tx.delete(petProviderStaff).where(eq(petProviderStaff.petProviderId, petProvider[0].id));
+            // Then delete the pet provider
+            await tx.delete(petProviders).where(eq(petProviders.productId, product.id));
+          }
+          
+          // Delete grocery product details if exists
+          await tx.delete(groceryProducts).where(eq(groceryProducts.productId, product.id));
           
           // Delete related discount tiers
           await tx.delete(discountTiers).where(eq(discountTiers.productId, product.id));
