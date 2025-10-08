@@ -14,6 +14,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import {  GridSkeleton } from "@/components/InfiniteLoader";
 import type { UserGroupWithDetails, Category } from "@shared/schema";
+import groceryImage from "@assets/WhatsApp Image 2025-10-09 at 01.07.24_1759955946255.jpeg";
 
 interface Product {
   id: number;
@@ -155,7 +156,7 @@ export default function Browse() {
               >
                 <div className="relative aspect-[4/3]">
                   <img
-                    src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"
+                    src={groceryImage}
                     alt="Groceries"
                     className="w-full h-full object-cover"
                   />
