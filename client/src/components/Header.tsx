@@ -23,6 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import PhoneAuthModal from "./PhoneAuthModal";
 import SellerNotifications from "./SellerNotifications";
+import SellerInquiryModal from "./SellerInquiryModal";
 import howItWorksImage from "@assets/Info_1759688857805.png";
 
 export default function Header() {
@@ -32,6 +33,7 @@ export default function Header() {
   const [sellerIntent, setSellerIntent] = useState(false);
   const [showComingSoonDialog, setShowComingSoonDialog] = useState(false);
   const [showHowItWorksDialog, setShowHowItWorksDialog] = useState(false);
+  const [showSellerInquiryModal, setShowSellerInquiryModal] = useState(false);
   const { toast } = useToast();
 
   // Check if admin is impersonating a user
@@ -118,6 +120,16 @@ export default function Header() {
             >
               How it Works
             </button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowSellerInquiryModal(true)}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              data-testid="button-sell-on-oneant"
+            >
+              <Store className="w-4 h-4 mr-2" />
+              Sell on OneAnt
+            </Button>
             {isAuthenticated && (
               <>
                 <a
@@ -380,6 +392,16 @@ export default function Header() {
             >
               How it Works
             </button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowSellerInquiryModal(true)}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-2"
+              data-testid="mobile-button-sell-on-oneant"
+            >
+              <Store className="w-4 h-4 mr-2" />
+              Sell on OneAnt
+            </Button>
             {isAuthenticated && (
               <>
                 <a
@@ -583,6 +605,12 @@ export default function Header() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Seller Inquiry Modal */}
+      <SellerInquiryModal 
+        open={showSellerInquiryModal} 
+        onClose={() => setShowSellerInquiryModal(false)} 
+      />
     </header>
   );
 }
