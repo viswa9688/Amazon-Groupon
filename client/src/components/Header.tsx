@@ -90,27 +90,26 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
+          <nav className="hidden lg:flex items-center space-x-2 xl:space-x-3">
             <a
               href="/browse"
-              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+              className="text-foreground hover:text-primary text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 whitespace-nowrap"
               data-testid="link-browse"
             >
               Browse
             </a>
             <a
               href="/about"
-              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+              className="text-foreground hover:text-primary text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 whitespace-nowrap"
               data-testid="link-about"
             >
-              About Us
+              About
             </a>
             <a
               href="/faq"
-              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50 flex items-center gap-1"
+              className="text-foreground hover:text-primary text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 whitespace-nowrap"
               data-testid="link-faq"
             >
-              <HelpCircle className="w-4 h-4" />
               FAQ
             </a>
             <button
@@ -118,7 +117,7 @@ export default function Header() {
                 e.preventDefault();
                 setShowHowItWorksDialog(true);
               }}
-              className="text-foreground hover:text-primary font-medium transition-colors px-3 py-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+              className="text-foreground hover:text-primary text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 cursor-pointer whitespace-nowrap"
               data-testid="link-how-it-works"
             >
               How it Works
@@ -128,51 +127,52 @@ export default function Header() {
               size="sm"
               onClick={() => setShowFeedbackModal(true)}
               data-testid="button-feedback"
+              className="text-xs px-2 h-8"
             >
-              <MessageSquare className="w-4 h-4 mr-2" />
+              <MessageSquare className="w-3 h-3 mr-1" />
               Feedback
             </Button>
             <Button
               variant="default"
               size="sm"
               onClick={() => setShowSellerInquiryModal(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs px-2 h-8 whitespace-nowrap"
               data-testid="button-sell-on-oneant"
             >
-              <Store className="w-4 h-4 mr-2" />
+              <Store className="w-3 h-3 mr-1" />
               Sell on OneAnt
             </Button>
             {isAuthenticated && (
               <>
                 <a
                   href="/cart"
-                  className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1 relative"
+                  className="text-foreground hover:text-primary text-sm font-medium transition-colors flex items-center space-x-1 relative px-2 py-1 rounded-lg hover:bg-muted/50"
                 >
                   <div className="relative">
-                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
-                      <ShoppingCart className="h-4 w-4" />
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-1.5 flex items-center justify-center">
+                      <ShoppingCart className="h-3.5 w-3.5" />
                     </div>
                     {cartItemCount > 0 && (
                       <Badge
                         variant="destructive"
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+                        className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px] font-bold"
                         data-testid="cart-count-badge"
                       >
                         {cartItemCount}
                       </Badge>
                     )}
                   </div>
-                  <span>Cart</span>
+                  <span className="whitespace-nowrap">Cart</span>
                 </a>
                 <a
                   href="/orders"
-                  className="text-foreground hover:text-primary font-medium transition-colors"
+                  className="text-foreground hover:text-primary text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 whitespace-nowrap"
                 >
                   Orders
                 </a>
                 <a
                   href="/my-groups"
-                  className="text-foreground hover:text-primary font-medium transition-colors"
+                  className="text-foreground hover:text-primary text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 whitespace-nowrap"
                 >
                   My Groups
                 </a>
@@ -181,7 +181,7 @@ export default function Header() {
           </nav>
 
           {/* User Actions */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             {/* Mobile Menu Button */}
             <Button
               variant="ghost"
@@ -194,18 +194,20 @@ export default function Header() {
             </Button>
 
             {/* Desktop Actions */}
-            <div className="hidden lg:flex items-center space-x-3 xl:space-x-4">
+            <div className="hidden lg:flex items-center space-x-2">
               {!isAuthenticated ? (
                 <>
                   <Button
                     variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setSellerIntent(false);
                       setAuthModalOpen(true);
                     }}
                     data-testid="button-login"
+                    className="text-xs h-8"
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-3 h-3 mr-1" />
                     Login
                   </Button>
                 </>
@@ -216,16 +218,16 @@ export default function Header() {
                     className="relative group"
                     data-testid="user-profile-dropdown"
                   >
-                    <div className="flex items-center space-x-2 cursor-pointer py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center space-x-1.5 cursor-pointer py-1 px-2 rounded-lg hover:bg-muted/50 transition-colors">
                       <img
                         src={
                           (user as any)?.profileImageUrl ||
                           `https://api.dicebear.com/7.x/initials/svg?seed=${(user as any)?.firstName}`
                         }
                         alt="Profile"
-                        className="w-8 h-8 rounded-full"
+                        className="w-7 h-7 rounded-full"
                       />
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="text-xs font-medium text-foreground max-w-[80px] truncate">
                         {(user as any)?.firstName && (user as any)?.lastName
                           ? `${(user as any).firstName} ${(user as any).lastName}`
                           : (user as any)?.firstName || "User"}
@@ -233,11 +235,11 @@ export default function Header() {
                       {(!(user as any)?.firstName ||
                         !(user as any)?.lastName) && (
                         <div
-                          className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"
+                          className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"
                           title="Complete your profile"
                         ></div>
                       )}
-                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-hover:rotate-180" />
+                      <ChevronDown className="w-3 h-3 text-muted-foreground transition-transform group-hover:rotate-180" />
                     </div>
 
                     {/* Dropdown Menu */}
@@ -332,8 +334,9 @@ export default function Header() {
                           size="sm"
                           onClick={() => (window.location.href = "/seller")}
                           data-testid="button-seller-dashboard"
+                          className="text-xs px-2 h-8"
                         >
-                          <Store className="w-4 h-4 mr-2" />
+                          <Store className="w-3 h-3 mr-1" />
                           Dashboard
                         </Button>
                       )}
@@ -345,8 +348,9 @@ export default function Header() {
                     onClick={() => logoutMutation.mutate()}
                     disabled={logoutMutation.isPending}
                     data-testid="button-logout"
+                    className="text-xs px-2 h-8"
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="w-3 h-3 mr-1" />
                     {logoutMutation.isPending ? "Logging out..." : "Logout"}
                   </Button>
                 </>
