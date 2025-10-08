@@ -407,7 +407,10 @@ export class DatabaseStorage implements IStorage {
         
         // Delete all products and their related data in correct order
         for (const product of sellerProducts) {
-          // First, delete ALL user_group_items that reference this product (from ANY group, not just seller's groups)
+          // First, delete ALL cart_items that reference this product (from ANY user's cart)
+          await tx.delete(cartItems).where(eq(cartItems.productId, product.id));
+          
+          // Delete ALL user_group_items that reference this product (from ANY group, not just seller's groups)
           await tx.delete(userGroupItems).where(eq(userGroupItems.productId, product.id));
           
           // Delete ALL order_items that reference this product (from ANY order)
