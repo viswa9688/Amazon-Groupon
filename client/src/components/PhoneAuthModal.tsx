@@ -175,7 +175,7 @@ export default function PhoneAuthModal({ open, onClose, onSuccess, redirectTo, s
                 data-testid="input-phone-number"
               />
               <p className="text-sm text-muted-foreground">
-                We'll send you a verification code to confirm your number.
+                Enter without +1 (e.g., 555-123-4567). We'll send you a verification code.
               </p>
             </div>
             <Button 
