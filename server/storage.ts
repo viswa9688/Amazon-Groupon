@@ -407,7 +407,10 @@ export class DatabaseStorage implements IStorage {
         
         // Delete all products and their related data in correct order
         for (const product of sellerProducts) {
-          // First, handle service provider and staff deletion (handles serviceProviderStaff → serviceProviders FK)
+          // First, delete ALL user_group_items that reference this product (from ANY group, not just seller's groups)
+          await tx.delete(userGroupItems).where(eq(userGroupItems.productId, product.id));
+          
+          // Then handle service provider and staff deletion (handles serviceProviderStaff → serviceProviders FK)
           const provider = await tx.select().from(serviceProviders).where(eq(serviceProviders.productId, product.id));
           if (provider.length > 0) {
             // Delete service provider staff first
