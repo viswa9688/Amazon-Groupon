@@ -18,6 +18,7 @@ import {
   groceryProducts,
   adminCredentials,
   sellerNotifications,
+  sellerInquiries,
   sessions,
   type User,
   type UpsertUser,
@@ -59,6 +60,8 @@ import {
   type AdminCredentials,
   type SellerNotification,
   type InsertSellerNotification,
+  type SellerInquiry,
+  type InsertSellerInquiry,
 } from "@shared/schema";
 import { db, queryWithRetry } from "./db";
 import { eq, desc, and, or, sql, gte, not, exists, inArray, isNotNull } from "drizzle-orm";
@@ -267,6 +270,11 @@ export interface IStorage {
   markNotificationAsRead(notificationId: number): Promise<SellerNotification>;
   markAllNotificationsAsRead(sellerId: string): Promise<void>;
   deleteNotification(notificationId: number): Promise<boolean>;
+  
+  // Seller inquiry operations (lead capture for "Sell on OneAnt")
+  createSellerInquiry(inquiry: InsertSellerInquiry): Promise<SellerInquiry>;
+  getAllSellerInquiries(): Promise<SellerInquiry[]>;
+  updateSellerInquiryStatus(id: number, status: string, notes?: string): Promise<SellerInquiry>;
   
   // Group participant operations
   hasParticipantRequest(userGroupId: number, userId: string): Promise<boolean>;
@@ -2716,6 +2724,36 @@ export class DatabaseStorage implements IStorage {
       .delete(sellerNotifications)
       .where(eq(sellerNotifications.id, notificationId));
     return result.rowCount > 0;
+  }
+
+  // Seller inquiry operations (lead capture for "Sell on OneAnt")
+  async createSellerInquiry(inquiry: InsertSellerInquiry): Promise<SellerInquiry> {
+    const [newInquiry] = await db
+      .insert(sellerInquiries)
+      .values(inquiry)
+      .returning();
+    return newInquiry;
+  }
+
+  async getAllSellerInquiries(): Promise<SellerInquiry[]> {
+    return await db
+      .select()
+      .from(sellerInquiries)
+      .orderBy(desc(sellerInquiries.createdAt));
+  }
+
+  async updateSellerInquiryStatus(id: number, status: string, notes?: string): Promise<SellerInquiry> {
+    const updateData: Partial<SellerInquiry> = { status };
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+    
+    const [updated] = await db
+      .update(sellerInquiries)
+      .set(updateData)
+      .where(eq(sellerInquiries.id, id))
+      .returning();
+    return updated;
   }
 }
 
