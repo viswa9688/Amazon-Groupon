@@ -246,18 +246,6 @@ export default function Browse() {
               </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="mt-8 flex justify-center max-w-md mx-auto">
-              <Card className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 border-0 w-full">
-                <CardContent className="p-6 text-center">
-                  <Zap className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {collections?.length || 0}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Active Popular Groups</p>
-                </CardContent>
-              </Card>
-            </div>
           </div>
         )}
 
