@@ -422,6 +422,16 @@ export const sellerNotifications = pgTable("seller_notifications", {
   readAt: timestamp("read_at"),
 });
 
+// Seller inquiries table (lead capture for "Sell on OneAnt")
+export const sellerInquiries = pgTable("seller_inquiries", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phoneNumber: varchar("phone_number", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"), // pending, contacted, converted, rejected
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   products: many(products),
@@ -633,6 +643,11 @@ export const insertSellerNotificationSchema = createInsertSchema(sellerNotificat
   readAt: true,
 });
 
+export const insertSellerInquirySchema = createInsertSchema(sellerInquiries).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Admin credentials schema
 export const insertAdminCredentialsSchema = createInsertSchema(adminCredentials).omit({
   id: true,
@@ -684,6 +699,8 @@ export type GroupPayment = typeof groupPayments.$inferSelect;
 export type InsertGroupPayment = z.infer<typeof insertGroupPaymentSchema>;
 export type SellerNotification = typeof sellerNotifications.$inferSelect;
 export type InsertSellerNotification = z.infer<typeof insertSellerNotificationSchema>;
+export type SellerInquiry = typeof sellerInquiries.$inferSelect;
+export type InsertSellerInquiry = z.infer<typeof insertSellerInquirySchema>;
 export type AdminCredentials = typeof adminCredentials.$inferSelect;
 export type InsertAdminCredentials = z.infer<typeof insertAdminCredentialsSchema>;
 
