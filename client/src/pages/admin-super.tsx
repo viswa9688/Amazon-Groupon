@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
   Trash2, Edit, Users, ShoppingBag, Eye, X, Plus, Store, MapPin, 
-  Clock, Globe, CreditCard, Languages, Shield, FileText 
+  Clock, Globe, CreditCard, Languages, Shield, FileText, MessageSquare 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -90,14 +90,30 @@ interface SellerInquiry {
   createdAt: string;
 }
 
+interface FeedbackSubmission {
+  id: number;
+  feedbackText: string;
+  imageUrl?: string;
+  userId?: string;
+  status: string;
+  createdAt: string;
+  user?: {
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+  };
+}
+
 export default function AdminSuper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginData, setLoginData] = useState({ userId: "", password: "" });
   const [users, setUsers] = useState<AdminUsers>({ sellers: [], buyers: [] });
   const [sellerInquiries, setSellerInquiries] = useState<SellerInquiry[]>([]);
+  const [feedbackSubmissions, setFeedbackSubmissions] = useState<FeedbackSubmission[]>([]);
   const [loading, setLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
   const [inquiriesLoading, setInquiriesLoading] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -128,7 +144,7 @@ export default function AdminSuper() {
       const response = await apiRequest("POST", "/api/admin/login", loginData);
       setIsAuthenticated(true);
       toast({ title: "Admin Access Granted", description: "Welcome to super admin panel" });
-      await Promise.all([fetchUsers(), fetchSellerInquiries()]);
+      await Promise.all([fetchUsers(), fetchSellerInquiries(), fetchFeedback()]);
     } catch (error) {
       toast({
         title: "Access Denied", 
@@ -171,6 +187,23 @@ export default function AdminSuper() {
       });
     } finally {
       setInquiriesLoading(false);
+    }
+  };
+
+  const fetchFeedback = async () => {
+    setFeedbackLoading(true);
+    try {
+      const response = await apiRequest("GET", "/api/admin/feedback");
+      const data = await response.json();
+      setFeedbackSubmissions(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch feedback",
+        variant: "destructive"
+      });
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -821,7 +854,7 @@ export default function AdminSuper() {
         </div>
 
         <Tabs defaultValue="sellers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="sellers" className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4" />
               Sellers ({users.sellers.length})
@@ -833,6 +866,10 @@ export default function AdminSuper() {
             <TabsTrigger value="inquiries" className="flex items-center gap-2">
               <Store className="h-4 w-4" />
               Seller Inquiries ({sellerInquiries.length})
+            </TabsTrigger>
+            <TabsTrigger value="feedback" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Feedback ({feedbackSubmissions.length})
             </TabsTrigger>
           </TabsList>
 
@@ -972,6 +1009,106 @@ export default function AdminSuper() {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="feedback" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Feedback</CardTitle>
+                <CardDescription>
+                  Feedback submissions from users
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {feedbackLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading feedback...
+                  </div>
+                ) : feedbackSubmissions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No feedback submissions yet
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {feedbackSubmissions.map((feedback) => (
+                      <Card key={feedback.id} className="border-l-4 border-l-primary">
+                        <CardContent className="pt-6">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant={
+                                    feedback.status === 'new' ? 'default' : 
+                                    feedback.status === 'reviewed' ? 'secondary' : 
+                                    feedback.status === 'resolved' ? 'outline' : 
+                                    'destructive'
+                                  }>
+                                    {feedback.status}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {new Date(feedback.createdAt).toLocaleString()}
+                                  </span>
+                                </div>
+                                {feedback.user && (
+                                  <p className="text-sm text-muted-foreground mb-2">
+                                    From: {feedback.user.firstName} {feedback.user.lastName} 
+                                    {feedback.user.phoneNumber && ` (${feedback.user.phoneNumber})`}
+                                  </p>
+                                )}
+                              </div>
+                              <Select
+                                value={feedback.status}
+                                onValueChange={(value) => {
+                                  apiRequest('PATCH', `/api/admin/feedback/${feedback.id}/status`, {
+                                    status: value
+                                  })
+                                  .then(() => {
+                                    toast({
+                                      title: 'Success',
+                                      description: 'Feedback status updated'
+                                    });
+                                    fetchFeedback();
+                                  })
+                                  .catch(() => {
+                                    toast({
+                                      title: 'Error',
+                                      description: 'Failed to update status',
+                                      variant: 'destructive'
+                                    });
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="w-[130px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="new">New</SelectItem>
+                                  <SelectItem value="reviewed">Reviewed</SelectItem>
+                                  <SelectItem value="resolved">Resolved</SelectItem>
+                                  <SelectItem value="archived">Archived</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="bg-muted p-4 rounded-lg">
+                              <p className="text-sm whitespace-pre-wrap">{feedback.feedbackText}</p>
+                            </div>
+                            {feedback.imageUrl && (
+                              <div className="mt-3">
+                                <img 
+                                  src={feedback.imageUrl} 
+                                  alt="Feedback attachment" 
+                                  className="max-w-full h-auto max-h-[400px] rounded-lg border"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
