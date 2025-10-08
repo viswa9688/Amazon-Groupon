@@ -1740,6 +1740,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const addressData = insertUserAddressSchema.parse({ ...req.body, userId });
+      
+      // Validate BC address before saving
+      const bcValidation = await deliveryService.validateBCAddress({
+        addressLine: addressData.addressLine,
+        city: addressData.city,
+        state: addressData.state,
+        pincode: addressData.pincode,
+        country: addressData.country
+      });
+      
+      if (!bcValidation.canDeliver) {
+        return res.status(400).json({ 
+          message: bcValidation.reason || "Address must be in British Columbia",
+          error: "BC_VALIDATION_FAILED"
+        });
+      }
+      
       const address = await storage.createUserAddress(addressData);
       res.status(201).json(address);
     } catch (error) {
