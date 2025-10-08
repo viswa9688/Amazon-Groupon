@@ -3431,7 +3431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/seller-inquiries', isSuperAdmin, async (req: any, res) => {
+  app.get('/api/admin/seller-inquiries', isAdminAuthenticatedSession, async (req: any, res) => {
     try {
       const inquiries = await storage.getAllSellerInquiries();
       res.json(inquiries);
@@ -3441,7 +3441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/seller-inquiries/:id/status', isSuperAdmin, async (req: any, res) => {
+  app.patch('/api/admin/seller-inquiries/:id/status', isAdminAuthenticatedSession, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, notes } = req.body;

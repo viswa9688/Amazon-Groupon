@@ -81,12 +81,23 @@ interface AdminUsers {
   buyers: User[];
 }
 
+interface SellerInquiry {
+  id: number;
+  name: string;
+  phoneNumber: string;
+  status: string;
+  notes?: string;
+  createdAt: string;
+}
+
 export default function AdminSuper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginData, setLoginData] = useState({ userId: "", password: "" });
   const [users, setUsers] = useState<AdminUsers>({ sellers: [], buyers: [] });
+  const [sellerInquiries, setSellerInquiries] = useState<SellerInquiry[]>([]);
   const [loading, setLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [inquiriesLoading, setInquiriesLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -117,7 +128,7 @@ export default function AdminSuper() {
       const response = await apiRequest("POST", "/api/admin/login", loginData);
       setIsAuthenticated(true);
       toast({ title: "Admin Access Granted", description: "Welcome to super admin panel" });
-      await fetchUsers();
+      await Promise.all([fetchUsers(), fetchSellerInquiries()]);
     } catch (error) {
       toast({
         title: "Access Denied", 
@@ -143,6 +154,23 @@ export default function AdminSuper() {
       });
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  const fetchSellerInquiries = async () => {
+    setInquiriesLoading(true);
+    try {
+      const response = await apiRequest("GET", "/api/admin/seller-inquiries");
+      const data = await response.json();
+      setSellerInquiries(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch seller inquiries",
+        variant: "destructive"
+      });
+    } finally {
+      setInquiriesLoading(false);
     }
   };
 
@@ -793,7 +821,7 @@ export default function AdminSuper() {
         </div>
 
         <Tabs defaultValue="sellers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="sellers" className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4" />
               Sellers ({users.sellers.length})
@@ -801,6 +829,10 @@ export default function AdminSuper() {
             <TabsTrigger value="buyers" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Buyers ({users.buyers.length})
+            </TabsTrigger>
+            <TabsTrigger value="inquiries" className="flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Seller Inquiries ({sellerInquiries.length})
             </TabsTrigger>
           </TabsList>
 
@@ -847,6 +879,99 @@ export default function AdminSuper() {
                   </div>
                 ) : (
                   <UserTable userList={users.buyers} type="buyers" />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inquiries" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Seller Inquiries</CardTitle>
+                <CardDescription>
+                  Lead submissions from "Sell on OneAnt" form
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {inquiriesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading inquiries...
+                  </div>
+                ) : sellerInquiries.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No seller inquiries yet
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Phone Number</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sellerInquiries.map((inquiry) => (
+                        <TableRow key={inquiry.id}>
+                          <TableCell className="font-medium">{inquiry.name}</TableCell>
+                          <TableCell>{inquiry.phoneNumber}</TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              inquiry.status === 'new' ? 'default' : 
+                              inquiry.status === 'contacted' ? 'secondary' : 
+                              inquiry.status === 'converted' ? 'outline' : 
+                              'destructive'
+                            }>
+                              {inquiry.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(inquiry.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate">
+                            {inquiry.notes || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const newStatus = prompt('Enter new status (new, contacted, converted, rejected):', inquiry.status);
+                                const notes = prompt('Enter notes (optional):', inquiry.notes || '');
+                                
+                                if (newStatus) {
+                                  apiRequest('PATCH', `/api/admin/seller-inquiries/${inquiry.id}/status`, {
+                                    status: newStatus,
+                                    notes
+                                  })
+                                  .then(() => {
+                                    toast({
+                                      title: 'Success',
+                                      description: 'Inquiry status updated'
+                                    });
+                                    fetchSellerInquiries();
+                                  })
+                                  .catch(() => {
+                                    toast({
+                                      title: 'Error',
+                                      description: 'Failed to update inquiry',
+                                      variant: 'destructive'
+                                    });
+                                  });
+                                }
+                              }}
+                              data-testid={`button-edit-inquiry-${inquiry.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 )}
               </CardContent>
             </Card>
