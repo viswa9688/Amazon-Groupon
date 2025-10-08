@@ -3,10 +3,14 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedDatabase } from "./seed";
+import path from "path";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Serve uploaded files from the uploads directory (needed in both dev and prod)
+app.use('/uploads', express.static(path.join(import.meta.dirname, 'public', 'uploads')));
 
 app.use((req, res, next) => {
   const start = Date.now();
