@@ -1,0 +1,231 @@
+index-BmNijar6.js:1  GET https://group-buy-pearai095.replit.app/api/seller/notifications/unread-count 403 (Forbidden)
+wl.defaultOptions.queries.queryFn.on401 @ index-BmNijar6.js:1
+fetchFn @ index-BmNijar6.js:1
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+setTimeout
+a @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+batch @ index-BmNijar6.js:1
+f @ index-BmNijar6.js:1
+setData @ index-BmNijar6.js:1
+onSuccess @ index-BmNijar6.js:1
+o @ index-BmNijar6.js:1
+Promise.then
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Qs @ vendor-C1mj56OW.js:20
+w @ vendor-C1mj56OW.js:11
+z @ vendor-C1mj56OW.js:11Understand this error
+index-BmNijar6.js:1  GET https://group-buy-pearai095.replit.app/api/seller/notifications 403 (Forbidden)
+wl.defaultOptions.queries.queryFn.on401 @ index-BmNijar6.js:1
+fetchFn @ index-BmNijar6.js:1
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+setTimeout
+a @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+batch @ index-BmNijar6.js:1
+f @ index-BmNijar6.js:1
+setData @ index-BmNijar6.js:1
+onSuccess @ index-BmNijar6.js:1
+o @ index-BmNijar6.js:1
+Promise.then
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Qs @ vendor-C1mj56OW.js:20
+w @ vendor-C1mj56OW.js:11
+z @ vendor-C1mj56OW.js:11Understand this error
+index-BmNijar6.js:1  GET https://group-buy-pearai095.replit.app/api/seller/notifications/unread-count 403 (Forbidden)
+wl.defaultOptions.queries.queryFn.on401 @ index-BmNijar6.js:1
+fetchFn @ index-BmNijar6.js:1
+u @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+Promise.then
+(anonymous) @ index-BmNijar6.js:1
+Promise.catch
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+setTimeout
+a @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+batch @ index-BmNijar6.js:1
+f @ index-BmNijar6.js:1
+setData @ index-BmNijar6.js:1
+onSuccess @ index-BmNijar6.js:1
+o @ index-BmNijar6.js:1
+Promise.then
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Qs @ vendor-C1mj56OW.js:20
+w @ vendor-C1mj56OW.js:11
+z @ vendor-C1mj56OW.js:11Understand this error
+index-BmNijar6.js:1  GET https://group-buy-pearai095.replit.app/api/seller/notifications 403 (Forbidden)
+wl.defaultOptions.queries.queryFn.on401 @ index-BmNijar6.js:1
+fetchFn @ index-BmNijar6.js:1
+u @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+Promise.then
+(anonymous) @ index-BmNijar6.js:1
+Promise.catch
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+setTimeout
+a @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+batch @ index-BmNijar6.js:1
+f @ index-BmNijar6.js:1
+setData @ index-BmNijar6.js:1
+onSuccess @ index-BmNijar6.js:1
+o @ index-BmNijar6.js:1
+Promise.then
+u @ index-BmNijar6.js:1
+start @ index-BmNijar6.js:1
+fetch @ index-BmNijar6.js:1
+te @ index-BmNijar6.js:1
+onSubscribe @ index-BmNijar6.js:1
+subscribe @ index-BmNijar6.js:1
+(anonymous) @ index-BmNijar6.js:1
+go @ vendor-C1mj56OW.js:20
+Wi @ vendor-C1mj56OW.js:20
+cc @ vendor-C1mj56OW.js:20
+Xs @ vendor-C1mj56OW.js:20
+La @ vendor-C1mj56OW.js:20
+(anonymous) @ vendor-C1mj56OW.js:20
+sc @ vendor-C1mj56OW.js:20
+Qs @ vendor-C1mj56OW.js:20
+w @ vendor-C1mj56OW.js:11
+z @ vendor-C1mj56OW.js:11Understand this error
+shared-7b5d244e49aa6944e08b86c02c1e456a.js:1  GET https://api.stripe.com/v1/elements/sessions?client_secret=pi_3SGvyGKs5d82BD9s1hqlijwv_secret_7CGgJGn6LHPj3J59WvSLfjlVa&key=pk_live_51RQeEUKs5d82BD9sZ1wAisMUU49N91003OODTd5i9PTP0tpMGZr1hP7uQFSWrSBbc2IRliD2tznUF64gI0Trf7d000vedCczDM&_stripe_version=2025-03-31.basil&elements_init_source=stripe.elements&referrer_host=group-buy-pearai095.replit.app&stripe_js_id=f7a037a1-c27c-461c-aec6-91a41c77b771&locale=en-US&expand[0]=payment_method_preference.payment_intent.payment_method&type=payment_intent 401 (Unauthorized)
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+e @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+c @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+i @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+s @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+e @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+n @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+a @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+i @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+_ @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+d @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+Uh.t.requestParams @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+Uh @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+Fh.singleFlightCreateAndParse @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+(anonymous) @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+n @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+a @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+i @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+(anonymous) @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+(anonymous) @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+n @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+a @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+i @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ shared-7b5d244e49aa6944e08b86c02c1e456a.js:1
+(anonymous) @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+value @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1
+(anonymous) @ controller-with-preconnect-1d4b1b3a6e3cace32d7130866abf1f1d.js:1Understand this error
+cart-checkout:1 Unable to download payment manifest "https://www.google.com/pay".Understand this error
+cart-checkout:1 Unable to download payment manifest "https://www.google.com/pay".Understand this error
+shared-7b5d244e49aa6944e08b86c02c1e456a.js:1  POST https://merchant-ui-api.stripe.com/elements/wallet-config 401 (Unauthorized)
