@@ -836,6 +836,8 @@ export class DatabaseStorage implements IStorage {
       with: {
         seller: true,
         category: true,
+        subcategory: true,
+        groceryProduct: true,
         discountTiers: true,
         serviceProvider: {
           with: {
