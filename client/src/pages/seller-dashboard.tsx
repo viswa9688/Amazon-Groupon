@@ -286,6 +286,39 @@ export default function SellerDashboard() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
+  // Product form - declare early so we can use form.watch() in queries
+  const form = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      shopId: "",
+      name: "",
+      description: "",
+      categoryId: "",
+      subcategoryId: "",
+      imageUrl: "",
+      originalPrice: "",
+      discountPrice: "",
+      minimumParticipants: "10",
+      maximumParticipants: "1000",
+      offerValidTill: undefined,
+      // Service defaults
+      serviceMode: "in_person",
+      pricingModel: "flat_fee",
+      materialsIncluded: false,
+      availabilityType: "by_appointment",
+      advanceBookingDays: "7",
+      rescheduleAllowed: true,
+      liabilityWaiverRequired: false,
+      // Grocery defaults
+      isVariableWeight: false,
+      substitutable: true,
+      inventoryStatus: "in_stock",
+    },
+  });
+
+  // Watch category to show/hide service fields - declare early for use in queries
+  const selectedCategoryId = form.watch("categoryId");
+
   const { data: products, isLoading: productsLoading } = useQuery<
     ProductWithDetails[]
   >({
@@ -355,36 +388,6 @@ export default function SellerDashboard() {
     queryClient.invalidateQueries({ queryKey: ["/api/seller/analytics"] });
   };
 
-  // Product form
-  const form = useForm<ProductFormData>({
-    resolver: zodResolver(productFormSchema),
-    defaultValues: {
-      shopId: "",
-      name: "",
-      description: "",
-      categoryId: "",
-      subcategoryId: "",
-      imageUrl: "",
-      originalPrice: "",
-      discountPrice: "",
-      minimumParticipants: "10",
-      maximumParticipants: "1000",
-      offerValidTill: undefined,
-      // Service defaults
-      serviceMode: "in_person",
-      pricingModel: "flat_fee",
-      materialsIncluded: false,
-      availabilityType: "by_appointment",
-      advanceBookingDays: "7",
-      rescheduleAllowed: true,
-      liabilityWaiverRequired: false,
-      // Grocery defaults
-      isVariableWeight: false,
-      substitutable: true,
-      inventoryStatus: "in_stock",
-    },
-  });
-
   // Watch shop selection to automatically set category
   const selectedShopId = form.watch("shopId");
   const selectedShop = shops.find((shop: any) => shop.id === selectedShopId);
@@ -411,9 +414,6 @@ export default function SellerDashboard() {
       form.setValue("categoryId", "", { shouldValidate: true });
     }
   }, [selectedShop, form]);
-
-  // Watch category to show/hide service fields
-  const selectedCategoryId = form.watch("categoryId");
   
   // Debug: Log current form values
   useEffect(() => {
