@@ -665,6 +665,13 @@ export class ExcelService {
       const shopType = shop.shopType;
       const categoryId = shopType === 'services' ? 2 : shopType === 'pet-essentials' ? 3 : 1;
 
+      // Fetch subcategories for the category
+      const subcategories = await storage.getSubcategoriesByCategory(categoryId);
+      const subcategoryMap = new Map<string, number>();
+      subcategories.forEach((sub: any) => {
+        subcategoryMap.set(sub.name.toLowerCase().trim(), sub.id);
+      });
+
       // Validate and process each row
       const errors: Array<{ row: number; field: string; message: string }> = [];
       const products: any[] = [];
@@ -683,10 +690,26 @@ export class ExcelService {
           // Validate row data
           const validatedData = excelProductSchema.parse(rowData);
 
+          // Map subcategory name to ID if provided
+          let subcategoryId = null;
+          if (validatedData.subcategory && validatedData.subcategory.trim()) {
+            const subcatLower = validatedData.subcategory.toLowerCase().trim();
+            if (subcategoryMap.has(subcatLower)) {
+              subcategoryId = subcategoryMap.get(subcatLower);
+            } else {
+              errors.push({
+                row: rowNumber,
+                field: 'subcategory',
+                message: `Subcategory "${validatedData.subcategory}" not found. Available subcategories: ${Array.from(subcategoryMap.keys()).join(', ')}`
+              });
+            }
+          }
+
           // Create product data
           const productData = {
             sellerId,
             categoryId,
+            subcategoryId,
             name: validatedData.name,
             description: validatedData.description,
             originalPrice: validatedData.originalPrice,
