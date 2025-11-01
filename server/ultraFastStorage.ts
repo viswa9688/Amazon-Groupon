@@ -84,6 +84,57 @@ class UltraFastStorage extends DatabaseStorage {
     return categories;
   }
 
+  // Override getSubcategories with ultra-fast caching
+  async getSubcategories(): Promise<any[]> {
+    const startTime = performance.now();
+    
+    // Try cache first
+    let subcategories = ultraFastCache.get<any[]>(CacheKeys.SUBCATEGORIES_ALL);
+    
+    if (subcategories) {
+      const endTime = performance.now();
+      console.log(`⚡ Subcategories from cache: ${(endTime - startTime).toFixed(2)}ms`);
+      return subcategories;
+    }
+    
+    // Fallback to database
+    subcategories = await super.getSubcategories();
+    
+    // Cache for longer since subcategories rarely change
+    ultraFastCache.set(CacheKeys.SUBCATEGORIES_ALL, subcategories, 600000); // 10 minutes
+    
+    const endTime = performance.now();
+    console.log(`🐌 Subcategories from DB: ${(endTime - startTime).toFixed(2)}ms`);
+    
+    return subcategories;
+  }
+
+  // Override getSubcategoriesByCategory with ultra-fast caching
+  async getSubcategoriesByCategory(categoryId: number): Promise<any[]> {
+    const startTime = performance.now();
+    const cacheKey = CacheKeys.SUBCATEGORIES_BY_CATEGORY(categoryId);
+    
+    // Try cache first
+    let subcategories = ultraFastCache.get<any[]>(cacheKey);
+    
+    if (subcategories) {
+      const endTime = performance.now();
+      console.log(`⚡ Subcategories for category ${categoryId} from cache: ${(endTime - startTime).toFixed(2)}ms`);
+      return subcategories;
+    }
+    
+    // Fallback to database
+    subcategories = await super.getSubcategoriesByCategory(categoryId);
+    
+    // Cache for longer since subcategories rarely change
+    ultraFastCache.set(cacheKey, subcategories, 600000); // 10 minutes
+    
+    const endTime = performance.now();
+    console.log(`🐌 Subcategories for category ${categoryId} from DB: ${(endTime - startTime).toFixed(2)}ms`);
+    
+    return subcategories;
+  }
+
   // Override getProductsBySeller with ultra-fast caching
   async getProductsBySeller(sellerId: string): Promise<any[]> {
     const startTime = performance.now();
@@ -306,6 +357,11 @@ class UltraFastStorage extends DatabaseStorage {
     ultraFastCache.del(CacheKeys.CATEGORIES_ALL);
   }
 
+  invalidateSubcategoryCache(): void {
+    ultraFastCache.del(CacheKeys.SUBCATEGORIES_ALL);
+    ultraFastCache.delPattern('subcategories:category:*');
+  }
+
   invalidateUserGroupCache(groupId?: number): void {
     if (groupId) {
       ultraFastCache.del(CacheKeys.USER_GROUP_BY_ID(groupId));
@@ -348,6 +404,12 @@ class UltraFastStorage extends DatabaseStorage {
   async createCategory(category: any): Promise<any> {
     const result = await super.createCategory(category);
     this.invalidateCategoryCache();
+    return result;
+  }
+
+  async createSubcategory(subcategory: any): Promise<any> {
+    const result = await super.createSubcategory(subcategory);
+    this.invalidateSubcategoryCache();
     return result;
   }
 

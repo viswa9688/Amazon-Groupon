@@ -137,6 +137,7 @@ const baseProductSchema = z.object({
   name: z.string().min(1, "Product/Service name is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   categoryId: z.string().min(1, "Category is required"),
+  subcategoryId: z.string().optional(),
   imageUrl: z
     .string()
     .url("Please enter a valid image URL")
@@ -302,6 +303,14 @@ export default function SellerDashboard() {
     gcTime: 60 * 60 * 1000, // 1 hour
   });
 
+  // Fetch subcategories for the selected category
+  const { data: subcategories } = useQuery<any[]>({
+    queryKey: [`/api/subcategories/category/${selectedCategoryId || ""}`],
+    enabled: isAuthenticated && !!selectedCategoryId,
+    staleTime: 30 * 60 * 1000, // 30 minutes (subcategories rarely change)
+    gcTime: 60 * 60 * 1000, // 1 hour
+  });
+
   // Get available shops
   const { data: shops = [], isLoading: shopsLoading } = useQuery<any[]>({
     queryKey: ["/api/seller/shops"],
@@ -354,6 +363,7 @@ export default function SellerDashboard() {
       name: "",
       description: "",
       categoryId: "",
+      subcategoryId: "",
       imageUrl: "",
       originalPrice: "",
       discountPrice: "",
@@ -447,6 +457,7 @@ export default function SellerDashboard() {
         name: data.name,
         description: data.description,
         categoryId: parseInt(data.categoryId),
+        subcategoryId: data.subcategoryId ? parseInt(data.subcategoryId) : undefined,
         originalPrice: data.originalPrice,
         minimumParticipants: parseInt(data.minimumParticipants),
         maximumParticipants: parseInt(data.maximumParticipants),
@@ -605,6 +616,7 @@ export default function SellerDashboard() {
         name: data.name,
         description: data.description,
         categoryId: parseInt(data.categoryId),
+        subcategoryId: data.subcategoryId ? parseInt(data.subcategoryId) : undefined,
         originalPrice: data.originalPrice,
         minimumParticipants: parseInt(data.minimumParticipants),
         maximumParticipants: parseInt(data.maximumParticipants),
@@ -734,6 +746,7 @@ export default function SellerDashboard() {
         name: "",
         description: "",
         categoryId: "",
+        subcategoryId: "",
         imageUrl: "",
         originalPrice: "",
         discountPrice: "",
@@ -1270,6 +1283,44 @@ export default function SellerDashboard() {
                             );
                           }}
                         />
+
+                        {/* Subcategory Selection */}
+                        {subcategories && subcategories.length > 0 && (
+                          <FormField
+                            control={form.control}
+                            name="subcategoryId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Subcategory (Optional)</FormLabel>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  value={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-subcategory">
+                                      <SelectValue placeholder="Select a subcategory (optional)" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="">None</SelectItem>
+                                    {subcategories.map((subcategory: any) => (
+                                      <SelectItem
+                                        key={subcategory.id}
+                                        value={subcategory.id.toString()}
+                                      >
+                                        {subcategory.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  Optional: Choose a specific subcategory for your product
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
                         {/* Basic Fields */}
                         <FormField

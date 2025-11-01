@@ -35,6 +35,10 @@ interface ServiceProductCardProps {
       id: number;
       name: string;
     };
+    subcategory?: {
+      id: number;
+      name: string;
+    };
     serviceProvider?: {
       id: number;
       displayName?: string;
@@ -254,9 +258,16 @@ export default function ServiceProductCard({ product, testId }: ServiceProductCa
        </div>
       
       <CardContent className="p-4">
-        <h3 className="font-semibold text-lg text-foreground line-clamp-2 mb-2" data-testid={`text-product-name-${product.id}`}>
-          {product.name}
-        </h3>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className="font-semibold text-lg text-foreground line-clamp-2 flex-1" data-testid={`text-product-name-${product.id}`}>
+            {product.name}
+          </h3>
+          {product.subcategory && (
+            <Badge variant="outline" className="text-xs shrink-0">
+              {product.subcategory.name}
+            </Badge>
+          )}
+        </div>
         
         {/* Service Provider Name */}
         {isService && sp?.displayName && (

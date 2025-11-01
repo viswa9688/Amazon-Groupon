@@ -281,6 +281,10 @@ export const CacheKeys = {
   CATEGORIES_ALL: 'categories:all',
   CATEGORY_BY_ID: (id: number) => `category:${id}`,
   
+  // Subcategories
+  SUBCATEGORIES_ALL: 'subcategories:all',
+  SUBCATEGORIES_BY_CATEGORY: (categoryId: number) => `subcategories:category:${categoryId}`,
+  
   // User groups
   USER_GROUPS_ALL: 'user_groups:all',
   USER_GROUP_BY_ID: (id: number) => `user_group:${id}`,

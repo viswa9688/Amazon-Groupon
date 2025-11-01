@@ -2,6 +2,7 @@ import {
   users,
   products,
   categories,
+  subcategories,
   discountTiers,
   orders,
   orderItems,
@@ -30,6 +31,8 @@ import {
   type InsertProduct,
   type Category,
   type InsertCategory,
+  type Subcategory,
+  type InsertSubcategory,
   type DiscountTier,
   type InsertDiscountTier,
   type Order,
@@ -94,6 +97,11 @@ export interface IStorage {
   // Category operations
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
+
+  // Subcategory operations
+  getSubcategories(): Promise<Subcategory[]>;
+  getSubcategoriesByCategory(categoryId: number): Promise<Subcategory[]>;
+  createSubcategory(subcategory: InsertSubcategory): Promise<Subcategory>;
 
   // Product operations
   getProducts(): Promise<ProductWithDetails[]>;
@@ -605,6 +613,24 @@ export class DatabaseStorage implements IStorage {
     return newCategory;
   }
 
+  // Subcategory operations
+  async getSubcategories(): Promise<Subcategory[]> {
+    return await db.select().from(subcategories).orderBy(subcategories.name);
+  }
+
+  async getSubcategoriesByCategory(categoryId: number): Promise<Subcategory[]> {
+    return await db
+      .select()
+      .from(subcategories)
+      .where(eq(subcategories.categoryId, categoryId))
+      .orderBy(subcategories.name);
+  }
+
+  async createSubcategory(subcategory: InsertSubcategory): Promise<Subcategory> {
+    const [newSubcategory] = await db.insert(subcategories).values(subcategory).returning();
+    return newSubcategory;
+  }
+
   // Product operations - optimized for performance
   async getProducts(): Promise<ProductWithDetails[]> {
     // Use simpler query for better performance
@@ -616,21 +642,24 @@ export class DatabaseStorage implements IStorage {
     
     if (productList.length === 0) return [];
     
-    // Get unique seller and category IDs
+    // Get unique seller, category, and subcategory IDs
     const sellerIds = Array.from(new Set(productList.map(p => p.sellerId).filter(Boolean)));
     const categoryIds = Array.from(new Set(productList.map(p => p.categoryId).filter(Boolean)));
+    const subcategoryIds = Array.from(new Set(productList.map(p => p.subcategoryId).filter(Boolean)));
     const productIds = productList.map(p => p.id);
     
     // Fetch related data in parallel
-    const [sellers, categoriesData, allDiscountTiers] = await Promise.all([
+    const [sellers, categoriesData, subcategoriesData, allDiscountTiers] = await Promise.all([
       db.select().from(users).where(inArray(users.id, sellerIds)),
       db.select().from(categories).where(inArray(categories.id, categoryIds)),
+      subcategoryIds.length > 0 ? db.select().from(subcategories).where(inArray(subcategories.id, subcategoryIds)) : Promise.resolve([]),
       db.select().from(discountTiers).where(inArray(discountTiers.productId, productIds))
     ]);
     
     // Create lookup maps
     const sellerMap = new Map(sellers.map(s => [s.id, s]));
     const categoryMap = new Map(categoriesData.map(c => [c.id, c]));
+    const subcategoryMap = new Map(subcategoriesData.map(sc => [sc.id, sc]));
     const discountTiersMap = new Map<string, any[]>();
     
     allDiscountTiers.forEach(dt => {
@@ -646,6 +675,7 @@ export class DatabaseStorage implements IStorage {
       ...product,
       seller: sellerMap.get(product.sellerId) || undefined,
       category: categoryMap.get(product.categoryId) || undefined,
+      subcategory: product.subcategoryId ? subcategoryMap.get(product.subcategoryId) || undefined : undefined,
       discountTiers: discountTiersMap.get(product.id.toString()) || [],
       serviceProvider: undefined, // Skip for now to improve performance
       petProvider: undefined, // Skip for now to improve performance
@@ -663,9 +693,10 @@ export class DatabaseStorage implements IStorage {
     if (!product) return undefined;
     
     // Fetch related data separately for better performance
-    const [seller, category, discountTiersData] = await Promise.all([
+    const [seller, category, subcategory, discountTiersData] = await Promise.all([
       db.select().from(users).where(eq(users.id, product.sellerId)).limit(1),
-      db.select().from(categories).where(eq(categories.id, product.categoryId)).limit(1),
+      product.categoryId ? db.select().from(categories).where(eq(categories.id, product.categoryId)).limit(1) : Promise.resolve([]),
+      product.subcategoryId ? db.select().from(subcategories).where(eq(subcategories.id, product.subcategoryId)).limit(1) : Promise.resolve([]),
       db.select().from(discountTiers).where(eq(discountTiers.productId, product.id))
     ]);
     
@@ -673,6 +704,7 @@ export class DatabaseStorage implements IStorage {
       ...product,
       seller: seller[0] || undefined,
       category: category[0] || undefined,
+      subcategory: subcategory[0] || undefined,
       discountTiers: discountTiersData || [],
       serviceProvider: undefined, // Skip for now to improve performance
       petProvider: undefined, // Skip for now to improve performance

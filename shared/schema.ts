@@ -95,11 +95,21 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Product subcategories
+export const subcategories = pgTable("subcategories", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull().references(() => categories.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Products table
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   sellerId: varchar("seller_id").notNull().references(() => users.id),
   categoryId: integer("category_id").references(() => categories.id),
+  subcategoryId: integer("subcategory_id").references(() => subcategories.id),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   imageUrl: varchar("image_url", { length: 500 }),
@@ -460,6 +470,7 @@ export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
 export const productsRelations = relations(products, ({ one, many }) => ({
   seller: one(users, { fields: [products.sellerId], references: [users.id] }),
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
+  subcategory: one(subcategories, { fields: [products.subcategoryId], references: [subcategories.id] }),
   discountTiers: many(discountTiers),
   orders: many(orders),
   serviceProvider: one(serviceProviders, { fields: [products.id], references: [serviceProviders.productId] }),
@@ -518,6 +529,12 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
   products: many(products),
+  subcategories: many(subcategories),
+}));
+
+export const subcategoriesRelations = relations(subcategories, ({ one, many }) => ({
+  category: one(categories, { fields: [subcategories.categoryId], references: [categories.id] }),
+  products: many(products),
 }));
 
 export const userGroupsRelations = relations(userGroups, ({ one, many }) => ({
@@ -557,6 +574,11 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 
 export const insertCategorySchema = createInsertSchema(categories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSubcategorySchema = createInsertSchema(subcategories).omit({
   id: true,
   createdAt: true,
 });
@@ -682,6 +704,8 @@ export type CreateUserWithPhone = {
 };
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Subcategory = typeof subcategories.$inferSelect;
+export type InsertSubcategory = z.infer<typeof insertSubcategorySchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type ServiceProvider = typeof serviceProviders.$inferSelect;
@@ -725,6 +749,7 @@ export type InsertAdminCredentials = z.infer<typeof insertAdminCredentialsSchema
 export type ProductWithDetails = Product & {
   seller: User;
   category: Category | null;
+  subcategory?: Subcategory | null;
   discountTiers: DiscountTier[];
   serviceProvider?: ServiceProvider & { staff?: ServiceProviderStaff[] };
   petProvider?: PetProvider & { staff?: PetProviderStaff[] };

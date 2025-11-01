@@ -34,6 +34,17 @@ interface Product {
     id: number;
     name: string;
   };
+  subcategory?: {
+    id: number;
+    name: string;
+  };
+}
+
+interface Subcategory {
+  id: number;
+  categoryId: number;
+  name: string;
+  slug: string;
 }
 
 export default function BrowseCategory() {
@@ -41,6 +52,7 @@ export default function BrowseCategory() {
   const { category } = useParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<string>("newest");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("all");
 
   // Determine category ID based on URL parameter
   const categoryId = category === "groceries" ? 1 : category === "services" ? 2 : category === "pet-essentials" ? 3 : null;
@@ -54,6 +66,12 @@ export default function BrowseCategory() {
 
   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+
+  // Fetch subcategories for the current category
+  const { data: subcategories, isLoading: subcategoriesLoading } = useQuery<Subcategory[]>({
+    queryKey: [`/api/subcategories/category/${categoryId}`],
+    enabled: !!categoryId,
   });
 
   // Fetch user's own collections to exclude them from browse
@@ -70,7 +88,10 @@ export default function BrowseCategory() {
   // Filter and sort products
   const filteredAndSortedProducts = categoryProducts
     ?.filter((product) => {
-      return product.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSubcategory = selectedSubcategory === "all" || 
+        (product.subcategory?.id === parseInt(selectedSubcategory));
+      return matchesSearch && matchesSubcategory;
     })
     ?.sort((a, b) => {
       switch (sortBy) {
@@ -188,6 +209,23 @@ export default function BrowseCategory() {
               />
             </div>
 
+            {/* Subcategory Filter */}
+            {subcategories && subcategories.length > 0 && (
+              <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+                <SelectTrigger className="w-full lg:w-48" data-testid="select-subcategory">
+                  <SelectValue placeholder="All Subcategories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subcategories</SelectItem>
+                  {subcategories.map((subcategory) => (
+                    <SelectItem key={subcategory.id} value={subcategory.id.toString()}>
+                      {subcategory.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {/* Sort Filter */}
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-full lg:w-48" data-testid="select-sort">
@@ -208,18 +246,33 @@ export default function BrowseCategory() {
               <span data-testid="text-results-count">
                 {filteredAndSortedProducts.length} products found
                 {searchTerm && ` for "${searchTerm}"`}
+                {selectedSubcategory !== "all" && subcategories && ` in ${subcategories.find(s => s.id === parseInt(selectedSubcategory))?.name}`}
               </span>
             </div>
             
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchTerm("")}
-                data-testid="button-clear-search"
-              >
-                Clear Search
-              </Button>
+            {(searchTerm || selectedSubcategory !== "all") && (
+              <div className="flex gap-2">
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm("")}
+                    data-testid="button-clear-search"
+                  >
+                    Clear Search
+                  </Button>
+                )}
+                {selectedSubcategory !== "all" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedSubcategory("all")}
+                    data-testid="button-clear-subcategory"
+                  >
+                    Clear Filter
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>

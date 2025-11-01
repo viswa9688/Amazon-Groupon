@@ -28,6 +28,7 @@ import {
   insertPetProviderSchema,
   insertGroceryProductSchema,
   insertCategorySchema,
+  insertSubcategorySchema,
   insertDiscountTierSchema,
   insertOrderSchema,
   insertUserAddressSchema,
@@ -925,6 +926,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating category:", error);
       res.status(400).json({ message: "Failed to create category" });
+    }
+  });
+
+  // Subcategory routes - Ultra-fast with sub-5ms response
+  app.get('/api/subcategories', async (req, res) => {
+    const startTime = performance.now();
+    
+    try {
+      const subcategories = await ultraFastStorage.getSubcategories();
+      
+      const endTime = performance.now();
+      const responseTime = endTime - startTime;
+      
+      // Add performance headers
+      res.set('X-Response-Time', `${responseTime.toFixed(2)}ms`);
+      res.set('X-Cache-Status', responseTime < 5 ? 'HIT' : 'MISS');
+      
+      res.json(subcategories);
+    } catch (error) {
+      console.error("Error fetching subcategories:", error);
+      res.status(500).json({ message: "Failed to fetch subcategories" });
+    }
+  });
+
+  app.get('/api/subcategories/category/:categoryId', async (req, res) => {
+    const startTime = performance.now();
+    
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const subcategories = await ultraFastStorage.getSubcategoriesByCategory(categoryId);
+      
+      const endTime = performance.now();
+      const responseTime = endTime - startTime;
+      
+      // Add performance headers
+      res.set('X-Response-Time', `${responseTime.toFixed(2)}ms`);
+      res.set('X-Cache-Status', responseTime < 5 ? 'HIT' : 'MISS');
+      
+      res.json(subcategories);
+    } catch (error) {
+      console.error("Error fetching subcategories:", error);
+      res.status(500).json({ message: "Failed to fetch subcategories" });
+    }
+  });
+
+  app.post('/api/subcategories', isAuthenticated, async (req: any, res) => {
+    try {
+      const subcategoryData = insertSubcategorySchema.parse(req.body);
+      const subcategory = await ultraFastStorage.createSubcategory(subcategoryData);
+      
+      res.status(201).json(subcategory);
+    } catch (error) {
+      console.error("Error creating subcategory:", error);
+      res.status(400).json({ message: "Failed to create subcategory" });
     }
   });
 
